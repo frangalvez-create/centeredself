@@ -1,0 +1,30 @@
+# Xcode
+.DS_Store
+xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Build
+build/
+DerivedData/
+
+# Config files with API keys (IMPORTANT!)
+Config.plist
+
+# Swift Package Manager
+.swiftpm/
+
+# Other
+*.log
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
