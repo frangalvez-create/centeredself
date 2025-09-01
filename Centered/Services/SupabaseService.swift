@@ -240,16 +240,10 @@ class SupabaseService: ObservableObject {
             )
             return updatedEntry
         } else {
-            // Real implementation (to be uncommented)
-            /*
-            guard let entryId = entry.id else {
-                throw NSError(domain: "DatabaseError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Journal entry ID is required for update"])
-            }
-            
-            let response: [JournalEntry] = try await supabase.database
-                .from("journal_entries")
+            // Real implementation
+            let response: [JournalEntry] = try await supabase.from("journal_entries")
                 .update(entry)
-                .eq("id", value: entryId)
+                .eq("id", value: entry.id)
                 .select()
                 .execute()
                 .value
@@ -259,8 +253,6 @@ class SupabaseService: ObservableObject {
             }
             
             return updatedEntry
-            */
-            throw NSError(domain: "NotImplemented", code: 0, userInfo: [NSLocalizedDescriptionKey: "Real Supabase not yet configured"])
         }
     }
     
@@ -309,7 +301,17 @@ class SupabaseService: ObservableObject {
             )
             return savedGoal
         } else {
-            throw NSError(domain: "NotImplemented", code: 0, userInfo: [NSLocalizedDescriptionKey: "Real Supabase not yet configured"])
+            // Real implementation
+            let newGoal: [Goal] = try await supabase.from("goals")
+                .insert(goal)
+                .select()
+                .execute()
+                .value
+            
+            guard let savedGoal = newGoal.first else {
+                throw NSError(domain: "DatabaseError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to create goal"])
+            }
+            return savedGoal
         }
     }
     
@@ -317,7 +319,13 @@ class SupabaseService: ObservableObject {
         if useMockData {
             return []
         } else {
-            throw NSError(domain: "NotImplemented", code: 0, userInfo: [NSLocalizedDescriptionKey: "Real Supabase not yet configured"])
+            // Real implementation
+            let goals: [Goal] = try await supabase.from("goals")
+                .select()
+                .eq("user_id", value: userId)
+                .execute()
+                .value
+            return goals
         }
     }
     
@@ -330,7 +338,18 @@ class SupabaseService: ObservableObject {
             )
             return updatedGoal
         } else {
-            throw NSError(domain: "NotImplemented", code: 0, userInfo: [NSLocalizedDescriptionKey: "Real Supabase not yet configured"])
+            // Real implementation
+            let updatedGoal: [Goal] = try await supabase.from("goals")
+                .update(goal)
+                .eq("id", value: goal.id)
+                .select()
+                .execute()
+                .value
+            
+            guard let newGoal = updatedGoal.first else {
+                throw NSError(domain: "DatabaseError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to update goal"])
+            }
+            return newGoal
         }
     }
     
@@ -338,7 +357,8 @@ class SupabaseService: ObservableObject {
         if useMockData {
             print("Mock: Deleted goal with ID: \(id)")
         } else {
-            throw NSError(domain: "NotImplemented", code: 0, userInfo: [NSLocalizedDescriptionKey: "Real Supabase not yet configured"])
+            // Real implementation
+            try await supabase.from("goals").delete().eq("id", value: id).execute()
         }
     }
 }

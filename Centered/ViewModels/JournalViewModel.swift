@@ -203,10 +203,49 @@ class JournalViewModel: ObservableObject {
         )
         
         do {
-            try await supabaseService.updateJournalEntry(updatedEntry)
+            _ = try await supabaseService.updateJournalEntry(updatedEntry)
             await loadJournalEntries()
         } catch {
             errorMessage = "Failed to update favorite: \(error.localizedDescription)"
+        }
+    }
+    
+    func updateCurrentJournalEntryWithAIPrompt(aiPrompt: String) async {
+        // Find the most recent journal entry for the current user
+        guard let currentUser = currentUser else {
+            errorMessage = "User not authenticated."
+            return
+        }
+        
+        // Load current entries to find the most recent one
+        await loadJournalEntries()
+        
+        guard let mostRecentEntry = journalEntries.first else {
+            errorMessage = "No journal entry found to update."
+            return
+        }
+        
+        // Create updated entry with AI prompt
+        let updatedEntry = JournalEntry(
+            id: mostRecentEntry.id,
+            userId: mostRecentEntry.userId,
+            guidedQuestionId: mostRecentEntry.guidedQuestionId,
+            content: mostRecentEntry.content,
+            aiPrompt: aiPrompt, // Add the AI prompt
+            aiResponse: mostRecentEntry.aiResponse,
+            tags: mostRecentEntry.tags,
+            isFavorite: mostRecentEntry.isFavorite,
+            createdAt: mostRecentEntry.createdAt,
+            updatedAt: Date() // Update timestamp
+        )
+        
+        do {
+            _ = try await supabaseService.updateJournalEntry(updatedEntry)
+            await loadJournalEntries() // Refresh entries
+            print("✅ Journal entry updated with AI prompt")
+        } catch {
+            errorMessage = "Failed to update journal entry with AI prompt: \(error.localizedDescription)"
+            print("❌ Failed to update journal entry: \(error.localizedDescription)")
         }
     }
     
@@ -216,6 +255,44 @@ class JournalViewModel: ObservableObject {
             await loadJournalEntries()
         } catch {
             errorMessage = "Failed to delete entry: \(error.localizedDescription)"
+        }
+    }
+    
+    // MARK: - Goal Management
+    func createGoal(content: String, goals: String) async {
+        guard let user = currentUser else { return }
+        
+        do {
+            let goal = Goal(userId: user.id, content: content, goals: goals)
+            _ = try await supabaseService.createGoal(goal)
+        } catch {
+            errorMessage = "Failed to create goal: \(error.localizedDescription)"
+        }
+    }
+    
+    func fetchGoals() async -> [Goal] {
+        guard let user = currentUser else { return [] }
+        do {
+            return try await supabaseService.fetchGoals(userId: user.id)
+        } catch {
+            errorMessage = "Failed to fetch goals: \(error.localizedDescription)"
+            return []
+        }
+    }
+    
+    func updateGoal(_ goal: Goal) async {
+        do {
+            _ = try await supabaseService.updateGoal(goal)
+        } catch {
+            errorMessage = "Failed to update goal: \(error.localizedDescription)"
+        }
+    }
+    
+    func deleteGoal(_ goal: Goal) async {
+        do {
+            try await supabaseService.deleteGoal(id: goal.id)
+        } catch {
+            errorMessage = "Failed to delete goal: \(error.localizedDescription)"
         }
     }
 }

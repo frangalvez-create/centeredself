@@ -37,4 +37,18 @@ struct JournalEntry: Identifiable, Codable {
         self.createdAt = Date()
         self.updatedAt = Date()
     }
+    
+    // Full initializer for updates
+    init(id: UUID, userId: UUID, guidedQuestionId: UUID?, content: String, aiPrompt: String? = nil, aiResponse: String? = nil, tags: [String] = [], isFavorite: Bool = false, createdAt: Date, updatedAt: Date) {
+        self.id = id
+        self.userId = userId
+        self.guidedQuestionId = guidedQuestionId
+        self.content = content
+        self.aiPrompt = aiPrompt
+        self.aiResponse = aiResponse
+        self.tags = tags
+        self.isFavorite = isFavorite
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
 }

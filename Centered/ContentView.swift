@@ -14,6 +14,7 @@ struct ContentView: View {
     @State private var showCenteredButton: Bool = false
     @State private var isTextLocked: Bool = false
     @State private var showTextEditDropdown: Bool = false
+    @State private var showCenteredButtonClick: Bool = false
     
     var body: some View {
         Group {
@@ -97,7 +98,7 @@ struct ContentView: View {
                         .scrollContentBackground(.hidden)
                         .frame(height: max(150, min(250, textEditorHeight)))
                         .disabled(isTextLocked) // Lock text when Done is pressed
-                        .onChange(of: journalResponse) { _ in
+                        .onChange(of: journalResponse) {
                             updateTextEditorHeight()
                         }
                     
@@ -168,9 +169,13 @@ struct ContentView: View {
                         HStack {
                             Spacer()
                             Button(action: {
-                                doneButtonTapped()
+                                if showCenteredButton {
+                                    centeredButtonTapped()
+                                } else {
+                                    doneButtonTapped()
+                                }
                             }) {
-                                Image(showCenteredButton ? "Centered Button" : "Done Button")
+                                Image(getButtonImageName())
                                     .resizable()
                                     .scaledToFit()
                                     .frame(width: 28, height: 28)
@@ -285,6 +290,16 @@ struct ContentView: View {
         textEditorHeight = max(150, min(250, calculatedHeight))
     }
     
+    private func getButtonImageName() -> String {
+        if showCenteredButtonClick {
+            return "Centered Button Click"
+        } else if showCenteredButton {
+            return "Centered Button"
+        } else {
+            return "Done Button"
+        }
+    }
+    
     private func doneButtonTapped() {
         // Change to Centered Button and lock text
         showCenteredButton = true
@@ -301,6 +316,54 @@ struct ContentView: View {
         
         print("Done button tapped - Journal entry saved to Supabase: \(journalResponse)")
         print("Text locked and button changed to Centered Button")
+    }
+    
+    private func centeredButtonTapped() {
+        // Change to Centered Button Click state
+        showCenteredButtonClick = true
+        
+        // Perform haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        // Generate AI prompt and update journal entry
+        Task {
+            await generateAndSaveAIPrompt()
+        }
+        
+        print("Centered button tapped - Generating AI prompt for: \(journalResponse)")
+    }
+    
+    private func generateAndSaveAIPrompt() async {
+        // Get the most recent goal from the database
+        let goals = await journalViewModel.fetchGoals()
+        let mostRecentGoal = goals.first?.goals ?? ""
+        
+        // Create the AI prompt text with replacements
+        let aiPromptText = createAIPromptText(content: journalResponse, goal: mostRecentGoal)
+        
+        // Update the current journal entry with the AI prompt
+        await journalViewModel.updateCurrentJournalEntryWithAIPrompt(aiPrompt: aiPromptText)
+        
+        print("✅ AI Prompt generated and saved:")
+        print("📝 Content: \(journalResponse)")
+        print("🎯 Goal: \(mostRecentGoal)")
+        print("🤖 AI Prompt: \(aiPromptText)")
+    }
+    
+    private func createAIPromptText(content: String, goal: String) -> String {
+        let aiPromptTemplate = """
+Role: You are an AI Behavioral Therapist tasked with acknowledging daily journal logs and providing constructive suggestions or helpful tips. Task: Given search terms related to behavioral science and therapy topics, perform an inquiry in Chat GPT to retrieve information from current behavioral science and therapy sources, and produce a concise summary of the key points.
+Input: {content}
+Output: Provide only a succinct, information-dense summary capturing the essence of recent behavioral science and therapy sources relevant to the search terms The summary must be concise, in 2 short paragraphs. The first paragraph must empathetically acknowledge and summarize the search term concerns. The second paragraph must provide achievable actions the users can implement to address the concern and the goal to be {goal}. Limit the bulleted actions to no more than 3.
+Constraints: Focus on capturing the main points succinctly: complete sentences and in a conversational empathetic tone. Ignore fluff, background information. Do not include your own analysis or opinion. Do not reiterate the input.
+Capabilities and Reminders: You have access to the web search tools to find and retrieve behavioral science and therapy related data. Do not label paragraph 1 and 2 in the reply and do not mention the work limits in the reply. Limit the entire response to 100 words.
+"""
+        
+        // Replace {content} and {goal} placeholders
+        return aiPromptTemplate
+            .replacingOccurrences(of: "{content}", with: content)
+            .replacingOccurrences(of: "{goal}", with: goal)
     }
     
     private func editLogSelected() {
