@@ -10,6 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var journalResponse: String = ""
     @State private var textEditorHeight: CGFloat = 150
+    @State private var showCenteredButton: Bool = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -38,7 +39,7 @@ struct ContentView: View {
                 .padding(.horizontal, 40)
                 .padding(.bottom, 10)
             
-            // Text Input Field - Dynamic height with proper sizing
+            // Text Input Field with Done Button - Dynamic height with proper sizing
             VStack {
                 ZStack(alignment: .topLeading) {
                     // Background for the text editor
@@ -50,13 +51,36 @@ struct ContentView: View {
                     TextEditor(text: $journalResponse)
                         .font(.system(size: 16))
                         .foregroundColor(Color.textGrey)
-                        .padding(20)
+                        .padding(.top, 15)
+                        .padding(.leading, 15)
+                        .padding(.trailing, 15)
+                        .padding(.bottom, 40) // Extra bottom padding to avoid Done button
                         .background(Color.clear)
                         .scrollContentBackground(.hidden)
                         .frame(height: max(150, min(250, textEditorHeight)))
                         .onChange(of: journalResponse) { _ in
                             updateTextEditorHeight()
                         }
+                    
+                    // Done Button - Bottom Right of Text Field Background
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            Button(action: {
+                                doneButtonTapped()
+                            }) {
+                                Image(showCenteredButton ? "Centered Button" : "Done Button")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 28, height: 28)
+                            }
+                            .frame(width: 44, height: 44) // Keep 44x44 touch target
+                            .padding(.trailing, 5)
+                            .padding(.bottom, 5)
+                        }
+                    }
+                    .frame(height: max(150, min(250, textEditorHeight)))
                 }
             }
             .padding(.horizontal, 30)
@@ -81,6 +105,20 @@ struct ContentView: View {
         // Calculate height with padding and minimum constraints
         let calculatedHeight = boundingRect.height + 60 // Extra padding for comfort
         textEditorHeight = max(150, min(250, calculatedHeight))
+    }
+    
+    private func doneButtonTapped() {
+        // Change to Centered Button permanently
+        showCenteredButton = true
+        
+        // Perform haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        // TODO: Add journal entry processing logic here
+        // This will be connected to Supabase in later tasks
+        print("Done button tapped - Journal entry: \(journalResponse)")
+        print("Button changed to Centered Button permanently")
     }
 }
 
