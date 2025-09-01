@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct ContentView: View {
+    @StateObject private var journalViewModel = JournalViewModel()
     @State private var journalResponse: String = ""
     @State private var textEditorHeight: CGFloat = 150
     @State private var showCenteredButton: Bool = false
@@ -15,6 +16,23 @@ struct ContentView: View {
     @State private var showTextEditDropdown: Bool = false
     
     var body: some View {
+        Group {
+            if journalViewModel.isAuthenticated {
+                mainJournalView
+            } else {
+                authenticationView
+            }
+        }
+        .alert("Error", isPresented: .constant(journalViewModel.errorMessage != nil)) {
+            Button("OK") {
+                journalViewModel.errorMessage = nil
+            }
+        } message: {
+            Text(journalViewModel.errorMessage ?? "")
+        }
+    }
+    
+    private var mainJournalView: some View {
         VStack(spacing: 0) {
             // Top Logo (CS Logo.png)
             Image("CS Logo")
@@ -31,15 +49,33 @@ struct ContentView: View {
                 .padding(.top, 4)
                 .padding(.bottom, 30)
             
-            // Guided Question Text - Multiple lines allowed
-            Text("What thing, person or moment filled you with gratitude today?")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(Color.textBlue)
-                .multilineTextAlignment(.center)
-                .lineLimit(nil)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 40)
-                .padding(.bottom, 10)
+            // Guided Question Text - Loaded from Database
+            if let currentQuestion = journalViewModel.currentQuestion {
+                Text(currentQuestion.questionText)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(Color.textBlue)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 40)
+                    .padding(.bottom, 10)
+            } else if journalViewModel.isLoading {
+                Text("Loading today's question...")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(Color.textBlue.opacity(0.6))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+                    .padding(.bottom, 10)
+            } else {
+                Text("What thing, person or moment filled you with gratitude today?")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(Color.textBlue)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 40)
+                    .padding(.bottom, 10)
+            }
             
             // Text Input Field with Done Button - Dynamic height with proper sizing
             VStack {
@@ -153,6 +189,84 @@ struct ContentView: View {
         }
         .background(Color.backgroundBeige)
         .ignoresSafeArea(.all, edges: .top)
+        .overlay(
+            // Loading indicator
+            Group {
+                if journalViewModel.isLoading {
+                    ZStack {
+                        Color.black.opacity(0.3)
+                            .ignoresSafeArea()
+                        
+                        VStack {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                            Text("Saving...")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.white)
+                                .padding(.top, 10)
+                        }
+                        .padding(20)
+                        .background(Color.black.opacity(0.7))
+                        .cornerRadius(10)
+                    }
+                }
+            }
+        )
+        .onAppear {
+            Task {
+                await journalViewModel.loadTodaysQuestion()
+            }
+        }
+    }
+    
+    private var authenticationView: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            
+            Image("CS Logo")
+                .resizable()
+                .scaledToFit()
+                .frame(height: 120)
+                .padding(.bottom, 20)
+            
+            Text("Welcome to Centered")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+                .foregroundColor(Color.textBlue)
+            
+            Text("Sign in to start your journaling journey")
+                .font(.body)
+                .foregroundColor(Color.textBlue.opacity(0.7))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            
+            VStack(spacing: 15) {
+                Button(action: {
+                    // Demo authentication - try to sign up, if user exists, sign in
+                    Task {
+                        await journalViewModel.authenticateTestUser()
+                    }
+                }) {
+                    Text("Continue as Test User")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(Color.textBlue)
+                        .cornerRadius(12)
+                }
+                .padding(.horizontal, 40)
+                
+                Text("This is a demo - no real authentication required")
+                    .font(.caption)
+                    .foregroundColor(Color.textBlue.opacity(0.6))
+                    .padding(.horizontal, 40)
+            }
+            
+            Spacer()
+        }
+        .background(Color.backgroundBeige)
+        .ignoresSafeArea(.all)
     }
     
     private func updateTextEditorHeight() {
@@ -180,9 +294,12 @@ struct ContentView: View {
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
         impactFeedback.impactOccurred()
         
-        // TODO: Add journal entry processing logic here
-        // This will be connected to Supabase in later tasks
-        print("Done button tapped - Journal entry: \(journalResponse)")
+        // Save journal entry to Supabase
+        Task {
+            await journalViewModel.createJournalEntry(content: journalResponse)
+        }
+        
+        print("Done button tapped - Journal entry saved to Supabase: \(journalResponse)")
         print("Text locked and button changed to Centered Button")
     }
     

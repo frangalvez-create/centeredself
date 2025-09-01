@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		052F45442E64F2AA00C958F5 /* OpenAIKit in Frameworks */ = {isa = PBXBuildFile; productRef = 052F45432E64F2AA00C958F5 /* OpenAIKit */; };
+		052F45542E663D0E00C958F5 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 052F45532E663D0E00C958F5 /* Supabase */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -56,6 +57,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				052F45542E663D0E00C958F5 /* Supabase in Frameworks */,
 				052F45442E64F2AA00C958F5 /* OpenAIKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -83,6 +85,7 @@
 				052F450B2E64CA0B00C958F5 /* Centered */,
 				052F451A2E64CA0D00C958F5 /* CenteredTests */,
 				052F45242E64CA0D00C958F5 /* CenteredUITests */,
+				052F45522E663D0E00C958F5 /* Frameworks */,
 				052F450A2E64CA0B00C958F5 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -95,6 +98,13 @@
 				052F45212E64CA0D00C958F5 /* CenteredUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		052F45522E663D0E00C958F5 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -118,6 +128,7 @@
 			name = Centered;
 			packageProductDependencies = (
 				052F45432E64F2AA00C958F5 /* OpenAIKit */,
+				052F45532E663D0E00C958F5 /* Supabase */,
 			);
 			productName = Centered;
 			productReference = 052F45092E64CA0B00C958F5 /* Centered.app */;
@@ -618,6 +629,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 052F45422E64F2AA00C958F5 /* XCRemoteSwiftPackageReference "openai-kit" */;
 			productName = OpenAIKit;
+		};
+		052F45532E663D0E00C958F5 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 052F45452E64F4AE00C958F5 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
