@@ -11,6 +11,8 @@ struct ContentView: View {
     @State private var journalResponse: String = ""
     @State private var textEditorHeight: CGFloat = 150
     @State private var showCenteredButton: Bool = false
+    @State private var isTextLocked: Bool = false
+    @State private var showTextEditDropdown: Bool = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -58,11 +60,73 @@ struct ContentView: View {
                         .background(Color.clear)
                         .scrollContentBackground(.hidden)
                         .frame(height: max(150, min(250, textEditorHeight)))
+                        .disabled(isTextLocked) // Lock text when Done is pressed
                         .onChange(of: journalResponse) { _ in
                             updateTextEditorHeight()
                         }
                     
-                    // Done Button - Bottom Right of Text Field Background
+                    // Text Edit Button Centered (only show when text is locked)
+                    if isTextLocked {
+                        VStack {
+                            Spacer()
+                            
+                            HStack {
+                                Spacer()
+                                
+                                VStack {
+                                    Button(action: {
+                                        showTextEditDropdown.toggle()
+                                    }) {
+                                        Image("Text Edit Button")
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 28, height: 28)
+                                    }
+                                    .frame(width: 44, height: 44)
+                                    
+                                    // Dropdown Menu
+                                    if showTextEditDropdown {
+                                        VStack(spacing: 0) {
+                                            Button("Edit Log") {
+                                                editLogSelected()
+                                            }
+                                            .padding(.vertical, 8)
+                                            .padding(.horizontal, 12)
+                                            .background(Color.textFieldBackground)
+                                            .foregroundColor(Color.textBlue)
+                                            .font(.system(size: 14, weight: .medium))
+                                            
+                                            Divider()
+                                                .background(Color.textBlue.opacity(0.3))
+                                            
+                                            Button("Delete Log") {
+                                                deleteLogSelected()
+                                            }
+                                            .padding(.vertical, 8)
+                                            .padding(.horizontal, 12)
+                                            .background(Color.textFieldBackground)
+                                            .foregroundColor(Color.textBlue)
+                                            .font(.system(size: 14, weight: .medium))
+                                        }
+                                        .background(Color.textFieldBackground)
+                                        .cornerRadius(8)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(Color.textBlue.opacity(0.3), lineWidth: 1)
+                                        )
+                                        .shadow(radius: 3)
+                                        .offset(y: -10)
+                                    }
+                                }
+                                
+                                Spacer()
+                            }
+                            .padding(.bottom, 5) // 5pt from bottom edge
+                        }
+                        .frame(height: max(150, min(250, textEditorHeight)))
+                    }
+                    
+                    // Done/Centered Button - Bottom Right
                     VStack {
                         Spacer()
                         HStack {
@@ -108,8 +172,9 @@ struct ContentView: View {
     }
     
     private func doneButtonTapped() {
-        // Change to Centered Button permanently
+        // Change to Centered Button and lock text
         showCenteredButton = true
+        isTextLocked = true
         
         // Perform haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
@@ -118,7 +183,41 @@ struct ContentView: View {
         // TODO: Add journal entry processing logic here
         // This will be connected to Supabase in later tasks
         print("Done button tapped - Journal entry: \(journalResponse)")
-        print("Button changed to Centered Button permanently")
+        print("Text locked and button changed to Centered Button")
+    }
+    
+    private func editLogSelected() {
+        // Close dropdown
+        showTextEditDropdown = false
+        
+        // Revert to editable state
+        isTextLocked = false
+        showCenteredButton = false
+        
+        // Perform haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        print("Edit Log selected - Text unlocked for editing")
+    }
+    
+    private func deleteLogSelected() {
+        // Close dropdown
+        showTextEditDropdown = false
+        
+        // Clear text and revert to initial state
+        journalResponse = ""
+        isTextLocked = false
+        showCenteredButton = false
+        
+        // Reset text editor height
+        textEditorHeight = 150
+        
+        // Perform haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        print("Delete Log selected - Text cleared and state reset")
     }
 }
 
