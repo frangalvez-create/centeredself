@@ -15,6 +15,7 @@ struct ContentView: View {
     @State private var isTextLocked: Bool = false
     @State private var showTextEditDropdown: Bool = false
     @State private var showCenteredButtonClick: Bool = false
+    @State private var currentAIResponse: String = ""
     
     var body: some View {
         Group {
@@ -84,26 +85,53 @@ struct ContentView: View {
                     // Background for the text editor
                     RoundedRectangle(cornerRadius: 20)
                         .fill(Color.textFieldBackground)
-                        .frame(height: max(150, min(250, textEditorHeight)))
+                        .frame(height: (isTextLocked && !currentAIResponse.isEmpty) ? 250 : max(150, min(250, textEditorHeight)))
                     
-                    // Text Editor
-                    TextEditor(text: $journalResponse)
-                        .font(.system(size: 16))
-                        .foregroundColor(Color.textGrey)
-                        .padding(.top, 15)
-                        .padding(.leading, 15)
-                        .padding(.trailing, 15)
-                        .padding(.bottom, 40) // Extra bottom padding to avoid Done button
-                        .background(Color.clear)
-                        .scrollContentBackground(.hidden)
-                        .frame(height: max(150, min(250, textEditorHeight)))
-                        .disabled(isTextLocked) // Lock text when Done is pressed
-                        .onChange(of: journalResponse) {
-                            updateTextEditorHeight()
+                    // Text Editor and AI Response Display
+                    if isTextLocked && !currentAIResponse.isEmpty {
+                        // Show both journal text and AI response when locked and response is available
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 8) {
+                                // Journal text
+                                Text(journalResponse)
+                                    .font(.system(size: 16))
+                                    .foregroundColor(Color.textGrey)
+                                    .multilineTextAlignment(.leading)
+                                
+                                // AI Response
+                                Text(currentAIResponse)
+                                    .font(.system(size: 15))
+                                    .foregroundColor(Color(red: 63/255, green: 94/255, blue: 130/255)) // Blue #3F5E82
+                                    .multilineTextAlignment(.leading)
+                                    .padding(.leading, 12) // Indent 3 characters to the right
+                            }
+                            .padding(.top, 15)
+                            .padding(.leading, 15)
+                            .padding(.trailing, 15)
+                            .padding(.bottom, 80) // Extra bottom padding to avoid button overlap
                         }
+                        .background(Color.clear)
+                        .frame(height: 250) // Always use max height when showing AI response
+                    } else {
+                        // Normal TextEditor when not locked or no AI response
+                        TextEditor(text: $journalResponse)
+                            .font(.system(size: 16))
+                            .foregroundColor(Color.textGrey)
+                            .padding(.top, 15)
+                            .padding(.leading, 15)
+                            .padding(.trailing, 15)
+                            .padding(.bottom, 40) // Extra bottom padding to avoid Done button
+                            .background(Color.clear)
+                            .scrollContentBackground(.hidden)
+                            .frame(height: max(150, min(250, textEditorHeight)))
+                            .disabled(isTextLocked) // Lock text when Done is pressed
+                            .onChange(of: journalResponse) {
+                                updateTextEditorHeight()
+                            }
+                    }
                     
-                    // Text Edit Button Centered (only show when text is locked)
-                    if isTextLocked {
+                    // Text Edit Button Centered (only show when text is locked but no AI response)
+                    if isTextLocked && currentAIResponse.isEmpty {
                         VStack {
                             Spacer()
                             
@@ -202,7 +230,7 @@ struct ContentView: View {
                         Color.black.opacity(0.3)
                             .ignoresSafeArea()
                         
-                        VStack {
+        VStack {
                             ProgressView()
                                 .scaleEffect(1.2)
                             Text("Saving...")
@@ -275,8 +303,26 @@ struct ContentView: View {
     }
     
     private func updateTextEditorHeight() {
+        // If we have AI response, always use max height for scrolling
+        if isTextLocked && !currentAIResponse.isEmpty {
+            textEditorHeight = 250
+            return
+        }
+        
+        // Return early if text is empty to avoid NaN calculations
+        guard !journalResponse.isEmpty else {
+            textEditorHeight = 150
+            return
+        }
+        
         let font = UIFont.systemFont(ofSize: 16)
         let maxWidth = UIScreen.main.bounds.width - 100 // Account for padding
+        
+        // Ensure maxWidth is valid
+        guard maxWidth > 0 else {
+            textEditorHeight = 150
+            return
+        }
         
         let boundingRect = journalResponse.boundingRect(
             with: CGSize(width: maxWidth, height: .greatestFiniteMagnitude),
@@ -285,9 +331,11 @@ struct ContentView: View {
             context: nil
         )
         
-        // Calculate height with padding and minimum constraints
+        // Validate the calculated height to prevent NaN
         let calculatedHeight = boundingRect.height + 60 // Extra padding for comfort
-        textEditorHeight = max(150, min(250, calculatedHeight))
+        let validatedHeight = calculatedHeight.isNaN || calculatedHeight.isInfinite ? 150 : calculatedHeight
+        
+        textEditorHeight = max(150, min(250, validatedHeight))
     }
     
     private func getButtonImageName() -> String {
@@ -349,6 +397,28 @@ struct ContentView: View {
         print("📝 Content: \(journalResponse)")
         print("🎯 Goal: \(mostRecentGoal)")
         print("🤖 AI Prompt: \(aiPromptText)")
+        
+        // Generate AI response using OpenAI API
+        await journalViewModel.generateAndSaveAIResponse()
+        
+        // Update the AI response in the UI
+        await updateAIResponseDisplay()
+    }
+    
+    private func updateAIResponseDisplay() async {
+        // Load the latest journal entries to get the AI response
+        await journalViewModel.loadJournalEntries()
+        
+        // Get the most recent entry with AI response
+        if let mostRecentEntry = journalViewModel.journalEntries.first,
+           let aiResponse = mostRecentEntry.aiResponse, !aiResponse.isEmpty {
+            await MainActor.run {
+                self.currentAIResponse = aiResponse
+                // Update height to accommodate AI response
+                self.updateTextEditorHeight()
+            }
+            print("✅ AI Response updated in UI: \(aiResponse.prefix(100))...")
+        }
     }
     
     private func createAIPromptText(content: String, goal: String) -> String {
@@ -373,6 +443,10 @@ Capabilities and Reminders: You have access to the web search tools to find and 
         // Revert to editable state
         isTextLocked = false
         showCenteredButton = false
+        showCenteredButtonClick = false
+        
+        // Clear AI response when editing
+        currentAIResponse = ""
         
         // Perform haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
@@ -389,6 +463,10 @@ Capabilities and Reminders: You have access to the web search tools to find and 
         journalResponse = ""
         isTextLocked = false
         showCenteredButton = false
+        showCenteredButtonClick = false
+        
+        // Clear AI response when deleting
+        currentAIResponse = ""
         
         // Reset text editor height
         textEditorHeight = 150

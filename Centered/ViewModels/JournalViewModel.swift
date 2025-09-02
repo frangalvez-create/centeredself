@@ -11,7 +11,7 @@ class JournalViewModel: ObservableObject {
     @Published var isAuthenticated = false
     
     private let supabaseService = SupabaseService()
-    // OpenAI service will be added later
+    private let openAIService = OpenAIService()
     
     init() {
         // Start with not authenticated for testing
@@ -149,7 +149,7 @@ class JournalViewModel: ObservableObject {
         isLoading = false
     }
     
-    private func loadJournalEntries() async {
+    func loadJournalEntries() async {
         guard let user = currentUser else { return }
         
         do {
@@ -247,6 +247,63 @@ class JournalViewModel: ObservableObject {
             errorMessage = "Failed to update journal entry with AI prompt: \(error.localizedDescription)"
             print("❌ Failed to update journal entry: \(error.localizedDescription)")
         }
+    }
+    
+    /// Generates AI response using OpenAI and updates the journal entry
+    func generateAndSaveAIResponse() async {
+        guard let currentUser = currentUser else {
+            errorMessage = "User not authenticated."
+            return
+        }
+        
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            // Load current entries to find the most recent one
+            await loadJournalEntries()
+            
+            guard let mostRecentEntry = journalEntries.first else {
+                errorMessage = "No journal entry found to generate AI response."
+                return
+            }
+            
+            guard let aiPrompt = mostRecentEntry.aiPrompt, !aiPrompt.isEmpty else {
+                errorMessage = "No AI prompt found in journal entry."
+                return
+            }
+            
+            print("🤖 Generating AI response for prompt: \(aiPrompt.prefix(100))...")
+            
+            // Generate AI response using OpenAI
+            let aiResponse = try await openAIService.generateAIResponse(for: aiPrompt)
+            
+            // Create updated entry with AI response
+            let updatedEntry = JournalEntry(
+                id: mostRecentEntry.id,
+                userId: mostRecentEntry.userId,
+                guidedQuestionId: mostRecentEntry.guidedQuestionId,
+                content: mostRecentEntry.content,
+                aiPrompt: mostRecentEntry.aiPrompt,
+                aiResponse: aiResponse, // Add the AI response
+                tags: mostRecentEntry.tags,
+                isFavorite: mostRecentEntry.isFavorite,
+                createdAt: mostRecentEntry.createdAt,
+                updatedAt: Date() // Update timestamp
+            )
+            
+            // Save updated entry to database
+            _ = try await supabaseService.updateJournalEntry(updatedEntry)
+            await loadJournalEntries() // Refresh entries
+            
+            print("✅ AI response generated and saved: \(aiResponse.prefix(100))...")
+            
+        } catch {
+            errorMessage = "Failed to generate AI response: \(error.localizedDescription)"
+            print("❌ Failed to generate AI response: \(error.localizedDescription)")
+        }
+        
+        isLoading = false
     }
     
     func deleteJournalEntry(_ entry: JournalEntry) async {
