@@ -19,6 +19,17 @@ struct ContentView: View {
     @State private var showFavoriteButton: Bool = false
     @State private var isFavoriteClicked: Bool = false
     
+    // OPEN QUESTION SECTION STATE (Duplicate all state variables)
+    @State private var openJournalResponse: String = ""
+    @State private var openTextEditorHeight: CGFloat = 150
+    @State private var openShowCenteredButton: Bool = false
+    @State private var openIsTextLocked: Bool = false
+    @State private var openShowTextEditDropdown: Bool = false
+    @State private var openShowCenteredButtonClick: Bool = false
+    @State private var openCurrentAIResponse: String = ""
+    @State private var openShowFavoriteButton: Bool = false
+    @State private var openIsFavoriteClicked: Bool = false
+    
     var body: some View {
         Group {
             if journalViewModel.isAuthenticated {
@@ -109,10 +120,10 @@ struct ContentView: View {
                                         .padding(.leading, 12) // Indent 3 characters to the right
                                         .id("aiResponseEnd") // Identifier for scroll detection
                                 }
-                                .padding(.top, 15)
+                                .padding(.top, 5)
                                 .padding(.leading, 15)
                                 .padding(.trailing, 15)
-                                .padding(.bottom, 80) // Extra bottom padding to avoid button overlap
+                                .padding(.bottom, 40) // Reduced bottom padding
                             }
                             .background(Color.clear)
                             .onAppear {
@@ -132,7 +143,7 @@ struct ContentView: View {
                         TextEditor(text: $journalResponse)
                             .font(.system(size: 16))
                             .foregroundColor(Color.textGrey)
-                            .padding(.top, 15)
+                            .padding(.top, 5)
                             .padding(.leading, 15)
                             .padding(.trailing, 15)
                             .padding(.bottom, 30) // Extra bottom padding to avoid Done button
@@ -255,6 +266,195 @@ struct ContentView: View {
                 .frame(height: (isTextLocked && !currentAIResponse.isEmpty) ? 250 : max(150, min(250, textEditorHeight)))
             }
             .padding(.horizontal, 30)
+            
+            // OPEN QUESTION SECTION (25pt spacing below Guided Question)
+            VStack(spacing: 0) {
+                // Static Open Question Text
+                Text("Share anything... fears, goals, confusions, delights, etc")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(Color.textBlue)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 40)
+                    .padding(.bottom, 10)
+                    .padding(.top, 25) // 25pt spacing below Guided Question
+                
+                // Open Question Text Input Field with Done Button - Dynamic height with proper sizing
+                VStack {
+                    ZStack(alignment: .topLeading) {
+                        // Background for the text editor
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(Color.textFieldBackground)
+                            .frame(height: (openIsTextLocked && !openCurrentAIResponse.isEmpty) ? 250 : max(150, min(250, openTextEditorHeight)))
+                        
+                        // Text Editor and AI Response Display
+                        if openIsTextLocked && !openCurrentAIResponse.isEmpty {
+                            // Show both journal text and AI response when locked and response is available
+                            ScrollViewReader { proxy in
+                                ScrollView {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        // Journal text
+                                        Text(openJournalResponse)
+                                            .font(.system(size: 16))
+                                            .foregroundColor(Color.textGrey)
+                                            .multilineTextAlignment(.leading)
+                                        
+                                        // AI Response
+                                        Text(openCurrentAIResponse)
+                                            .font(.system(size: 15))
+                                            .foregroundColor(Color(red: 63/255, green: 94/255, blue: 130/255)) // Blue #3F5E82
+                                            .multilineTextAlignment(.leading)
+                                            .padding(.leading, 12) // Indent 3 characters to the right
+                                            .id("openAIResponseEnd") // Identifier for scroll detection
+                                    }
+                                    .padding(.top, 5)
+                                    .padding(.leading, 15)
+                                    .padding(.trailing, 15)
+                                    .padding(.bottom, 40) // Reduced bottom padding
+                                }
+                                .background(Color.clear)
+                                .onAppear {
+                                    // Scroll to bottom when AI response appears
+                                    withAnimation {
+                                        proxy.scrollTo("openAIResponseEnd", anchor: .bottom)
+                                    }
+                                    // Show favorite button after a delay to ensure scroll is complete
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                        openShowFavoriteButton = true
+                                    }
+                                }
+                            }
+                            .frame(height: 250) // Always use max height when showing AI response
+                        } else {
+                            // Normal TextEditor when not locked or no AI response
+                            TextEditor(text: $openJournalResponse)
+                                .font(.system(size: 16))
+                                .foregroundColor(Color.textGrey)
+                                .padding(.top, 5)
+                                .padding(.leading, 15)
+                                .padding(.trailing, 15)
+                                .padding(.bottom, 30) // Extra bottom padding to avoid Done button
+                                .background(Color.clear)
+                                .scrollContentBackground(.hidden)
+                                .frame(height: max(150, min(250, openTextEditorHeight)))
+                                .disabled(openIsTextLocked) // Lock text when Done is pressed
+                                .onChange(of: openJournalResponse) {
+                                    updateOpenTextEditorHeight()
+                                }
+                        }
+                        
+                        // Text Edit Button Centered (only show when text is locked but no AI response)
+                        if openIsTextLocked && openCurrentAIResponse.isEmpty {
+                            VStack {
+                                Spacer()
+                                
+                                HStack {
+                                    Spacer()
+                                    
+                                    VStack {
+                                        Button(action: {
+                                            openShowTextEditDropdown.toggle()
+                                        }) {
+                                            Image("Text Edit Button")
+                                                .resizable()
+                                                .scaledToFit()
+                                                .frame(width: 28, height: 28)
+                                        }
+                                        .frame(width: 44, height: 44)
+                                        
+                                        // Dropdown Menu
+                                        if openShowTextEditDropdown {
+                                            VStack(spacing: 0) {
+                                                Button("Edit Log") {
+                                                    openEditLogSelected()
+                                                }
+                                                .padding(.vertical, 8)
+                                                .padding(.horizontal, 12)
+                                                .background(Color.textFieldBackground)
+                                                .foregroundColor(Color.textBlue)
+                                                .font(.system(size: 14, weight: .medium))
+                                                
+                                                Divider()
+                                                    .background(Color.textBlue.opacity(0.3))
+                                                
+                                                Button("Delete Log") {
+                                                    openDeleteLogSelected()
+                                                }
+                                                .padding(.vertical, 8)
+                                                .padding(.horizontal, 12)
+                                                .background(Color.textFieldBackground)
+                                                .foregroundColor(Color.textBlue)
+                                                .font(.system(size: 14, weight: .medium))
+                                            }
+                                            .background(Color.textFieldBackground)
+                                            .cornerRadius(8)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .stroke(Color.textBlue.opacity(0.3), lineWidth: 1)
+                                            )
+                                            .shadow(radius: 3)
+                                            .offset(y: -10)
+                                        }
+                                    }
+                                    
+                                    Spacer()
+                                }
+                                .padding(.bottom, 5) // 5pt from bottom edge
+                            }
+                            .frame(height: max(150, min(250, openTextEditorHeight)))
+                        }
+                        
+                        // Done/Centered Button - Bottom Right (hidden when AI response is present)
+                        if openCurrentAIResponse.isEmpty {
+                            VStack {
+                                Spacer()
+                                HStack {
+                                    Spacer()
+                                    Button(action: {
+                                        if openShowCenteredButton {
+                                            openCenteredButtonTapped()
+                                        } else {
+                                            openDoneButtonTapped()
+                                        }
+                                    }) {
+                                        Image(getOpenButtonImageName())
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 28, height: 28)
+                                    }
+                                    .frame(width: 44, height: 44) // Keep 44x44 touch target
+                                    .padding(.trailing, 5)
+                                    .padding(.bottom, 5)
+                                }
+                            }
+                        }
+                        
+                        // Favorite Button (only when AI response is present and scrolled to bottom)
+                        if !openCurrentAIResponse.isEmpty && openShowFavoriteButton {
+                            VStack {
+                                Spacer()
+                                HStack {
+                                    Spacer()
+                                    Button(action: {
+                                        openFavoriteButtonTapped()
+                                    }) {
+                                        Image(openIsFavoriteClicked ? "Fav Button Click" : "Fav Button")
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 28, height: 28)
+                                    }
+                                    .frame(width: 44, height: 44) // Keep 44x44 touch target
+                                    .padding(.trailing, 5)
+                                    .padding(.bottom, 5)
+                                }
+                            }
+                        }
+                    }
+                    .frame(height: (openIsTextLocked && !openCurrentAIResponse.isEmpty) ? 250 : max(150, min(250, openTextEditorHeight)))
+                }
+                .padding(.horizontal, 30)
+            }
             
             Spacer()
         }
@@ -537,6 +737,192 @@ Capabilities and Reminders: You have access to the web search tools to find and 
         }
         
         print("Favorite button clicked - Journal entry marked as favorite")
+    }
+    
+    // MARK: - OPEN QUESTION HELPER FUNCTIONS (Duplicated from Guided Question)
+    
+    private func updateOpenTextEditorHeight() {
+        // If we have AI response, always use max height for scrolling
+        if openIsTextLocked && !openCurrentAIResponse.isEmpty {
+            openTextEditorHeight = 250
+            return
+        }
+        
+        // Return early if text is empty to avoid NaN calculations
+        guard !openJournalResponse.isEmpty else {
+            openTextEditorHeight = 150
+            return
+        }
+        
+        let font = UIFont.systemFont(ofSize: 16)
+        let maxWidth = UIScreen.main.bounds.width - 100 // Account for padding
+        
+        // Ensure maxWidth is valid
+        guard maxWidth > 0 else {
+            openTextEditorHeight = 150
+            return
+        }
+        
+        let boundingRect = openJournalResponse.boundingRect(
+            with: CGSize(width: maxWidth, height: .greatestFiniteMagnitude),
+            options: .usesLineFragmentOrigin,
+            attributes: [.font: font],
+            context: nil
+        )
+        
+        // Validate the calculated height to prevent NaN
+        let calculatedHeight = boundingRect.height + 60 // Extra padding for comfort
+        let validatedHeight = calculatedHeight.isNaN || calculatedHeight.isInfinite ? 150 : calculatedHeight
+        
+        openTextEditorHeight = max(150, min(250, validatedHeight))
+    }
+    
+    private func getOpenButtonImageName() -> String {
+        if openShowCenteredButtonClick {
+            return "Centered Button Click"
+        } else if openShowCenteredButton {
+            return "Centered Button"
+        } else {
+            return "Done Button"
+        }
+    }
+    
+    private func openDoneButtonTapped() {
+        // Change to Centered Button and lock text
+        openShowCenteredButton = true
+        openIsTextLocked = true
+        
+        // Perform haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        // Save journal entry to Supabase with static question
+        Task {
+            await journalViewModel.createOpenQuestionJournalEntry(content: openJournalResponse)
+        }
+        
+        print("Open Done button tapped - Journal entry saved to Supabase: \(openJournalResponse)")
+        print("Open Text locked and button changed to Centered Button")
+    }
+    
+    private func openCenteredButtonTapped() {
+        // Change to Centered Button Click state
+        openShowCenteredButtonClick = true
+        
+        // Perform haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        // Generate AI prompt and update journal entry
+        Task {
+            await generateAndSaveOpenAIPrompt()
+        }
+        
+        print("Open Centered button tapped - Generating AI prompt for: \(openJournalResponse)")
+    }
+    
+    private func generateAndSaveOpenAIPrompt() async {
+        // Get the most recent goal from the database
+        let goals = await journalViewModel.fetchGoals()
+        let mostRecentGoal = goals.first?.goals ?? ""
+        
+        // Create the AI prompt text with replacements
+        let aiPromptText = createAIPromptText(content: openJournalResponse, goal: mostRecentGoal)
+        
+        // Update the current open question journal entry with the AI prompt
+        await journalViewModel.updateCurrentOpenQuestionJournalEntryWithAIPrompt(aiPrompt: aiPromptText)
+        
+        print("✅ Open AI Prompt generated and saved:")
+        print("📝 Content: \(openJournalResponse)")
+        print("🎯 Goal: \(mostRecentGoal)")
+        print("🤖 AI Prompt: \(aiPromptText)")
+        
+        // Generate AI response using OpenAI API
+        await journalViewModel.generateAndSaveOpenQuestionAIResponse()
+        
+        // Update the AI response in the UI
+        await updateOpenAIResponseDisplay()
+    }
+    
+    private func updateOpenAIResponseDisplay() async {
+        // Load the latest journal entries to get the AI response
+        await journalViewModel.loadOpenQuestionJournalEntries()
+        
+        // Get the most recent open question entry with AI response
+        if let mostRecentEntry = journalViewModel.openQuestionJournalEntries.first,
+           let aiResponse = mostRecentEntry.aiResponse, !aiResponse.isEmpty {
+            await MainActor.run {
+                self.openCurrentAIResponse = aiResponse
+                // Update height to accommodate AI response
+                self.updateOpenTextEditorHeight()
+            }
+            print("✅ Open AI Response updated in UI: \(aiResponse.prefix(100))...")
+        }
+    }
+    
+    private func openEditLogSelected() {
+        // Close dropdown
+        openShowTextEditDropdown = false
+        
+        // Revert to editable state
+        openIsTextLocked = false
+        openShowCenteredButton = false
+        openShowCenteredButtonClick = false
+        
+        // Clear AI response when editing
+        openCurrentAIResponse = ""
+        openShowFavoriteButton = false
+        openIsFavoriteClicked = false
+        
+        // Perform haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        print("Open Edit Log selected - Text unlocked for editing")
+    }
+    
+    private func openDeleteLogSelected() {
+        // Close dropdown
+        openShowTextEditDropdown = false
+        
+        // Clear text and revert to initial state
+        openJournalResponse = ""
+        openIsTextLocked = false
+        openShowCenteredButton = false
+        openShowCenteredButtonClick = false
+        
+        // Clear AI response when deleting
+        openCurrentAIResponse = ""
+        openShowFavoriteButton = false
+        openIsFavoriteClicked = false
+        
+        // Reset text editor height
+        openTextEditorHeight = 150
+        
+        // Perform haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        print("Open Delete Log selected - Text cleared and state reset")
+    }
+    
+    private func openFavoriteButtonTapped() {
+        // Only allow one click - if already clicked, do nothing
+        guard !openIsFavoriteClicked else { return }
+        
+        // Perform haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        // Update button state to show clicked version
+        openIsFavoriteClicked = true
+        
+        // Update the database
+        Task {
+            await journalViewModel.updateCurrentOpenQuestionJournalEntryFavoriteStatus(isFavorite: true)
+        }
+        
+        print("Open Favorite button clicked - Journal entry marked as favorite")
     }
 }
 

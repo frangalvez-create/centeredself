@@ -290,6 +290,58 @@ class SupabaseService: ObservableObject {
         }
     }
     
+    // MARK: - Open Question Journal Entries (Special handling)
+    func createOpenQuestionJournalEntry(_ entry: JournalEntry, staticQuestion: String) async throws -> JournalEntry {
+        if useMockData {
+            // Mock implementation - simulate saving
+            print("Mock: Saved open question journal entry - \(entry.content)")
+            // Create a new entry with database-generated fields
+            let savedEntry = JournalEntry(
+                userId: entry.userId,
+                guidedQuestionId: nil, // Open question entries have null guided_question_id
+                content: entry.content,
+                aiPrompt: entry.aiPrompt,
+                aiResponse: entry.aiResponse,
+                tags: entry.tags,
+                isFavorite: entry.isFavorite
+            )
+            return savedEntry
+        } else {
+            // Real implementation - save open question journal entry to database
+            // For open questions, we use tags to identify them as open question entries
+            let response: [JournalEntry] = try await supabase
+                .from("journal_entries")
+                .insert(entry)
+                .select()
+                .execute()
+                .value
+            
+            guard let savedEntry = response.first else {
+                throw NSError(domain: "DatabaseError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to save open question journal entry"])
+            }
+            
+            return savedEntry
+        }
+    }
+    
+    func fetchOpenQuestionJournalEntries(userId: UUID) async throws -> [JournalEntry] {
+        if useMockData {
+            // Mock implementation - return empty array
+            return []
+        } else {
+            // Real implementation - fetch entries tagged as open questions
+            let response: [JournalEntry] = try await supabase.from("journal_entries")
+                .select()
+                .eq("user_id", value: userId)
+                .contains("tags", value: ["open_question"]) // Filter by open_question tag
+                .order("created_at", ascending: false)
+                .execute()
+                .value
+            
+            return response
+        }
+    }
+    
     // MARK: - Goals
     func createGoal(_ goal: Goal) async throws -> Goal {
         if useMockData {

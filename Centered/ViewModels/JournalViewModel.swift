@@ -9,6 +9,7 @@ class JournalViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var isAuthenticated = false
+    @Published var openQuestionJournalEntries: [JournalEntry] = []
     
     private let supabaseService = SupabaseService()
     private let openAIService = OpenAIService()
@@ -351,6 +352,185 @@ class JournalViewModel: ObservableObject {
         } catch {
             errorMessage = "Failed to update journal entry favorite status: \(error.localizedDescription)"
             print("❌ Failed to update journal entry favorite status: \(error.localizedDescription)")
+        }
+    }
+    
+    // MARK: - Open Question Journal Entry Management (Duplicate functionality)
+    func createOpenQuestionJournalEntry(content: String) async {
+        guard let user = currentUser else { return }
+        
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            // Create journal entry with static open question - store in tags for identification
+            let entry = JournalEntry(
+                userId: user.id,
+                guidedQuestionId: nil, // No actual question ID for open question
+                content: content,
+                aiPrompt: nil,
+                aiResponse: nil,
+                tags: ["open_question"], // Tag to identify as open question entry
+                isFavorite: false
+            )
+            
+            // Save to database with special handling for open question
+            let savedEntry = try await supabaseService.createOpenQuestionJournalEntry(entry, staticQuestion: "Share anything... fears, goals, confusions, delights, etc")
+            
+            // Refresh entries
+            await loadOpenQuestionJournalEntries()
+            
+            print("Open Question journal entry saved successfully: \(savedEntry.content)")
+            
+        } catch {
+            errorMessage = "Failed to save open question journal entry: \(error.localizedDescription)"
+        }
+        
+        isLoading = false
+    }
+    
+    func loadOpenQuestionJournalEntries() async {
+        guard let user = currentUser else { return }
+        
+        do {
+            openQuestionJournalEntries = try await supabaseService.fetchOpenQuestionJournalEntries(userId: user.id)
+        } catch {
+            errorMessage = "Failed to load open question journal entries: \(error.localizedDescription)"
+        }
+    }
+    
+    func updateCurrentOpenQuestionJournalEntryWithAIPrompt(aiPrompt: String) async {
+        // Find the most recent open question journal entry for the current user
+        guard let currentUser = currentUser else {
+            errorMessage = "User not authenticated."
+            return
+        }
+        
+        // Load current entries to find the most recent one
+        await loadOpenQuestionJournalEntries()
+        
+        guard let mostRecentEntry = openQuestionJournalEntries.first else {
+            errorMessage = "No open question journal entry found to update."
+            return
+        }
+        
+        // Create updated entry with AI prompt
+        let updatedEntry = JournalEntry(
+            id: mostRecentEntry.id,
+            userId: mostRecentEntry.userId,
+            guidedQuestionId: mostRecentEntry.guidedQuestionId,
+            content: mostRecentEntry.content,
+            aiPrompt: aiPrompt, // Add the AI prompt
+            aiResponse: mostRecentEntry.aiResponse,
+            tags: mostRecentEntry.tags,
+            isFavorite: mostRecentEntry.isFavorite,
+            createdAt: mostRecentEntry.createdAt,
+            updatedAt: Date() // Update timestamp
+        )
+        
+        do {
+            _ = try await supabaseService.updateJournalEntry(updatedEntry)
+            await loadOpenQuestionJournalEntries() // Refresh entries
+            print("✅ Open Question journal entry updated with AI prompt")
+        } catch {
+            errorMessage = "Failed to update open question journal entry with AI prompt: \(error.localizedDescription)"
+            print("❌ Failed to update open question journal entry: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Generates AI response using OpenAI and updates the open question journal entry
+    func generateAndSaveOpenQuestionAIResponse() async {
+        guard let currentUser = currentUser else {
+            errorMessage = "User not authenticated."
+            return
+        }
+        
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            // Load current entries to find the most recent one
+            await loadOpenQuestionJournalEntries()
+            
+            guard let mostRecentEntry = openQuestionJournalEntries.first else {
+                errorMessage = "No open question journal entry found to generate AI response."
+                return
+            }
+            
+            guard let aiPrompt = mostRecentEntry.aiPrompt, !aiPrompt.isEmpty else {
+                errorMessage = "No AI prompt found in open question journal entry."
+                return
+            }
+            
+            print("🤖 Generating Open Question AI response for prompt: \(aiPrompt.prefix(100))...")
+            
+            // Generate AI response using OpenAI
+            let aiResponse = try await openAIService.generateAIResponse(for: aiPrompt)
+            
+            // Create updated entry with AI response
+            let updatedEntry = JournalEntry(
+                id: mostRecentEntry.id,
+                userId: mostRecentEntry.userId,
+                guidedQuestionId: mostRecentEntry.guidedQuestionId,
+                content: mostRecentEntry.content,
+                aiPrompt: mostRecentEntry.aiPrompt,
+                aiResponse: aiResponse, // Add the AI response
+                tags: mostRecentEntry.tags,
+                isFavorite: mostRecentEntry.isFavorite,
+                createdAt: mostRecentEntry.createdAt,
+                updatedAt: Date() // Update timestamp
+            )
+            
+            // Save updated entry to database
+            _ = try await supabaseService.updateJournalEntry(updatedEntry)
+            await loadOpenQuestionJournalEntries() // Refresh entries
+            
+            print("✅ Open Question AI response generated and saved: \(aiResponse.prefix(100))...")
+            
+        } catch {
+            errorMessage = "Failed to generate open question AI response: \(error.localizedDescription)"
+            print("❌ Failed to generate open question AI response: \(error.localizedDescription)")
+        }
+        
+        isLoading = false
+    }
+    
+    /// Updates the favorite status of the most recent open question journal entry
+    func updateCurrentOpenQuestionJournalEntryFavoriteStatus(isFavorite: Bool) async {
+        guard let currentUser = currentUser else {
+            errorMessage = "User not authenticated."
+            return
+        }
+        
+        // Load current entries to find the most recent one
+        await loadOpenQuestionJournalEntries()
+        
+        guard let mostRecentEntry = openQuestionJournalEntries.first else {
+            errorMessage = "No open question journal entry found to update favorite status."
+            return
+        }
+        
+        // Create updated entry with the new favorite status
+        let updatedEntry = JournalEntry(
+            id: mostRecentEntry.id, // Use existing ID
+            userId: mostRecentEntry.userId,
+            guidedQuestionId: mostRecentEntry.guidedQuestionId,
+            content: mostRecentEntry.content,
+            aiPrompt: mostRecentEntry.aiPrompt,
+            aiResponse: mostRecentEntry.aiResponse,
+            tags: mostRecentEntry.tags,
+            isFavorite: isFavorite, // Update favorite status
+            createdAt: mostRecentEntry.createdAt,
+            updatedAt: Date() // Update timestamp
+        )
+        
+        do {
+            _ = try await supabaseService.updateJournalEntry(updatedEntry)
+            await loadOpenQuestionJournalEntries() // Reload to reflect changes
+            print("✅ Open Question journal entry favorite status updated to: \(isFavorite)")
+        } catch {
+            errorMessage = "Failed to update open question journal entry favorite status: \(error.localizedDescription)"
+            print("❌ Failed to update open question journal entry favorite status: \(error.localizedDescription)")
         }
     }
     
