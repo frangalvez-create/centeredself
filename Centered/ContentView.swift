@@ -48,7 +48,8 @@ struct ContentView: View {
     }
     
     private var mainJournalView: some View {
-        VStack(spacing: 0) {
+        ScrollView {
+            VStack(spacing: 0) {
             // Top Logo (CS Logo.png)
             Image("CS Logo")
                 .resizable()
@@ -111,6 +112,7 @@ struct ContentView: View {
                                         .font(.system(size: 16))
                                         .foregroundColor(Color.textGrey)
                                         .multilineTextAlignment(.leading)
+                                        .id("journalTextStart") // Identifier for scrolling to top
                                     
                                     // AI Response
                                     Text(currentAIResponse)
@@ -127,9 +129,9 @@ struct ContentView: View {
                             }
                             .background(Color.clear)
                             .onAppear {
-                                // Scroll to bottom when AI response appears
+                                // Scroll to TOP when AI response appears (not bottom)
                                 withAnimation {
-                                    proxy.scrollTo("aiResponseEnd", anchor: .bottom)
+                                    proxy.scrollTo("journalTextStart", anchor: .top)
                                 }
                                 // Show favorite button after a delay to ensure scroll is complete
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -138,6 +140,32 @@ struct ContentView: View {
                             }
                         }
                         .frame(height: 250) // Always use max height when showing AI response
+                        .clipped() // Ensure content doesn't extend beyond container
+                        .overlay(
+                            // Bottom fade mask to prevent text overlap with favorite button
+                            VStack {
+                                Spacer()
+                                // Gradient mask with proper rounded bottom corners
+                                LinearGradient(
+                                    gradient: Gradient(stops: [
+                                        .init(color: Color.clear, location: 0.0),
+                                        .init(color: Color.textFieldBackground, location: 1.0)
+                                    ]),
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                                .frame(height: 55) // Increased to 55pt
+                                .clipShape(
+                                    // Custom shape that matches the bottom rounded corners of the text field
+                                    UnevenRoundedRectangle(
+                                        topLeadingRadius: 0,
+                                        bottomLeadingRadius: 20,
+                                        bottomTrailingRadius: 20,
+                                        topTrailingRadius: 0
+                                    )
+                                )
+                            }
+                        )
                     } else {
                         // Normal TextEditor when not locked or no AI response
                         TextEditor(text: $journalResponse)
@@ -299,6 +327,7 @@ struct ContentView: View {
                                             .font(.system(size: 16))
                                             .foregroundColor(Color.textGrey)
                                             .multilineTextAlignment(.leading)
+                                            .id("openJournalTextStart") // Identifier for scrolling to top
                                         
                                         // AI Response
                                         Text(openCurrentAIResponse)
@@ -315,9 +344,9 @@ struct ContentView: View {
                                 }
                                 .background(Color.clear)
                                 .onAppear {
-                                    // Scroll to bottom when AI response appears
+                                    // Scroll to TOP when AI response appears (not bottom)
                                     withAnimation {
-                                        proxy.scrollTo("openAIResponseEnd", anchor: .bottom)
+                                        proxy.scrollTo("openJournalTextStart", anchor: .top)
                                     }
                                     // Show favorite button after a delay to ensure scroll is complete
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -326,6 +355,32 @@ struct ContentView: View {
                                 }
                             }
                             .frame(height: 250) // Always use max height when showing AI response
+                            .clipped() // Ensure content doesn't extend beyond container
+                            .overlay(
+                                // Bottom fade mask to prevent text overlap with favorite button
+                                VStack {
+                                    Spacer()
+                                    // Gradient mask with proper rounded bottom corners
+                                    LinearGradient(
+                                        gradient: Gradient(stops: [
+                                            .init(color: Color.clear, location: 0.0),
+                                            .init(color: Color.textFieldBackground, location: 1.0)
+                                        ]),
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                    .frame(height: 55) // Same 55pt height as Guided Question
+                                    .clipShape(
+                                        // Custom shape that matches the bottom rounded corners of the text field
+                                        UnevenRoundedRectangle(
+                                            topLeadingRadius: 0,
+                                            bottomLeadingRadius: 20,
+                                            bottomTrailingRadius: 20,
+                                            topTrailingRadius: 0
+                                        )
+                                    )
+                                }
+                            )
                         } else {
                             // Normal TextEditor when not locked or no AI response
                             TextEditor(text: $openJournalResponse)
@@ -456,7 +511,10 @@ struct ContentView: View {
                 .padding(.horizontal, 30)
             }
             
-            Spacer()
+            // Add bottom padding for future navigation tabs
+            Spacer(minLength: 100) // Extra space at bottom for navigation tabs
+            }
+            .padding(.bottom, 50) // Additional padding for navigation tabs
         }
         .background(Color.backgroundBeige)
         .ignoresSafeArea(.all, edges: .top)
