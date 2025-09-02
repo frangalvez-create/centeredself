@@ -16,6 +16,8 @@ struct ContentView: View {
     @State private var showTextEditDropdown: Bool = false
     @State private var showCenteredButtonClick: Bool = false
     @State private var currentAIResponse: String = ""
+    @State private var showFavoriteButton: Bool = false
+    @State private var isFavoriteClicked: Bool = false
     
     var body: some View {
         Group {
@@ -90,27 +92,40 @@ struct ContentView: View {
                     // Text Editor and AI Response Display
                     if isTextLocked && !currentAIResponse.isEmpty {
                         // Show both journal text and AI response when locked and response is available
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 8) {
-                                // Journal text
-                                Text(journalResponse)
-                                    .font(.system(size: 16))
-                                    .foregroundColor(Color.textGrey)
-                                    .multilineTextAlignment(.leading)
-                                
-                                // AI Response
-                                Text(currentAIResponse)
-                                    .font(.system(size: 15))
-                                    .foregroundColor(Color(red: 63/255, green: 94/255, blue: 130/255)) // Blue #3F5E82
-                                    .multilineTextAlignment(.leading)
-                                    .padding(.leading, 12) // Indent 3 characters to the right
+                        ScrollViewReader { proxy in
+                            ScrollView {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    // Journal text
+                                    Text(journalResponse)
+                                        .font(.system(size: 16))
+                                        .foregroundColor(Color.textGrey)
+                                        .multilineTextAlignment(.leading)
+                                    
+                                    // AI Response
+                                    Text(currentAIResponse)
+                                        .font(.system(size: 15))
+                                        .foregroundColor(Color(red: 63/255, green: 94/255, blue: 130/255)) // Blue #3F5E82
+                                        .multilineTextAlignment(.leading)
+                                        .padding(.leading, 12) // Indent 3 characters to the right
+                                        .id("aiResponseEnd") // Identifier for scroll detection
+                                }
+                                .padding(.top, 15)
+                                .padding(.leading, 15)
+                                .padding(.trailing, 15)
+                                .padding(.bottom, 80) // Extra bottom padding to avoid button overlap
                             }
-                            .padding(.top, 15)
-                            .padding(.leading, 15)
-                            .padding(.trailing, 15)
-                            .padding(.bottom, 80) // Extra bottom padding to avoid button overlap
+                            .background(Color.clear)
+                            .onAppear {
+                                // Scroll to bottom when AI response appears
+                                withAnimation {
+                                    proxy.scrollTo("aiResponseEnd", anchor: .bottom)
+                                }
+                                // Show favorite button after a delay to ensure scroll is complete
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                    showFavoriteButton = true
+                                }
+                            }
                         }
-                        .background(Color.clear)
                         .frame(height: 250) // Always use max height when showing AI response
                     } else {
                         // Normal TextEditor when not locked or no AI response
@@ -120,7 +135,7 @@ struct ContentView: View {
                             .padding(.top, 15)
                             .padding(.leading, 15)
                             .padding(.trailing, 15)
-                            .padding(.bottom, 40) // Extra bottom padding to avoid Done button
+                            .padding(.bottom, 30) // Extra bottom padding to avoid Done button
                             .background(Color.clear)
                             .scrollContentBackground(.hidden)
                             .frame(height: max(150, min(250, textEditorHeight)))
@@ -191,30 +206,53 @@ struct ContentView: View {
                         .frame(height: max(150, min(250, textEditorHeight)))
                     }
                     
-                    // Done/Centered Button - Bottom Right
-                    VStack {
-                        Spacer()
-                        HStack {
+                    // Done/Centered Button - Bottom Right (hidden when AI response is present)
+                    if currentAIResponse.isEmpty {
+                        VStack {
                             Spacer()
-                            Button(action: {
-                                if showCenteredButton {
-                                    centeredButtonTapped()
-                                } else {
-                                    doneButtonTapped()
+                            HStack {
+                                Spacer()
+                                Button(action: {
+                                    if showCenteredButton {
+                                        centeredButtonTapped()
+                                    } else {
+                                        doneButtonTapped()
+                                    }
+                                }) {
+                                    Image(getButtonImageName())
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 28, height: 28)
                                 }
-                            }) {
-                                Image(getButtonImageName())
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 28, height: 28)
+                                .frame(width: 44, height: 44) // Keep 44x44 touch target
+                                .padding(.trailing, 5)
+                                .padding(.bottom, 5)
                             }
-                            .frame(width: 44, height: 44) // Keep 44x44 touch target
-                            .padding(.trailing, 5)
-                            .padding(.bottom, 5)
                         }
                     }
-                    .frame(height: max(150, min(250, textEditorHeight)))
+                    
+                    // Favorite Button (only when AI response is present and scrolled to bottom)
+                    if !currentAIResponse.isEmpty && showFavoriteButton {
+                        VStack {
+                            Spacer()
+                            HStack {
+                                Spacer()
+                                Button(action: {
+                                    favoriteButtonTapped()
+                                }) {
+                                    Image(isFavoriteClicked ? "Fav Button Click" : "Fav Button")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 28, height: 28)
+                                }
+                                .frame(width: 44, height: 44) // Keep 44x44 touch target
+                                .padding(.trailing, 5)
+                                .padding(.bottom, 5)
+                            }
+                        }
+                    }
                 }
+                .frame(height: (isTextLocked && !currentAIResponse.isEmpty) ? 250 : max(150, min(250, textEditorHeight)))
             }
             .padding(.horizontal, 30)
             
@@ -447,6 +485,8 @@ Capabilities and Reminders: You have access to the web search tools to find and 
         
         // Clear AI response when editing
         currentAIResponse = ""
+        showFavoriteButton = false
+        isFavoriteClicked = false
         
         // Perform haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
@@ -467,6 +507,8 @@ Capabilities and Reminders: You have access to the web search tools to find and 
         
         // Clear AI response when deleting
         currentAIResponse = ""
+        showFavoriteButton = false
+        isFavoriteClicked = false
         
         // Reset text editor height
         textEditorHeight = 150
@@ -476,6 +518,25 @@ Capabilities and Reminders: You have access to the web search tools to find and 
         impactFeedback.impactOccurred()
         
         print("Delete Log selected - Text cleared and state reset")
+    }
+    
+    private func favoriteButtonTapped() {
+        // Only allow one click - if already clicked, do nothing
+        guard !isFavoriteClicked else { return }
+        
+        // Perform haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        // Update button state to show clicked version
+        isFavoriteClicked = true
+        
+        // Update the database
+        Task {
+            await journalViewModel.updateCurrentJournalEntryFavoriteStatus(isFavorite: true)
+        }
+        
+        print("Favorite button clicked - Journal entry marked as favorite")
     }
 }
 

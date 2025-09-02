@@ -315,6 +315,45 @@ class JournalViewModel: ObservableObject {
         }
     }
     
+    /// Updates the favorite status of the most recent journal entry
+    func updateCurrentJournalEntryFavoriteStatus(isFavorite: Bool) async {
+        guard let currentUser = currentUser else {
+            errorMessage = "User not authenticated."
+            return
+        }
+        
+        // Load current entries to find the most recent one
+        await loadJournalEntries()
+        
+        guard let mostRecentEntry = journalEntries.first else {
+            errorMessage = "No journal entry found to update favorite status."
+            return
+        }
+        
+        // Create updated entry with the new favorite status
+        let updatedEntry = JournalEntry(
+            id: mostRecentEntry.id, // Use existing ID
+            userId: mostRecentEntry.userId,
+            guidedQuestionId: mostRecentEntry.guidedQuestionId,
+            content: mostRecentEntry.content,
+            aiPrompt: mostRecentEntry.aiPrompt,
+            aiResponse: mostRecentEntry.aiResponse,
+            tags: mostRecentEntry.tags,
+            isFavorite: isFavorite, // Update favorite status
+            createdAt: mostRecentEntry.createdAt,
+            updatedAt: Date() // Update timestamp
+        )
+        
+        do {
+            _ = try await supabaseService.updateJournalEntry(updatedEntry)
+            await loadJournalEntries() // Reload to reflect changes
+            print("✅ Journal entry favorite status updated to: \(isFavorite)")
+        } catch {
+            errorMessage = "Failed to update journal entry favorite status: \(error.localizedDescription)"
+            print("❌ Failed to update journal entry favorite status: \(error.localizedDescription)")
+        }
+    }
+    
     // MARK: - Goal Management
     func createGoal(content: String, goals: String) async {
         guard let user = currentUser else { return }
