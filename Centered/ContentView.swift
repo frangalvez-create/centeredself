@@ -33,6 +33,11 @@ struct ContentView: View {
     // Navigation Tab Selection
     @State private var selectedTab: Int = 0
     
+    // Centered Page Goal Text
+    @State private var goalText: String = ""
+    @State private var isGoalLocked: Bool = false
+    @State private var showCPRefreshButton: Bool = false
+    
     var body: some View {
         Group {
             if journalViewModel.isAuthenticated {
@@ -1008,20 +1013,183 @@ Capabilities and Reminders: You have access to the web search tools to find and 
         print("Open Favorite button clicked - Journal entry marked as favorite")
     }
     
+    // MARK: - Goal Button Actions
+    
+    private func cpDoneButtonTapped() {
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        // Lock the text field and show refresh button
+        isGoalLocked = true
+        showCPRefreshButton = true
+        
+        // Save goal to database
+        Task {
+            await journalViewModel.saveGoal(goalText)
+        }
+        
+        print("CP Done button clicked - Goal saved: \(goalText)")
+    }
+    
+    private func cpRefreshButtonTapped() {
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        // Reset the goal entry process
+        goalText = ""
+        isGoalLocked = false
+        showCPRefreshButton = false
+        
+        print("CP Refresh button clicked - Goal entry reset")
+    }
+    
     // MARK: - Placeholder Views for Other Tabs
     
     private var centeredPageView: some View {
-        VStack {
-            Spacer()
-            Text("Centered Page")
-                .font(.largeTitle)
-                .foregroundColor(Color.textBlue)
-            Text("Coming Soon")
-                .font(.body)
-                .foregroundColor(Color.textBlue.opacity(0.7))
-            Spacer()
+        ScrollView {
+            VStack(spacing: 0) {
+                // Centered Self Title
+                Image("Centered Words")
+                    .renderingMode(.original)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 40) // Reduced to 2/3rd (60 * 2/3 = 40)
+                    .padding(.top, 58) // Lowered by additional 3pt (55 + 3 = 58)
+                    .padding(.bottom, 2) // Add bottom padding to create exact 2pt gap
+                
+                // CS Graphic
+                Image("CS graphic")
+                    .renderingMode(.original)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 240) // Doubled size (120 * 2 = 240)
+                    .padding(.top, -8) // Move up by 8pt to reduce gap with title
+                    .padding(.bottom, 2) // Add bottom padding to create exact 2pt gap
+                
+                // First text chunk
+                Text("In today's fast-paced, uncertain world, it's easy to feel scattered. Emotions like love, loneliness, happiness, and anxiety are natural, but staying stuck in one state harms mental and physical health. We aim to help people return to balance-living peacefully as their most centered self.")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "3F5E82"))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 20)
+                
+                // Second text chunk
+                Text("Keeping a daily journal is a simple yet powerful way to become more centered. Journaling has proven to help clear your mind, build self-awareness, ease stress, manage emotions, celebrate progress, and set meaningful goals.")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "3F5E82"))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                
+                // Third text chunk with journal link
+                HStack(spacing: 8) {
+                    Text("Start journaling here")
+                        .font(.system(size: 15, weight: .bold)) // Made bold
+                        .foregroundColor(Color(hex: "3F5E82"))
+                    
+                    Button(action: {
+                        selectedTab = 0 // Navigate to Journal tab
+                    }) {
+                        Image("Journal chunk")
+                            .renderingMode(.original)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 25, height: 25)
+                    }
+                }
+                .padding(.top, 20) // Changed from 25pt to 20pt
+                
+                // Fourth text chunk with centered icon line
+                VStack(spacing: 2) {
+                    Text("Our app enhances the journaling experience by providing Al-driven guidance that is supportive, inspiring, actionable and goal oriented.")
+                        .font(.system(size: 15))
+                        .foregroundColor(Color(hex: "3F5E82"))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 20)
+                    
+                    // Centered line with icon
+                    HStack(spacing: 4) {
+                        Text("Click this icon")
+                            .font(.system(size: 15))
+                            .foregroundColor(Color(hex: "3F5E82"))
+                        
+                        Image("Centered chunk")
+                            .renderingMode(.original)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 15, height: 15)
+                        
+                        Text("after each journal log")
+                            .font(.system(size: 15))
+                            .foregroundColor(Color(hex: "3F5E82"))
+                    }
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 20)
+                    
+                    Text("to unlock these insights. It can even cater its guidance towards a behavioral goal you are currently working on. You can enter that goal below.")
+                        .font(.system(size: 15))
+                        .foregroundColor(Color(hex: "3F5E82"))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 20)
+                }
+                .padding(.top, 20) // Changed from 25pt to 20pt
+                
+                // Fifth text chunk with text field and button
+                VStack(spacing: 10) {
+                    Text("I want to be")
+                        .font(.system(size: 16))
+                        .foregroundColor(Color(hex: "545555"))
+                    
+                    // Goal text field with button overlay
+                    ZStack(alignment: .trailing) {
+                        TextField("ex. Less critical, more ambitious, more empathetic", text: $goalText)
+                            .font(.system(size: 16))
+                            .multilineTextAlignment(.center)
+                            .foregroundColor(Color(hex: "545555"))
+                            .padding(.horizontal, 15)
+                            .padding(.vertical, 12)
+                            .padding(.trailing, 35) // Make room for button
+                            .background(Color.white)
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                            )
+                            .disabled(isGoalLocked) // Disable editing when locked
+                            .onReceive(goalText.publisher.collect()) { _ in
+                                if goalText.count > 100 {
+                                    goalText = String(goalText.prefix(100))
+                                }
+                            }
+                        
+                        // CP Done/Refresh Button positioned at the right edge
+                        Button(action: {
+                            if showCPRefreshButton {
+                                // CP Refresh button clicked - reset
+                                cpRefreshButtonTapped()
+                            } else {
+                                // CP Done button clicked - lock in
+                                cpDoneButtonTapped()
+                            }
+                        }) {
+                            Image(showCPRefreshButton ? "CP Refresh" : "CP Done")
+                                .renderingMode(.original)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 25, height: 25)
+                        }
+                        .padding(.trailing, 5) // 5pt from right edge
+                    }
+                    .padding(.horizontal, 40) // Centered with more padding
+                }
+                .padding(.top, 20)
+                
+                Spacer(minLength: 100)
+            }
         }
-        .background(Color.backgroundBeige)
+        .background(Color(hex: "E3E0C9"))
         .ignoresSafeArea(.all, edges: .top)
     }
     

@@ -571,6 +571,20 @@ class JournalViewModel: ObservableObject {
             errorMessage = "Failed to delete goal: \(error.localizedDescription)"
         }
     }
+    
+    func saveGoal(_ goalText: String) async {
+        guard let user = currentUser else { return }
+        guard !goalText.isEmpty else { return }
+        
+        do {
+            let goal = Goal(userId: user.id, content: "", goals: goalText)
+            _ = try await supabaseService.createGoal(goal)
+            print("✅ Goal saved successfully: \(goalText)")
+        } catch {
+            errorMessage = "Failed to save goal: \(error.localizedDescription)"
+            print("❌ Failed to save goal: \(error.localizedDescription)")
+        }
+    }
 }
 
 // OpenAI integration will be added later when requested
