@@ -30,10 +30,35 @@ struct ContentView: View {
     @State private var openShowFavoriteButton: Bool = false
     @State private var openIsFavoriteClicked: Bool = false
     
+    // Navigation Tab Selection
+    @State private var selectedTab: Int = 0
+    
     var body: some View {
         Group {
             if journalViewModel.isAuthenticated {
-                mainJournalView
+                VStack(spacing: 0) {
+                    // Main Content Area
+                    Group {
+                        switch selectedTab {
+                        case 0:
+                            mainJournalView
+                        case 1:
+                            centeredPageView
+                        case 2:
+                            favoritesPageView
+                        case 3:
+                            profilePageView
+                        default:
+                            mainJournalView
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    
+                    // Custom Tab Bar
+                    customTabBar
+                }
+                .background(Color(hex: "E3E0C9"))
+                .ignoresSafeArea(.all)
             } else {
                 authenticationView
             }
@@ -286,7 +311,7 @@ struct ContentView: View {
                                 }
                                 .frame(width: 44, height: 44) // Keep 44x44 touch target
                                 .padding(.trailing, 5)
-                                .padding(.bottom, 5)
+                                .padding(.bottom, 0) // Reduced from 5pt to 0pt to position closer to bottom edge
                             }
                         }
                     }
@@ -501,7 +526,7 @@ struct ContentView: View {
                                     }
                                     .frame(width: 44, height: 44) // Keep 44x44 touch target
                                     .padding(.trailing, 5)
-                                    .padding(.bottom, 5)
+                                    .padding(.bottom, 0) // Reduced from 5pt to 0pt to position closer to bottom edge
                                 }
                             }
                         }
@@ -982,9 +1007,104 @@ Capabilities and Reminders: You have access to the web search tools to find and 
         
         print("Open Favorite button clicked - Journal entry marked as favorite")
     }
+    
+    // MARK: - Placeholder Views for Other Tabs
+    
+    private var centeredPageView: some View {
+        VStack {
+            Spacer()
+            Text("Centered Page")
+                .font(.largeTitle)
+                .foregroundColor(Color.textBlue)
+            Text("Coming Soon")
+                .font(.body)
+                .foregroundColor(Color.textBlue.opacity(0.7))
+            Spacer()
+        }
+        .background(Color.backgroundBeige)
+        .ignoresSafeArea(.all, edges: .top)
+    }
+    
+    private var favoritesPageView: some View {
+        VStack {
+            Spacer()
+            Text("Favorites Page")
+                .font(.largeTitle)
+                .foregroundColor(Color.textBlue)
+            Text("Coming Soon")
+                .font(.body)
+                .foregroundColor(Color.textBlue.opacity(0.7))
+            Spacer()
+        }
+        .background(Color.backgroundBeige)
+        .ignoresSafeArea(.all, edges: .top)
+    }
+    
+    private var profilePageView: some View {
+        VStack {
+            Spacer()
+            Text("Profile Page")
+                .font(.largeTitle)
+                .foregroundColor(Color.textBlue)
+            Text("Coming Soon")
+                .font(.body)
+                .foregroundColor(Color.textBlue.opacity(0.7))
+            Spacer()
+        }
+        .background(Color.backgroundBeige)
+        .ignoresSafeArea(.all, edges: .top)
+    }
+    
+    // Custom Tab Bar
+    var customTabBar: some View {
+        HStack {
+            // Journal Tab
+            Button(action: { selectedTab = 0 }) {
+                Image(selectedTab == 0 ? "Journal Nav click" : "Journal Nav")
+                    .renderingMode(.original)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 36, height: 36)
+            }
+            .frame(maxWidth: .infinity)
+            
+            // Centered Tab
+            Button(action: { selectedTab = 1 }) {
+                Image(selectedTab == 1 ? "Centered Button Click" : "Centered Button 2")
+                    .renderingMode(.original)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 36, height: 36)
+            }
+            .frame(maxWidth: .infinity)
+            
+            // Favorites Tab
+            Button(action: { selectedTab = 2 }) {
+                Image(selectedTab == 2 ? "Fav Button Click 2" : "Fav Button")
+                    .renderingMode(.original)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 36, height: 36)
+            }
+            .frame(maxWidth: .infinity)
+            
+            // Profile Tab
+            Button(action: { selectedTab = 3 }) {
+                Image(selectedTab == 3 ? "User Profile click" : "User Profile")
+                    .renderingMode(.original)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 36, height: 36)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 5)
+        .padding(.bottom, 12)
+        .background(Color(hex: "E3E0C9"))
+        .frame(height: 83) // Original iOS tab bar height with safe area
+    }
 }
-
-
 
 // Color Extensions
 extension Color {
