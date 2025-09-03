@@ -1060,7 +1060,7 @@ Capabilities and Reminders: You have access to the web search tools to find and 
         HStack {
             // Journal Tab
             Button(action: { selectedTab = 0 }) {
-                Image(selectedTab == 0 ? "Journal Nav click" : "Journal Nav")
+                Image(selectedTab == 0 ? "Journal Tab click" : "Journal Tab")
                     .renderingMode(.original)
                     .resizable()
                     .scaledToFit()
@@ -1070,7 +1070,7 @@ Capabilities and Reminders: You have access to the web search tools to find and 
             
             // Centered Tab
             Button(action: { selectedTab = 1 }) {
-                Image(selectedTab == 1 ? "Centered Button Click" : "Centered Button 2")
+                Image(selectedTab == 1 ? "Centered Tab click" : "Centered Tab")
                     .renderingMode(.original)
                     .resizable()
                     .scaledToFit()
@@ -1080,7 +1080,7 @@ Capabilities and Reminders: You have access to the web search tools to find and 
             
             // Favorites Tab
             Button(action: { selectedTab = 2 }) {
-                Image(selectedTab == 2 ? "Fav Button Click 2" : "Fav Button")
+                Image(selectedTab == 2 ? "Fav Tab click" : "Fav Tab")
                     .renderingMode(.original)
                     .resizable()
                     .scaledToFit()
@@ -1090,7 +1090,7 @@ Capabilities and Reminders: You have access to the web search tools to find and 
             
             // Profile Tab
             Button(action: { selectedTab = 3 }) {
-                Image(selectedTab == 3 ? "User Profile click" : "User Profile")
+                Image(selectedTab == 3 ? "Profile Tab click" : "Profile Tab")
                     .renderingMode(.original)
                     .resizable()
                     .scaledToFit()
@@ -1099,10 +1099,10 @@ Capabilities and Reminders: You have access to the web search tools to find and 
             .frame(maxWidth: .infinity)
         }
         .padding(.horizontal, 20)
-        .padding(.top, 5)
-        .padding(.bottom, 12)
+        .padding(.top, -5)
+        .padding(.bottom, 22)
         .background(Color(hex: "E3E0C9"))
-        .frame(height: 83) // Original iOS tab bar height with safe area
+        .frame(height: 75) // Updated to 75pt height
     }
 }
 
