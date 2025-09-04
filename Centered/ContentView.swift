@@ -1128,7 +1128,7 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 20)
                     
-                    Text("to unlock these insights. It can even cater its guidance towards a behavioral goal you are currently working on. You can enter that goal below.")
+                    Text("to unlock these AI insights. It can even cater its guidance towards a behavioral goal you are currently working on. You can enter that goal below.")
                         .font(.system(size: 15))
                         .foregroundColor(Color(hex: "3F5E82"))
                         .multilineTextAlignment(.center)
@@ -1137,7 +1137,7 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                 .padding(.top, 20) // Changed from 25pt to 20pt
                 
                 // Fifth text chunk with text field and button
-                VStack(spacing: 10) {
+                VStack(spacing: 4) {
                     Text("I want to be")
                         .font(.system(size: 16))
                         .foregroundColor(Color(hex: "545555"))
@@ -1148,10 +1148,11 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                             .font(.system(size: 16))
                             .multilineTextAlignment(.center)
                             .foregroundColor(Color(hex: "545555"))
-                            .padding(.horizontal, 15)
-                            .padding(.vertical, 12)
-                            .padding(.trailing, 35) // Make room for button
-                            .background(Color.white)
+                            .padding(.leading, isGoalLocked ? 15 : 15)
+                            .padding(.trailing, isGoalLocked ? 15 : 50) // Center when locked, make room for button when unlocked
+                            .padding(.top, 6)
+                            .padding(.bottom, 6)
+                            .background(Color(hex: "F5F4EB"))
                             .cornerRadius(8)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)

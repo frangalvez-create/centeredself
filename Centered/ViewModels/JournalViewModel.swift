@@ -577,9 +577,22 @@ class JournalViewModel: ObservableObject {
         guard !goalText.isEmpty else { return }
         
         do {
-            let goal = Goal(userId: user.id, content: "", goals: goalText)
-            _ = try await supabaseService.createGoal(goal)
-            print("✅ Goal saved successfully: \(goalText)")
+            // First, try to get existing goals for this user
+            let existingGoals = try await supabaseService.fetchGoals(userId: user.id)
+            
+            if let existingGoal = existingGoals.first {
+                // Update the existing goal - we'll need to modify the existing goal's properties
+                // Since we can't directly modify the struct, we'll delete the old one and create a new one
+                _ = try await supabaseService.deleteGoal(id: existingGoal.id)
+                let newGoal = Goal(userId: user.id, content: existingGoal.content, goals: goalText)
+                _ = try await supabaseService.createGoal(newGoal)
+                print("✅ Goal updated successfully: \(goalText)")
+            } else {
+                // Create a new goal if none exists
+                let newGoal = Goal(userId: user.id, content: "", goals: goalText)
+                _ = try await supabaseService.createGoal(newGoal)
+                print("✅ Goal created successfully: \(goalText)")
+            }
         } catch {
             errorMessage = "Failed to save goal: \(error.localizedDescription)"
             print("❌ Failed to save goal: \(error.localizedDescription)")
