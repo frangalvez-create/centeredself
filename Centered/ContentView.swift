@@ -129,7 +129,7 @@ struct ContentView: View {
                     // Background for the text editor
                     RoundedRectangle(cornerRadius: 20)
                         .fill(Color.textFieldBackground)
-                        .frame(height: (isTextLocked && !currentAIResponse.isEmpty) ? 250 : max(150, min(250, textEditorHeight)))
+                        .frame(height: (isTextLocked && !currentAIResponse.isEmpty) ? 300 : max(150, min(300, textEditorHeight)))
                     
                     // Text Editor and AI Response Display
                     if isTextLocked && !currentAIResponse.isEmpty {
@@ -169,7 +169,7 @@ struct ContentView: View {
                                 }
                             }
                         }
-                        .frame(height: 250) // Always use max height when showing AI response
+                        .frame(height: 300) // Always use max height when showing AI response
                         .clipped() // Ensure content doesn't extend beyond container
                         .overlay(
                             // Bottom fade mask to prevent text overlap with favorite button
@@ -207,7 +207,7 @@ struct ContentView: View {
                             .padding(.bottom, 30) // Extra bottom padding to avoid Done button
                             .background(Color.clear)
                             .scrollContentBackground(.hidden)
-                            .frame(height: max(150, min(250, textEditorHeight)))
+                            .frame(height: max(150, min(300, textEditorHeight)))
                             .disabled(isTextLocked) // Lock text when Done is pressed
                             .onChange(of: journalResponse) {
                                 updateTextEditorHeight()
@@ -272,11 +272,11 @@ struct ContentView: View {
                             }
                             .padding(.bottom, 5) // 5pt from bottom edge
                         }
-                        .frame(height: max(150, min(250, textEditorHeight)))
+                        .frame(height: max(150, min(300, textEditorHeight)))
                     }
                     
-                    // Done/Centered Button - Bottom Right (hidden when AI response is present)
-                    if currentAIResponse.isEmpty {
+                    // Done/Centered Button - Bottom Right (hidden when AI response is present or text is empty)
+                    if currentAIResponse.isEmpty && !journalResponse.isEmpty {
                         VStack {
                             Spacer()
                             HStack {
@@ -321,14 +321,14 @@ struct ContentView: View {
                         }
                     }
                 }
-                .frame(height: (isTextLocked && !currentAIResponse.isEmpty) ? 250 : max(150, min(250, textEditorHeight)))
+                .frame(height: (isTextLocked && !currentAIResponse.isEmpty) ? 300 : max(150, min(300, textEditorHeight)))
             }
             .padding(.horizontal, 30)
             
             // OPEN QUESTION SECTION (25pt spacing below Guided Question)
             VStack(spacing: 0) {
                 // Static Open Question Text
-                Text("Share anything... fears, goals, confusions, delights, etc")
+                Text("Share anything...\nfears, goals, confusions, delights, etc")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(Color.textBlue)
                     .multilineTextAlignment(.center)
@@ -344,7 +344,7 @@ struct ContentView: View {
                         // Background for the text editor
                         RoundedRectangle(cornerRadius: 20)
                             .fill(Color.textFieldBackground)
-                            .frame(height: (openIsTextLocked && !openCurrentAIResponse.isEmpty) ? 250 : max(150, min(250, openTextEditorHeight)))
+                            .frame(height: (openIsTextLocked && !openCurrentAIResponse.isEmpty) ? 300 : max(150, min(300, openTextEditorHeight)))
                         
                         // Text Editor and AI Response Display
                         if openIsTextLocked && !openCurrentAIResponse.isEmpty {
@@ -384,7 +384,7 @@ struct ContentView: View {
                                     }
                                 }
                             }
-                            .frame(height: 250) // Always use max height when showing AI response
+                            .frame(height: 300) // Always use max height when showing AI response
                             .clipped() // Ensure content doesn't extend beyond container
                             .overlay(
                                 // Bottom fade mask to prevent text overlap with favorite button
@@ -422,7 +422,7 @@ struct ContentView: View {
                                 .padding(.bottom, 30) // Extra bottom padding to avoid Done button
                                 .background(Color.clear)
                                 .scrollContentBackground(.hidden)
-                                .frame(height: max(150, min(250, openTextEditorHeight)))
+                                .frame(height: max(150, min(300, openTextEditorHeight)))
                                 .disabled(openIsTextLocked) // Lock text when Done is pressed
                                 .onChange(of: openJournalResponse) {
                                     updateOpenTextEditorHeight()
@@ -487,11 +487,11 @@ struct ContentView: View {
                                 }
                                 .padding(.bottom, 5) // 5pt from bottom edge
                             }
-                            .frame(height: max(150, min(250, openTextEditorHeight)))
+                            .frame(height: max(150, min(300, openTextEditorHeight)))
                         }
                         
-                        // Done/Centered Button - Bottom Right (hidden when AI response is present)
-                        if openCurrentAIResponse.isEmpty {
+                        // Done/Centered Button - Bottom Right (hidden when AI response is present or text is empty)
+                        if openCurrentAIResponse.isEmpty && !openJournalResponse.isEmpty {
                             VStack {
                                 Spacer()
                                 HStack {
@@ -536,7 +536,7 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .frame(height: (openIsTextLocked && !openCurrentAIResponse.isEmpty) ? 250 : max(150, min(250, openTextEditorHeight)))
+                    .frame(height: (openIsTextLocked && !openCurrentAIResponse.isEmpty) ? 300 : max(150, min(300, openTextEditorHeight)))
                 }
                 .padding(.horizontal, 30)
             }
@@ -1064,12 +1064,12 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                     .renderingMode(.original)
                     .resizable()
                     .scaledToFit()
-                    .frame(height: 240) // Doubled size (120 * 2 = 240)
-                    .padding(.top, -8) // Move up by 8pt to reduce gap with title
-                    .padding(.bottom, 2) // Add bottom padding to create exact 2pt gap
+                    .frame(height: 204) // Reduced by 15% (240 * 0.85 = 204)
+                    .padding(.top, 2) // Increased gap by 10pt (from -8pt to +2pt)
+                    .padding(.bottom, 8) // Add bottom padding to create exact 2pt gap
                 
                 // First text chunk
-                Text("In today's fast-paced, uncertain world, it's easy to feel scattered. Emotions like love, loneliness, happiness, and anxiety are natural, but staying stuck in one state harms mental and physical health. We aim to help people return to balance-living peacefully as their most centered self.")
+                Text("In today's fast-paced and uncertain world, it's easy to feel scattered as our minds swirl with complex emotions and thoughts. Staying stuck in any one state, however, can harm both mental and physical health. Our goal is to help people return to balance—living peacefully as their most centered selves.")
                     .font(.system(size: 15))
                     .foregroundColor(Color(hex: "3F5E82"))
                     .multilineTextAlignment(.center)
@@ -1081,13 +1081,23 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                     .foregroundColor(Color(hex: "3F5E82"))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 20)
-                    .padding(.top, 20)
+                    .padding(.top, 12) // Changed to 12pt
                 
                 // Third text chunk with journal link
                 HStack(spacing: 8) {
-                    Text("Start journaling here")
-                        .font(.system(size: 15, weight: .bold)) // Made bold
-                        .foregroundColor(Color(hex: "3F5E82"))
+                    HStack(spacing: 2) {
+                        Text("Start journaling")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(Color(hex: "3F5E82"))
+                        
+                        Button(action: {
+                            selectedTab = 0 // Navigate to Journal tab
+                        }) {
+                            Text("here")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(Color(hex: "3F5E82"))
+                        }
+                    }
                     
                     Button(action: {
                         selectedTab = 0 // Navigate to Journal tab
@@ -1099,42 +1109,25 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                             .frame(width: 25, height: 25)
                     }
                 }
-                .padding(.top, 20) // Changed from 25pt to 20pt
+                .padding(.top, 12) // Changed to 12pt
                 
-                // Fourth text chunk with centered icon line
-                VStack(spacing: 2) {
-                    Text("Our app enhances the journaling experience by providing Al-driven guidance that is supportive, inspiring, actionable and goal oriented.")
+                // Fourth text chunk with overlay icon
+                ZStack {
+                    Text("Our app elevates your journaling experience with personalized, AI-powered guidance that is supportive, inspiring, and goal-oriented. After each journal entry, tap the        icon to unlock tailored insights. You can even set a behavioral goal below, and the app will customize its guidance to help you achieve it.")
                         .font(.system(size: 15))
                         .foregroundColor(Color(hex: "3F5E82"))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 20)
                     
-                    // Centered line with icon
-                    HStack(spacing: 4) {
-                        Text("Click this icon")
-                            .font(.system(size: 15))
-                            .foregroundColor(Color(hex: "3F5E82"))
-                        
-                        Image("Centered chunk")
-                            .renderingMode(.original)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 15, height: 15)
-                        
-                        Text("after each journal log")
-                            .font(.system(size: 15))
-                            .foregroundColor(Color(hex: "3F5E82"))
-                    }
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 20)
-                    
-                    Text("to unlock these AI insights. It can even cater its guidance towards a behavioral goal you are currently working on. You can enter that goal below.")
-                        .font(.system(size: 15))
-                        .foregroundColor(Color(hex: "3F5E82"))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 20)
+                    // Overlay icon positioned between "the" and "icon"
+                    Image("Centered chunk")
+                        .renderingMode(.original)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 17, height: 17)
+                        .offset(x: -5, y: 2) // Final adjustment: moved up 3pt for perfect positioning between "the" and "icon"
                 }
-                .padding(.top, 20) // Changed from 25pt to 20pt
+                .padding(.top, 12) // Changed to 12pt
                 
                 // Fifth text chunk with text field and button
                 VStack(spacing: 4) {
@@ -1144,12 +1137,14 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                     
                     // Goal text field with button overlay
                     ZStack(alignment: .trailing) {
-                        TextField("ex. Less critical, more ambitious, more empathetic", text: $goalText)
+                        ZStack {
+                            // Custom TextField without placeholder
+                            TextField("", text: $goalText)
                             .font(.system(size: 16))
                             .multilineTextAlignment(.center)
                             .foregroundColor(Color(hex: "545555"))
-                            .padding(.leading, isGoalLocked ? 15 : 15)
-                            .padding(.trailing, isGoalLocked ? 15 : 50) // Center when locked, make room for button when unlocked
+                            .padding(.leading, 15)
+                            .padding(.trailing, (isGoalLocked || goalText.isEmpty) ? 15 : 50) // Center when locked or empty, make room for button when unlocked and has text
                             .padding(.top, 6)
                             .padding(.bottom, 6)
                             .background(Color(hex: "F5F4EB"))
@@ -1164,9 +1159,20 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                                     goalText = String(goalText.prefix(100))
                                 }
                             }
+                            
+                            // Custom placeholder text with smaller font
+                            if goalText.isEmpty {
+                                Text("ex. Less critical, more ambitious, more empathetic")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Color(hex: "545555").opacity(0.6))
+                                    .multilineTextAlignment(.center)
+                                    .allowsHitTesting(false) // Allow taps to go through to TextField
+                            }
+                        }
                         
-                        // CP Done/Refresh Button positioned at the right edge
-                        Button(action: {
+                        // CP Done/Refresh Button positioned at the right edge (only show when text is entered)
+                        if !goalText.isEmpty {
+                            Button(action: {
                             if showCPRefreshButton {
                                 // CP Refresh button clicked - reset
                                 cpRefreshButtonTapped()
@@ -1180,12 +1186,14 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: 25, height: 25)
+                                .opacity(showCPRefreshButton ? 0.60 : 1.0) // 60% opacity for CP Refresh, full opacity for CP Done
                         }
                         .padding(.trailing, 5) // 5pt from right edge
+                        }
                     }
                     .padding(.horizontal, 40) // Centered with more padding
                 }
-                .padding(.top, 20)
+                .padding(.top, 12) // Changed to 12pt
                 
                 Spacer(minLength: 100)
             }
