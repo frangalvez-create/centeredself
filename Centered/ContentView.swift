@@ -38,6 +38,9 @@ struct ContentView: View {
     @State private var isGoalLocked: Bool = false
     @State private var showCPRefreshButton: Bool = false
     
+    // Favorites Page State
+    @State private var expandedEntries: Set<UUID> = []
+    
     var body: some View {
         Group {
             if journalViewModel.isAuthenticated {
@@ -1203,18 +1206,148 @@ Capabilities and Reminders: You have access to the web search tools to find and 
     }
     
     private var favoritesPageView: some View {
-        VStack {
-            Spacer()
-            Text("Favorites Page")
-                .font(.largeTitle)
-                .foregroundColor(Color.textBlue)
-            Text("Coming Soon")
-                .font(.body)
-                .foregroundColor(Color.textBlue.opacity(0.7))
-            Spacer()
+        ScrollView {
+            VStack(spacing: 0) {
+                // Fav Logo - lowered by 5pt total from original position (3pt + 2pt)
+                Image("Fav Logo")
+                    .renderingMode(.original)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 80, height: 80)
+                    .padding(.top, 60) // 55 + 5 = 60pt (additional 2pt lower)
+                    .padding(.bottom, -10) // Negative padding to reduce gap
+                
+                // Favorite title - much closer to logo
+                Image("Favorite title")
+                    .renderingMode(.original)
+                    .resizable()
+                    .scaledToFit()
+                    .scaleEffect(0.53) // 0.44 * 1.2 = increased by 20%
+                    .padding(.bottom, 20)
+                
+                // List of favorite entries - 20pt below title
+                LazyVStack(spacing: 15) {
+                    ForEach(journalViewModel.favoriteJournalEntries) { entry in
+                        favoriteEntryView(entry: entry)
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.bottom, 100) // Extra bottom padding for tab bar
+            }
         }
-        .background(Color.backgroundBeige)
-        .ignoresSafeArea(.all, edges: .top)
+        .background(Color(hex: "E3E0C9"))
+        .onAppear {
+            Task {
+                await journalViewModel.loadFavoriteEntries()
+            }
+        }
+    }
+    
+    // MARK: - Favorite Entry View
+    private func favoriteEntryView(entry: JournalEntry) -> some View {
+        let isExpanded = expandedEntries.contains(entry.id)
+        
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 0) {
+                // Date column - fixed width
+                Text(formatDate(entry.createdAt))
+                    .font(.system(size: 16))
+                    .foregroundColor(Color(hex: "3F5E82"))
+                    .frame(width: 80, alignment: .leading)
+                
+                // 3pt spacing
+                Spacer()
+                    .frame(width: 3)
+                
+                // Content column - takes remaining space
+                VStack(alignment: .leading, spacing: 8) {
+                    // Journal entry text
+                    if isExpanded {
+                        // Show full text
+                        Text(entry.content)
+                            .font(.system(size: 16))
+                            .foregroundColor(Color(hex: "545555"))
+                            .multilineTextAlignment(.leading)
+                    } else {
+                        // Show truncated text (max 3 lines)
+                        Text(truncateText(entry.content, maxLines: 3))
+                            .font(.system(size: 16))
+                            .foregroundColor(Color(hex: "545555"))
+                            .multilineTextAlignment(.leading)
+                            .lineLimit(3)
+                    }
+                    
+                    // AI response text (only shown when expanded)
+                    if isExpanded && !(entry.aiResponse?.isEmpty ?? true) {
+                        Text(entry.aiResponse ?? "")
+                            .font(.system(size: 16))
+                            .foregroundColor(Color(hex: "3F5E82"))
+                            .multilineTextAlignment(.leading)
+                            .padding(.leading, 5) // 5pt indent
+                            .padding(.top, 4)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                // 8pt spacing before icon
+                Spacer()
+                    .frame(width: 8)
+                
+                // Icon - fixed position on right
+                Button(action: {
+                    if isExpanded {
+                        expandedEntries.remove(entry.id)
+                    } else {
+                        expandedEntries.insert(entry.id)
+                    }
+                }) {
+                    Image(isExpanded ? "Minus icon" : "Plus icon")
+                        .renderingMode(.original)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 17, height: 17)
+                }
+                .frame(width: 17, alignment: .trailing)
+            }
+            .padding(.horizontal, 5)
+            .padding(.vertical, 5)
+        }
+        .background(Color(hex: "F5F4EB"))
+        .cornerRadius(8)
+    }
+    
+    // Helper function to format date as "Sept 2nd"
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        let baseString = formatter.string(from: date)
+        
+        let dayFormatter = DateFormatter()
+        dayFormatter.dateFormat = "d"
+        let day = Int(dayFormatter.string(from: date)) ?? 1
+        
+        let suffix: String
+        switch day {
+        case 1, 21, 31: suffix = "st"
+        case 2, 22: suffix = "nd"
+        case 3, 23: suffix = "rd"
+        default: suffix = "th"
+        }
+        
+        return baseString + suffix
+    }
+    
+    // Helper function to truncate text to max lines with "..."
+    private func truncateText(_ text: String, maxLines: Int) -> String {
+        let words = text.components(separatedBy: .whitespacesAndNewlines)
+        let approximateWordsPerLine = 8 // Rough estimate
+        let maxWords = maxLines * approximateWordsPerLine
+        
+        if words.count > maxWords {
+            let truncatedWords = Array(words.prefix(maxWords))
+            return truncatedWords.joined(separator: " ") + "..."
+        }
+        return text
     }
     
     private var profilePageView: some View {

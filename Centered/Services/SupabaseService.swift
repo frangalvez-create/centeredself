@@ -413,4 +413,47 @@ class SupabaseService: ObservableObject {
             try await supabase.from("goals").delete().eq("id", value: id).execute()
         }
     }
+    
+    // MARK: - Favorite Journal Entries
+    func fetchFavoriteJournalEntries(userId: UUID) async throws -> [JournalEntry] {
+        if useMockData {
+            // Mock implementation - return sample favorite entries
+            return [
+                JournalEntry(
+                    id: UUID(),
+                    userId: userId,
+                    guidedQuestionId: UUID(),
+                    content: "I learned that vibe coding is doable and I'm excited for the future of this app!",
+                    aiPrompt: "Sample AI prompt",
+                    aiResponse: "It's wonderful to hear that your family relationships are going well. Positive connections with family can significantly enhance emotional well-being and contribute to a supportive environment.",
+                    tags: [],
+                    isFavorite: true,
+                    createdAt: Date(),
+                    updatedAt: Date()
+                ),
+                JournalEntry(
+                    id: UUID(),
+                    userId: userId,
+                    guidedQuestionId: UUID(),
+                    content: "So far all my family relationships are going well.",
+                    aiPrompt: "Sample AI prompt",
+                    aiResponse: "To further strengthen these relationships, consider setting aside regular time for family activities, practicing active listening during conversations, and expressing appreciation for each family member's contributions.",
+                    tags: [],
+                    isFavorite: true,
+                    createdAt: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date(),
+                    updatedAt: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+                )
+            ]
+        } else {
+            // Real implementation
+            let favoriteEntries: [JournalEntry] = try await supabase.from("journal_entries")
+                .select()
+                .eq("user_id", value: userId)
+                .eq("is_favorite", value: true)
+                .order("created_at", ascending: false) // Newest first
+                .execute()
+                .value
+            return favoriteEntries
+        }
+    }
 }

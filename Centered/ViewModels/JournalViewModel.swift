@@ -10,6 +10,7 @@ class JournalViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var isAuthenticated = false
     @Published var openQuestionJournalEntries: [JournalEntry] = []
+    @Published var favoriteJournalEntries: [JournalEntry] = []
     
     private let supabaseService = SupabaseService()
     private let openAIService = OpenAIService()
@@ -596,6 +597,19 @@ class JournalViewModel: ObservableObject {
         } catch {
             errorMessage = "Failed to save goal: \(error.localizedDescription)"
             print("❌ Failed to save goal: \(error.localizedDescription)")
+        }
+    }
+    
+    // MARK: - Favorite Journal Entries
+    func loadFavoriteEntries() async {
+        guard let user = currentUser else { return }
+        
+        do {
+            favoriteJournalEntries = try await supabaseService.fetchFavoriteJournalEntries(userId: user.id)
+            print("✅ Loaded \(favoriteJournalEntries.count) favorite entries")
+        } catch {
+            errorMessage = "Failed to load favorite entries: \(error.localizedDescription)"
+            print("❌ Failed to load favorite entries: \(error.localizedDescription)")
         }
     }
 }
