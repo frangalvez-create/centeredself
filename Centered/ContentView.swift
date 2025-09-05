@@ -1205,8 +1205,10 @@ Capabilities and Reminders: You have access to the web search tools to find and 
         .ignoresSafeArea(.all, edges: .top)
     }
     
+    @State private var isEditingFavorites = false
+    
     private var favoritesPageView: some View {
-        ScrollView {
+        ZStack(alignment: .topTrailing) {
             VStack(spacing: 0) {
                 // Fav Logo - lowered by 5pt total from original position (3pt + 2pt)
                 Image("Fav Logo")
@@ -1225,17 +1227,39 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                     .scaleEffect(0.53) // 0.44 * 1.2 = increased by 20%
                     .padding(.bottom, 20)
                 
-                // List of favorite entries - 20pt below title
-                LazyVStack(spacing: 15) {
+                // List of favorite entries with swipe-to-delete - 20pt below title
+                List {
                     ForEach(journalViewModel.favoriteJournalEntries) { entry in
                         favoriteEntryView(entry: entry)
+                            .listRowBackground(Color(hex: "E3E0C9"))
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 7.5, leading: 8, bottom: 7.5, trailing: 8))
+                    }
+                    .onDelete { offsets in
+                        Task {
+                            await journalViewModel.deleteFavoriteEntries(at: offsets)
+                        }
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.bottom, 100) // Extra bottom padding for tab bar
+                .listStyle(PlainListStyle())
+                .environment(\.editMode, isEditingFavorites ? .constant(.active) : .constant(.inactive))
+                .scrollContentBackground(.hidden)
             }
+            .background(Color(hex: "E3E0C9"))
+            
+            // Edit Button positioned at top-right with functionality
+            Button(action: {
+                withAnimation {
+                    isEditingFavorites.toggle()
+                }
+            }) {
+                Text(isEditingFavorites ? "Done" : "Edit")
+                    .font(.system(size: 17))
+                    .foregroundColor(Color(hex: "3F5E82"))
+            }
+            .padding(.top, 60) // Same as logo top padding
+            .padding(.trailing, 20)
         }
-        .background(Color(hex: "E3E0C9"))
         .onAppear {
             Task {
                 await journalViewModel.loadFavoriteEntries()

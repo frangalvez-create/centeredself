@@ -612,6 +612,28 @@ class JournalViewModel: ObservableObject {
             print("❌ Failed to load favorite entries: \(error.localizedDescription)")
         }
     }
+    
+    // MARK: - Delete Favorite Entry
+    func deleteFavoriteEntries(at offsets: IndexSet) async {
+        for index in offsets {
+            let entry = favoriteJournalEntries[index]
+            
+            do {
+                // Remove from database
+                try await supabaseService.removeFavoriteEntry(entryId: entry.id)
+                
+                // Remove from local array
+                await MainActor.run {
+                    favoriteJournalEntries.remove(atOffsets: IndexSet([index]))
+                }
+                
+                print("✅ Successfully removed favorite entry: \(entry.id)")
+            } catch {
+                errorMessage = "Failed to remove favorite: \(error.localizedDescription)"
+                print("❌ Failed to remove favorite entry: \(error.localizedDescription)")
+            }
+        }
+    }
 }
 
 // OpenAI integration will be added later when requested

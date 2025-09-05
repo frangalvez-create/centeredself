@@ -456,4 +456,18 @@ class SupabaseService: ObservableObject {
             return favoriteEntries
         }
     }
+    
+    // MARK: - Delete Favorite Entry
+    func removeFavoriteEntry(entryId: UUID) async throws {
+        if useMockData {
+            print("Mock: Removed favorite status for entry ID: \(entryId)")
+        } else {
+            // Real implementation - set is_favorite to FALSE
+            try await supabase
+                .from("journal_entries")
+                .update(["is_favorite": false])
+                .eq("id", value: entryId)
+                .execute()
+        }
+    }
 }
