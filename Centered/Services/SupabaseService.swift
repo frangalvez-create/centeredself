@@ -31,9 +31,10 @@ class SupabaseService: ObservableObject {
             return UserProfile(
                 id: UUID(),
                 email: email,
-                fullName: nil,
-                avatarUrl: nil,
-                goals: nil,
+                displayName: nil,
+                currentStreak: 0,
+                longestStreak: 0,
+                totalJournalEntries: 0,
                 createdAt: Date(),
                 updatedAt: Date()
             )
@@ -42,13 +43,14 @@ class SupabaseService: ObservableObject {
             let authResponse = try await supabase.auth.signUp(email: email, password: password)
             let user = authResponse.user
             
-            // Create user profile
+            // Create user profile with proper schema
             let userProfile = UserProfile(
                 id: user.id,
                 email: email,
-                fullName: nil,
-                avatarUrl: nil,
-                goals: nil,
+                displayName: nil,
+                currentStreak: 0,
+                longestStreak: 0,
+                totalJournalEntries: 0,
                 createdAt: Date(),
                 updatedAt: Date()
             )
@@ -69,9 +71,10 @@ class SupabaseService: ObservableObject {
             return UserProfile(
                 id: UUID(),
                 email: email,
-                fullName: "Test User",
-                avatarUrl: nil,
-                goals: nil,
+                displayName: "Test User",
+                currentStreak: 5,
+                longestStreak: 10,
+                totalJournalEntries: 25,
                 createdAt: Date(),
                 updatedAt: Date()
             )
@@ -108,9 +111,10 @@ class SupabaseService: ObservableObject {
             return UserProfile(
                 id: userId,
                 email: "test@example.com",
-                fullName: "Test User",
-                avatarUrl: nil,
-                goals: nil,
+                displayName: "Test User",
+                currentStreak: 5,
+                longestStreak: 10,
+                totalJournalEntries: 25,
                 createdAt: Date(),
                 updatedAt: Date()
             )
@@ -468,6 +472,115 @@ class SupabaseService: ObservableObject {
                 .update(["is_favorite": false])
                 .eq("id", value: entryId)
                 .execute()
+        }
+    }
+    
+    // MARK: - Journal Session Management
+    func getTodaysSession(userId: UUID) async throws -> JournalSession? {
+        if useMockData {
+            // Mock implementation - return a test session
+            return JournalSession(
+                userId: userId,
+                sessionDate: Date(),
+                guidedQuestionCompleted: false,
+                openQuestionCompleted: false
+            )
+        } else {
+            // Real implementation
+            let today = Calendar.current.startOfDay(for: Date())
+            let response: [JournalSession] = try await supabase
+                .from("journal_sessions")
+                .select()
+                .eq("user_id", value: userId)
+                .eq("session_date", value: today)
+                .execute()
+                .value
+            
+            return response.first
+        }
+    }
+    
+    func createTodaysSession(userId: UUID) async throws -> JournalSession {
+        if useMockData {
+            // Mock implementation
+            return JournalSession(
+                userId: userId,
+                sessionDate: Date(),
+                guidedQuestionCompleted: false,
+                openQuestionCompleted: false
+            )
+        } else {
+            // Real implementation
+            let today = Calendar.current.startOfDay(for: Date())
+            let session = JournalSession(
+                userId: userId,
+                sessionDate: today,
+                guidedQuestionCompleted: false,
+                openQuestionCompleted: false
+            )
+            
+            try await supabase
+                .from("journal_sessions")
+                .insert(session)
+                .execute()
+            
+            return session
+        }
+    }
+    
+    func updateSessionCompletion(userId: UUID, guidedCompleted: Bool? = nil, openCompleted: Bool? = nil) async throws {
+        if useMockData {
+            // Mock implementation - do nothing
+            return
+        } else {
+            // Real implementation
+            let today = Calendar.current.startOfDay(for: Date())
+            
+            // Create a proper Codable struct for the update
+            struct SessionUpdate: Codable {
+                let guidedQuestionCompleted: Bool?
+                let openQuestionCompleted: Bool?
+                
+                enum CodingKeys: String, CodingKey {
+                    case guidedQuestionCompleted = "guided_question_completed"
+                    case openQuestionCompleted = "open_question_completed"
+                }
+            }
+            
+            let updateData = SessionUpdate(
+                guidedQuestionCompleted: guidedCompleted,
+                openQuestionCompleted: openCompleted
+            )
+            
+            try await supabase
+                .from("journal_sessions")
+                .update(updateData)
+                .eq("user_id", value: userId)
+                .eq("session_date", value: today)
+                .execute()
+        }
+    }
+    
+    func canCreateJournalEntry(userId: UUID, entryType: String) async throws -> Bool {
+        if useMockData {
+            // Mock implementation - always allow
+            return true
+        } else {
+            // Real implementation
+            guard let session = try await getTodaysSession(userId: userId) else {
+                // No session exists, create one and allow
+                _ = try await createTodaysSession(userId: userId)
+                return true
+            }
+            
+            switch entryType {
+            case "guided":
+                return !session.guidedQuestionCompleted
+            case "open":
+                return !session.openQuestionCompleted
+            default:
+                return false
+            }
         }
     }
 }

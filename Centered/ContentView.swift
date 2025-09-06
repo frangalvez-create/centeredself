@@ -33,8 +33,13 @@ struct ContentView: View {
     // Navigation Tab Selection
     @State private var selectedTab: Int = 0
     
+    // Authentication state
+    @State private var email = ""
+    @State private var password = ""
+    @State private var isSignUp = false
+    
     // Centered Page Goal Text
-    @State private var goalText: String = ""
+    // goalText is now managed by journalViewModel.currentGoal
     @State private var isGoalLocked: Bool = false
     @State private var showCPRefreshButton: Bool = false
     
@@ -64,6 +69,7 @@ struct ContentView: View {
                     
                     // Custom Tab Bar
                     customTabBar
+                    
                 }
                 .background(Color(hex: "E3E0C9"))
                 .ignoresSafeArea(.all)
@@ -596,20 +602,37 @@ struct ContentView: View {
                 .fontWeight(.bold)
                 .foregroundColor(Color.textBlue)
             
-            Text("Sign in to start your journaling journey")
+            Text(isSignUp ? "Create your account to start journaling" : "Sign in to continue your journey")
                 .font(.body)
                 .foregroundColor(Color.textBlue.opacity(0.7))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
             
             VStack(spacing: 15) {
+                // Email Input
+                TextField("Email", text: $email)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .keyboardType(.emailAddress)
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+                    .padding(.horizontal, 40)
+                
+                // Password Input
+                SecureField("Password", text: $password)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding(.horizontal, 40)
+                
+                // Main Action Button
                 Button(action: {
-                    // Demo authentication - try to sign up, if user exists, sign in
                     Task {
-                        await journalViewModel.authenticateTestUser()
+                        if isSignUp {
+                            await journalViewModel.signUpWithEmail(email: email, password: password)
+                        } else {
+                            await journalViewModel.signInWithEmail(email: email, password: password)
+                        }
                     }
                 }) {
-                    Text("Continue as Test User")
+                    Text(isSignUp ? "Sign Up" : "Sign In")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
@@ -618,11 +641,20 @@ struct ContentView: View {
                         .cornerRadius(12)
                 }
                 .padding(.horizontal, 40)
+                .disabled(email.isEmpty || password.isEmpty)
+                .opacity(email.isEmpty || password.isEmpty ? 0.6 : 1.0)
                 
-                Text("This is a demo - no real authentication required")
-                    .font(.caption)
-                    .foregroundColor(Color.textBlue.opacity(0.6))
-                    .padding(.horizontal, 40)
+                // Toggle between Sign Up and Sign In
+                Button(action: {
+                    isSignUp.toggle()
+                    email = ""
+                    password = ""
+                }) {
+                    Text(isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(Color.textBlue)
+                }
+                .padding(.top, 10)
             }
             
             Spacer()
@@ -1029,10 +1061,10 @@ Capabilities and Reminders: You have access to the web search tools to find and 
         
         // Save goal to database
         Task {
-            await journalViewModel.saveGoal(goalText)
+            await journalViewModel.saveGoal(journalViewModel.currentGoal)
         }
         
-        print("CP Done button clicked - Goal saved: \(goalText)")
+        print("CP Done button clicked - Goal saved: \(journalViewModel.currentGoal)")
     }
     
     private func cpRefreshButtonTapped() {
@@ -1041,7 +1073,7 @@ Capabilities and Reminders: You have access to the web search tools to find and 
         impactFeedback.impactOccurred()
         
         // Reset the goal entry process
-        goalText = ""
+        journalViewModel.currentGoal = ""
         isGoalLocked = false
         showCPRefreshButton = false
         
@@ -1142,12 +1174,12 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                     ZStack(alignment: .trailing) {
                         ZStack {
                             // Custom TextField without placeholder
-                            TextField("", text: $goalText)
+                            TextField("", text: $journalViewModel.currentGoal)
                             .font(.system(size: 16))
                             .multilineTextAlignment(.center)
                             .foregroundColor(Color(hex: "545555"))
                             .padding(.leading, 15)
-                            .padding(.trailing, (isGoalLocked || goalText.isEmpty) ? 15 : 50) // Center when locked or empty, make room for button when unlocked and has text
+                            .padding(.trailing, (isGoalLocked || journalViewModel.currentGoal.isEmpty) ? 15 : 50) // Center when locked or empty, make room for button when unlocked and has text
                             .padding(.top, 6)
                             .padding(.bottom, 6)
                             .background(Color(hex: "F5F4EB"))
@@ -1157,14 +1189,14 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                                     .stroke(Color.gray.opacity(0.3), lineWidth: 1)
                             )
                             .disabled(isGoalLocked) // Disable editing when locked
-                            .onReceive(goalText.publisher.collect()) { _ in
-                                if goalText.count > 100 {
-                                    goalText = String(goalText.prefix(100))
+                            .onReceive(journalViewModel.currentGoal.publisher.collect()) { _ in
+                                if journalViewModel.currentGoal.count > 100 {
+                                    journalViewModel.currentGoal = String(journalViewModel.currentGoal.prefix(100))
                                 }
                             }
                             
                             // Custom placeholder text with smaller font
-                            if goalText.isEmpty {
+                            if journalViewModel.currentGoal.isEmpty {
                                 Text("ex. Less critical, more ambitious, more empathetic")
                                     .font(.system(size: 12))
                                     .foregroundColor(Color(hex: "545555").opacity(0.6))
@@ -1174,7 +1206,7 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                         }
                         
                         // CP Done/Refresh Button positioned at the right edge (only show when text is entered)
-                        if !goalText.isEmpty {
+                        if !journalViewModel.currentGoal.isEmpty {
                             Button(action: {
                             if showCPRefreshButton {
                                 // CP Refresh button clicked - reset
@@ -1383,7 +1415,25 @@ Capabilities and Reminders: You have access to the web search tools to find and 
             Text("Coming Soon")
                 .font(.body)
                 .foregroundColor(Color.textBlue.opacity(0.7))
+            
             Spacer()
+            
+            // Sign Out Button
+            Button(action: {
+                Task {
+                    await journalViewModel.signOut()
+                }
+            }) {
+                Text("Sign Out")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(Color.red)
+                    .cornerRadius(12)
+            }
+            .padding(.horizontal, 40)
+            .padding(.bottom, 100)
         }
         .background(Color.backgroundBeige)
         .ignoresSafeArea(.all, edges: .top)

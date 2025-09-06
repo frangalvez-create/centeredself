@@ -11,6 +11,8 @@ class JournalViewModel: ObservableObject {
     @Published var isAuthenticated = false
     @Published var openQuestionJournalEntries: [JournalEntry] = []
     @Published var favoriteJournalEntries: [JournalEntry] = []
+    @Published var goals: [Goal] = []
+    @Published var currentGoal: String = ""
     
     private let supabaseService = SupabaseService()
     private let openAIService = OpenAIService()
@@ -60,6 +62,52 @@ class JournalViewModel: ObservableObject {
             await loadInitialData()
         } catch {
             errorMessage = error.localizedDescription
+            isAuthenticated = false
+        }
+        
+        isLoading = false
+    }
+    
+    func signUpTestUser() async {
+        let testEmail = "phase1.test.\(Int.random(in: 1000...9999))@gmail.com"
+        let testPassword = "password123"
+        
+        isLoading = true
+        errorMessage = nil
+        
+        print("🔐 Starting sign up for new user: \(testEmail)")
+        
+        do {
+            currentUser = try await supabaseService.signUp(email: testEmail, password: testPassword)
+            isAuthenticated = true
+            await loadInitialData()
+            print("✅ New user created and signed in successfully")
+        } catch {
+            print("❌ Sign up failed: \(error.localizedDescription)")
+            errorMessage = "Sign up failed: \(error.localizedDescription)"
+            isAuthenticated = false
+        }
+        
+        isLoading = false
+    }
+    
+    func signInTestUser() async {
+        let testEmail = "frangalvez+test123@gmail.com" // Use existing test email
+        let testPassword = "123456"
+        
+        isLoading = true
+        errorMessage = nil
+        
+        print("🔐 Starting sign in for existing user: \(testEmail)")
+        
+        do {
+            currentUser = try await supabaseService.signIn(email: testEmail, password: testPassword)
+            isAuthenticated = true
+            await loadInitialData()
+            print("✅ Existing user signed in successfully")
+        } catch {
+            print("❌ Sign in failed: \(error.localizedDescription)")
+            errorMessage = "Sign in failed: \(error.localizedDescription)"
             isAuthenticated = false
         }
         
@@ -129,6 +177,7 @@ class JournalViewModel: ObservableObject {
     private func loadInitialData() async {
         await loadTodaysQuestion()
         await loadJournalEntries()
+        await loadCurrentGoal()
     }
     
     func loadTodaysQuestion() async {
@@ -158,6 +207,20 @@ class JournalViewModel: ObservableObject {
             journalEntries = try await supabaseService.fetchJournalEntries(userId: user.id)
         } catch {
             errorMessage = "Failed to load journal entries: \(error.localizedDescription)"
+        }
+    }
+    
+    func loadCurrentGoal() async {
+        guard let user = currentUser else { return }
+        
+        do {
+            goals = try await supabaseService.fetchGoals(userId: user.id)
+            // Set the most recent goal as current goal
+            currentGoal = goals.first?.goals ?? ""
+            print("✅ Current goal loaded: \(currentGoal)")
+        } catch {
+            errorMessage = "Failed to load current goal: \(error.localizedDescription)"
+            currentGoal = ""
         }
     }
     
@@ -587,11 +650,13 @@ class JournalViewModel: ObservableObject {
                 _ = try await supabaseService.deleteGoal(id: existingGoal.id)
                 let newGoal = Goal(userId: user.id, content: existingGoal.content, goals: goalText)
                 _ = try await supabaseService.createGoal(newGoal)
+                currentGoal = goalText // Update current goal display
                 print("✅ Goal updated successfully: \(goalText)")
             } else {
                 // Create a new goal if none exists
                 let newGoal = Goal(userId: user.id, content: "", goals: goalText)
                 _ = try await supabaseService.createGoal(newGoal)
+                currentGoal = goalText // Update current goal display
                 print("✅ Goal created successfully: \(goalText)")
             }
         } catch {
@@ -631,6 +696,55 @@ class JournalViewModel: ObservableObject {
             } catch {
                 errorMessage = "Failed to remove favorite: \(error.localizedDescription)"
                 print("❌ Failed to remove favorite entry: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    // MARK: - Authentication
+    func signUpWithEmail(email: String, password: String) async {
+        print("🔐 Attempting to sign up with: \(email)")
+        
+        do {
+            let user = try await supabaseService.signUp(email: email, password: password)
+            
+            await MainActor.run {
+                self.currentUser = user
+                self.isAuthenticated = true
+                self.errorMessage = nil
+                print("✅ Sign up successful! User ID: \(user.id)")
+            }
+            
+            // Load initial data after successful authentication
+            await loadInitialData()
+            
+        } catch {
+            await MainActor.run {
+                self.errorMessage = "Sign up failed: \(error.localizedDescription)"
+                print("❌ Sign up failed: \(error)")
+            }
+        }
+    }
+    
+    func signInWithEmail(email: String, password: String) async {
+        print("🔐 Attempting to sign in with: \(email)")
+        
+        do {
+            let user = try await supabaseService.signIn(email: email, password: password)
+            
+            await MainActor.run {
+                self.currentUser = user
+                self.isAuthenticated = true
+                self.errorMessage = nil
+                print("✅ Sign in successful! User ID: \(user.id)")
+            }
+            
+            // Load initial data after successful authentication
+            await loadInitialData()
+            
+        } catch {
+            await MainActor.run {
+                self.errorMessage = "Sign in failed: \(error.localizedDescription)"
+                print("❌ Sign in failed: \(error)")
             }
         }
     }
