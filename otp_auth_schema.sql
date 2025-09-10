@@ -163,4 +163,4 @@ UNION ALL
 SELECT 
     'guided_questions' as table_name, 
     COUNT(*) as record_count 
-FROM guided_questions;
+FROM guided_questio
