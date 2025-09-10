@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var journalViewModel = JournalViewModel()
+    @EnvironmentObject var journalViewModel: JournalViewModel
     @State private var journalResponse: String = ""
     @State private var textEditorHeight: CGFloat = 150
     @State private var showCenteredButton: Bool = false
@@ -40,6 +40,12 @@ struct ContentView: View {
     
     // Favorites Page State
     @State private var expandedEntries: Set<UUID> = []
+    
+    // Authentication State
+    @State private var email: String = ""
+    @State private var otpCode: String = ""
+    @State private var showOTPInput: Bool = false
+    @State private var otpSent: Bool = false
     
     var body: some View {
         Group {
@@ -596,33 +602,130 @@ struct ContentView: View {
                 .fontWeight(.bold)
                 .foregroundColor(Color.textBlue)
             
-            Text("Sign in to start your journaling journey")
+            Text("Enter your email to get started")
                 .font(.body)
                 .foregroundColor(Color.textBlue.opacity(0.7))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
             
             VStack(spacing: 15) {
+                if !showOTPInput {
+                    // Email Input
+                    VStack(spacing: 15) {
+                        TextField("Enter your email", text: $email)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .keyboardType(.emailAddress)
+                            .autocapitalization(.none)
+                            .padding(.horizontal, 40)
+                        
+                        Button(action: {
+                            Task {
+                                await journalViewModel.sendOTP(email: email)
+                                if journalViewModel.errorMessage == nil {
+                                    showOTPInput = true
+                                    otpSent = true
+                                }
+                            }
+                        }) {
+                            Text("Send OTP")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(Color.textBlue)
+                                .cornerRadius(12)
+                        }
+                        .disabled(email.isEmpty || journalViewModel.isLoading)
+                        .padding(.horizontal, 40)
+                    }
+                } else {
+                    // OTP Code Input
+                    VStack(spacing: 15) {
+                        Text("Check your email for the OTP code")
+                            .font(.body)
+                            .foregroundColor(Color.textBlue.opacity(0.7))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                        
+                        Text("Enter the 6-digit code sent to your email")
+                            .font(.caption)
+                            .foregroundColor(Color.textBlue.opacity(0.5))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                        
+                        TextField("Enter OTP code", text: $otpCode)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                        
+                        HStack(spacing: 15) {
+                            Button(action: {
+                                showOTPInput = false
+                                otpSent = false
+                            }) {
+                                Text("Back")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(Color.textBlue)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(Color.clear)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(Color.textBlue, lineWidth: 1)
+                                    )
+                            }
+                            
+                            Button(action: {
+                                Task {
+                                    await journalViewModel.verifyOTP(email: email, token: otpCode)
+                                }
+                            }) {
+                                Text("Verify")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(Color.textBlue)
+                                    .cornerRadius(8)
+                            }
+                            .disabled(otpCode.isEmpty || journalViewModel.isLoading)
+                        }
+                        .padding(.horizontal, 40)
+                        
+                        Button(action: {
+                            // Resend OTP Code
+                            Task {
+                                await journalViewModel.sendOTP(email: email)
+                            }
+                        }) {
+                            Text("Resend Code")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color.textBlue.opacity(0.7))
+                        }
+                        .disabled(journalViewModel.isLoading)
+                    }
+                }
+                
+                // Demo button for testing
                 Button(action: {
-                    // Demo authentication - try to sign up, if user exists, sign in
                     Task {
                         await journalViewModel.authenticateTestUser()
                     }
                 }) {
-                    Text("Continue as Test User")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.white)
+                    Text("Continue as Test User (Demo)")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color.textBlue.opacity(0.7))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(Color.textBlue)
-                        .cornerRadius(12)
+                        .padding(.vertical, 8)
+                        .background(Color.clear)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color.textBlue.opacity(0.3), lineWidth: 1)
+                        )
                 }
                 .padding(.horizontal, 40)
-                
-                Text("This is a demo - no real authentication required")
-                    .font(.caption)
-                    .foregroundColor(Color.textBlue.opacity(0.6))
-                    .padding(.horizontal, 40)
+                .padding(.top, 10)
             }
             
             Spacer()
@@ -678,6 +781,13 @@ struct ContentView: View {
     }
     
     private func doneButtonTapped() {
+        print("🚨🚨🚨 DONE BUTTON TAPPED - METHOD CALLED!")
+        print("🚨🚨🚨 DONE BUTTON TAPPED - METHOD CALLED!")
+        print("🚨🚨🚨 DONE BUTTON TAPPED - METHOD CALLED!")
+        print("🔘🔘🔘 DONE BUTTON TAPPED - Content: \(journalResponse)")
+        print("🔘🔘🔘 DONE BUTTON TAPPED - Content: \(journalResponse)")
+        print("🔘🔘🔘 DONE BUTTON TAPPED - Content: \(journalResponse)")
+        
         // Change to Centered Button and lock text
         showCenteredButton = true
         isTextLocked = true
@@ -688,6 +798,7 @@ struct ContentView: View {
         
         // Save journal entry to Supabase
         Task {
+            print("📝📝📝 Calling journalViewModel.createJournalEntry with content: \(journalResponse)")
             await journalViewModel.createJournalEntry(content: journalResponse)
         }
         
@@ -1375,14 +1486,53 @@ Capabilities and Reminders: You have access to the web search tools to find and 
     }
     
     private var profilePageView: some View {
-        VStack {
+        VStack(spacing: 30) {
             Spacer()
-            Text("Profile Page")
-                .font(.largeTitle)
-                .foregroundColor(Color.textBlue)
-            Text("Coming Soon")
-                .font(.body)
-                .foregroundColor(Color.textBlue.opacity(0.7))
+            
+            // Profile Header
+            VStack(spacing: 16) {
+                Text("Profile")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .foregroundColor(Color.textBlue)
+                
+                if let user = journalViewModel.currentUser {
+                    VStack(spacing: 8) {
+                        Text(user.fullName ?? "User")
+                            .font(.title2)
+                            .fontWeight(.medium)
+                            .foregroundColor(Color.textBlue)
+                        
+                        Text(user.email ?? "No email")
+                            .font(.body)
+                            .foregroundColor(Color.textBlue.opacity(0.7))
+                    }
+                }
+            }
+            
+            Spacer()
+            
+            // Logout Button
+            Button(action: {
+                Task {
+                    await journalViewModel.signOut()
+                }
+            }) {
+                HStack {
+                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                        .font(.title2)
+                    Text("Log Out")
+                        .font(.title2)
+                        .fontWeight(.medium)
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
+                .background(Color.red)
+                .cornerRadius(16)
+                .padding(.horizontal, 40)
+            }
+            
             Spacer()
         }
         .background(Color.backgroundBeige)

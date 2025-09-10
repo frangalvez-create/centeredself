@@ -8,5 +8,18 @@
    Copyright (c) 2025 ___ORGANIZATIONNAME___. All rights reserved.
 -->
 <plist version="1.0">
-<dict/>
+<dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.centered.app.auth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>centered</string>
+				<string>com.centered.app</string>
+			</array>
+		</dict>
+	</array>
+</dict>
 </plist>

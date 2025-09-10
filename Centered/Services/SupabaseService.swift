@@ -2,8 +2,13 @@ import Foundation
 import Supabase
 
 class SupabaseService: ObservableObject {
-    private let useMockData = false // Now using real Supabase!
+    private let useMockData = false // Using live Supabase data with OTP authentication
     private let supabase: SupabaseClient
+    
+    // Mock data storage
+    private var mockJournalEntries: [JournalEntry] = []
+    private var mockGoals: [Goal] = []
+    private var mockUserProfile: UserProfile?
     
     init() {
         if useMockData {
@@ -25,48 +30,24 @@ class SupabaseService: ObservableObject {
     }
     
     // MARK: - Authentication
-    func signUp(email: String, password: String) async throws -> UserProfile {
+    func signUpWithOTP(email: String) async throws {
         if useMockData {
-            // Mock implementation
-            return UserProfile(
-                id: UUID(),
-                email: email,
-                fullName: nil,
-                avatarUrl: nil,
-                goals: nil,
-                createdAt: Date(),
-                updatedAt: Date()
-            )
+            // Mock implementation - always succeeds for testing
+            print("Mock: OTP code sent to \(email)")
         } else {
-            // Real Supabase implementation
-            let authResponse = try await supabase.auth.signUp(email: email, password: password)
-            let user = authResponse.user
-            
-            // Create user profile
-            let userProfile = UserProfile(
-                id: user.id,
+            // Real implementation - send OTP code (not Magic Link)
+            _ = try await supabase.auth.signInWithOTP(
                 email: email,
-                fullName: nil,
-                avatarUrl: nil,
-                goals: nil,
-                createdAt: Date(),
-                updatedAt: Date()
+                shouldCreateUser: true
             )
-            
-            // Insert into user_profiles table
-            try await supabase
-                .from("user_profiles")
-                .insert(userProfile)
-                .execute()
-            
-            return userProfile
+            print("OTP code sent to \(email)")
         }
     }
     
-    func signIn(email: String, password: String) async throws -> UserProfile {
+    func verifyOTP(email: String, token: String) async throws -> UserProfile {
         if useMockData {
             // Mock implementation - always succeeds for testing
-            return UserProfile(
+            let userProfile = UserProfile(
                 id: UUID(),
                 email: email,
                 fullName: "Test User",
@@ -75,13 +56,28 @@ class SupabaseService: ObservableObject {
                 createdAt: Date(),
                 updatedAt: Date()
             )
+            mockUserProfile = userProfile
+            print("Mock: OTP verified for \(email)")
+            return userProfile
         } else {
-            // Real implementation
-            let authResponse = try await supabase.auth.signIn(email: email, password: password)
+            // Real implementation - verify OTP
+            let authResponse = try await supabase.auth.verifyOTP(email: email, token: token, type: .email)
             let user = authResponse.user
             
-            // Fetch user profile
-            return try await getUserProfile(userId: user.id)
+            // For OTP auth, we create a simple UserProfile from auth.users data
+            // No separate user_profiles table needed
+            let userProfile = UserProfile(
+                id: user.id,
+                email: user.email ?? email,
+                fullName: user.userMetadata["full_name"]?.stringValue ?? "User",
+                avatarUrl: user.userMetadata["avatar_url"]?.stringValue,
+                goals: nil,
+                createdAt: user.createdAt,
+                updatedAt: Date()
+            )
+            
+            print("✅ OTP verified successfully for \(email)")
+            return userProfile
         }
     }
     
@@ -93,9 +89,39 @@ class SupabaseService: ObservableObject {
         }
     }
     
+    func getCurrentSession() async throws -> Session? {
+        if useMockData {
+            // Mock implementation - return mock session if user exists
+            if let mockUser = mockUserProfile {
+                return Session(
+                    providerToken: nil,
+                    providerRefreshToken: nil,
+                    accessToken: "mock_token",
+                    tokenType: "bearer",
+                    expiresIn: 3600,
+                    expiresAt: Date().timeIntervalSince1970 + 3600,
+                    refreshToken: "mock_refresh_token",
+                    weakPassword: nil,
+                    user: User(
+                        id: mockUser.id,
+                        appMetadata: [:],
+                        userMetadata: [:],
+                        aud: "authenticated",
+                        createdAt: mockUser.createdAt,
+                        updatedAt: mockUser.updatedAt
+                    )
+                )
+            }
+            return nil
+        } else {
+            // Real implementation - get current session
+            return try await supabase.auth.session
+        }
+    }
+    
     func getCurrentUserId() -> UUID? {
         if useMockData {
-            return nil // No user logged in by default for testing
+            return mockUserProfile?.id
         } else {
             // Get current authenticated user ID
             return supabase.auth.currentUser?.id
@@ -115,19 +141,19 @@ class SupabaseService: ObservableObject {
                 updatedAt: Date()
             )
         } else {
-            // Real implementation
-            let response: [UserProfile] = try await supabase
-                .from("user_profiles")
-                .select()
-                .eq("id", value: userId)
-                .execute()
-                .value
-            
-            guard let userProfile = response.first else {
-                throw NSError(domain: "DatabaseError", code: 0, userInfo: [NSLocalizedDescriptionKey: "User profile not found"])
-            }
-            
-            return userProfile
+            // Real implementation - get user info from auth.users table
+            // Since we're using simplified OTP auth, we don't have a separate user_profiles table
+            // We'll create a basic UserProfile from the auth session
+            let session = try await supabase.auth.session
+            return UserProfile(
+                id: session.user.id,
+                email: session.user.email ?? "unknown@example.com",
+                fullName: session.user.userMetadata["full_name"]?.stringValue ?? "User",
+                avatarUrl: session.user.userMetadata["avatar_url"]?.stringValue,
+                goals: nil,
+                createdAt: session.user.createdAt,
+                updatedAt: Date()
+            )
         }
     }
     
@@ -193,19 +219,29 @@ class SupabaseService: ObservableObject {
     
     // MARK: - Journal Entries
     func createJournalEntry(_ entry: JournalEntry) async throws -> JournalEntry {
+        print("🔘🔘🔘 SUPABASE CREATE JOURNAL ENTRY CALLED - Content: \(entry.content)")
+        print("🔘🔘🔘 SUPABASE CREATE JOURNAL ENTRY CALLED - Content: \(entry.content)")
+        print("🔘🔘🔘 SUPABASE CREATE JOURNAL ENTRY CALLED - Content: \(entry.content)")
+        
         if useMockData {
-            // Mock implementation - simulate saving
-            print("Mock: Saved journal entry - \(entry.content)")
-            // Create a new entry with database-generated fields
+            // Mock implementation - store the entry
             let savedEntry = JournalEntry(
+                id: UUID(),
                 userId: entry.userId,
                 guidedQuestionId: entry.guidedQuestionId,
                 content: entry.content,
                 aiPrompt: entry.aiPrompt,
                 aiResponse: entry.aiResponse,
                 tags: entry.tags,
-                isFavorite: entry.isFavorite
+                isFavorite: entry.isFavorite,
+                entryType: entry.entryType,
+                createdAt: Date(),
+                updatedAt: Date()
             )
+            mockJournalEntries.append(savedEntry)
+            print("Mock: Saved journal entry - Content: \(entry.content), User ID: \(entry.userId), Total entries: \(mockJournalEntries.count)")
+            print("Mock: Saved journal entry - Content: \(entry.content), User ID: \(entry.userId), Total entries: \(mockJournalEntries.count)")
+            print("Mock: Saved journal entry - Content: \(entry.content), User ID: \(entry.userId), Total entries: \(mockJournalEntries.count)")
             return savedEntry
         } else {
             // Real implementation - save journal entry to database
@@ -227,16 +263,29 @@ class SupabaseService: ObservableObject {
     func updateJournalEntry(_ entry: JournalEntry) async throws -> JournalEntry {
         if useMockData {
             // Mock implementation
-            print("Mock: Updated journal entry - \(entry.content)")
+            print("Mock: Updating journal entry - ID: \(entry.id), Content: \(entry.content), AI Prompt: \(entry.aiPrompt ?? "nil"), AI Response: \(entry.aiResponse ?? "nil")")
+            
+            // Find and update the entry in mock storage
+            if let index = mockJournalEntries.firstIndex(where: { $0.id == entry.id }) {
+                mockJournalEntries[index] = entry
+                print("Mock: Updated journal entry at index \(index), Total entries: \(mockJournalEntries.count)")
+            } else {
+                print("Mock: Entry not found for update, adding new entry")
+                mockJournalEntries.append(entry)
+            }
+            
             // Create a new entry with updated timestamp
             let updatedEntry = JournalEntry(
+                id: entry.id,
                 userId: entry.userId,
                 guidedQuestionId: entry.guidedQuestionId,
                 content: entry.content,
                 aiPrompt: entry.aiPrompt,
                 aiResponse: entry.aiResponse,
                 tags: entry.tags,
-                isFavorite: entry.isFavorite
+                isFavorite: entry.isFavorite,
+                createdAt: entry.createdAt,
+                updatedAt: Date()
             )
             return updatedEntry
         } else {
@@ -258,8 +307,13 @@ class SupabaseService: ObservableObject {
     
     func fetchJournalEntries(userId: UUID) async throws -> [JournalEntry] {
         if useMockData {
-            // Mock implementation - return empty array
-            return []
+            // Mock implementation - return stored entries for this user
+            let userEntries = mockJournalEntries.filter { $0.userId == userId }
+            print("Mock: Returning \(userEntries.count) journal entries for user \(userId)")
+            for entry in userEntries {
+                print("Mock: Entry - Content: \(entry.content), AI Prompt: \(entry.aiPrompt ?? "nil"), AI Response: \(entry.aiResponse ?? "nil")")
+            }
+            return userEntries
         } else {
             // Real implementation
             let response: [JournalEntry] = try await supabase.from("journal_entries")
@@ -293,18 +347,21 @@ class SupabaseService: ObservableObject {
     // MARK: - Open Question Journal Entries (Special handling)
     func createOpenQuestionJournalEntry(_ entry: JournalEntry, staticQuestion: String) async throws -> JournalEntry {
         if useMockData {
-            // Mock implementation - simulate saving
-            print("Mock: Saved open question journal entry - \(entry.content)")
-            // Create a new entry with database-generated fields
+            // Mock implementation - store the entry
             let savedEntry = JournalEntry(
+                id: UUID(),
                 userId: entry.userId,
                 guidedQuestionId: nil, // Open question entries have null guided_question_id
                 content: entry.content,
                 aiPrompt: entry.aiPrompt,
                 aiResponse: entry.aiResponse,
                 tags: entry.tags,
-                isFavorite: entry.isFavorite
+                isFavorite: entry.isFavorite,
+                createdAt: Date(),
+                updatedAt: Date()
             )
+            mockJournalEntries.append(savedEntry)
+            print("Mock: Saved open question journal entry - \(entry.content)")
             return savedEntry
         } else {
             // Real implementation - save open question journal entry to database
@@ -326,8 +383,12 @@ class SupabaseService: ObservableObject {
     
     func fetchOpenQuestionJournalEntries(userId: UUID) async throws -> [JournalEntry] {
         if useMockData {
-            // Mock implementation - return empty array
-            return []
+            // Mock implementation - return stored open question entries for this user
+            let userEntries = mockJournalEntries.filter { 
+                $0.userId == userId && $0.guidedQuestionId == nil 
+            }
+            print("Mock: Returning \(userEntries.count) open question entries for user")
+            return userEntries
         } else {
             // Real implementation - fetch entries tagged as open questions
             let response: [JournalEntry] = try await supabase.from("journal_entries")
@@ -345,12 +406,14 @@ class SupabaseService: ObservableObject {
     // MARK: - Goals
     func createGoal(_ goal: Goal) async throws -> Goal {
         if useMockData {
-            // Mock implementation
+            // Mock implementation - store the goal
             let savedGoal = Goal(
                 userId: goal.userId,
                 content: goal.content,
                 goals: goal.goals
             )
+            mockGoals.append(savedGoal)
+            print("Mock: Saved goal - \(goal.content)")
             return savedGoal
         } else {
             // Real implementation
@@ -369,7 +432,10 @@ class SupabaseService: ObservableObject {
     
     func fetchGoals(userId: UUID) async throws -> [Goal] {
         if useMockData {
-            return []
+            // Mock implementation - return stored goals for this user
+            let userGoals = mockGoals.filter { $0.userId == userId }
+            print("Mock: Returning \(userGoals.count) goals for user")
+            return userGoals
         } else {
             // Real implementation
             let goals: [Goal] = try await supabase.from("goals")

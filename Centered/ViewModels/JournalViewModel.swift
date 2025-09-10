@@ -34,37 +34,45 @@ class JournalViewModel: ObservableObject {
         }
     }
     
-    func signIn(email: String, password: String) async {
+    // Removed signIn method - using OTP authentication instead
+    
+    func sendOTP(email: String) async {
+        print("📧 sendOTP called with email: \(email)")
         isLoading = true
         errorMessage = nil
         
         do {
-            currentUser = try await supabaseService.signIn(email: email, password: password)
-            isAuthenticated = true
-            await loadInitialData()
+            try await supabaseService.signUpWithOTP(email: email)
+            print("✅ OTP code sent successfully to \(email)")
+            // Don't set isAuthenticated yet - wait for OTP verification
         } catch {
+            print("❌ OTP send failed: \(error.localizedDescription)")
             errorMessage = error.localizedDescription
-            isAuthenticated = false
         }
         
         isLoading = false
     }
     
-    func signUp(email: String, password: String) async {
+    func verifyOTP(email: String, token: String) async {
+        print("🔐 verifyOTP called with email: \(email), token: \(token)")
         isLoading = true
         errorMessage = nil
         
         do {
-            currentUser = try await supabaseService.signUp(email: email, password: password)
+            let userProfile = try await supabaseService.verifyOTP(email: email, token: token)
+            currentUser = userProfile
             isAuthenticated = true
+            print("✅ OTP verification successful")
             await loadInitialData()
         } catch {
+            print("❌ OTP verification failed: \(error.localizedDescription)")
             errorMessage = error.localizedDescription
-            isAuthenticated = false
         }
         
         isLoading = false
     }
+    
+    // OTP authentication requires explicit verification - no automatic session checking needed
     
     func signOut() async {
         do {
@@ -80,7 +88,6 @@ class JournalViewModel: ObservableObject {
     
     func authenticateTestUser() async {
         let testEmail = "test@example.com"
-        let testPassword = "password123"
         
         isLoading = true
         errorMessage = nil
@@ -88,38 +95,19 @@ class JournalViewModel: ObservableObject {
         print("🔐 Starting authentication for test user: \(testEmail)")
         
         do {
-            // Try to sign up first (creates user if doesn't exist)
-            print("📝 Attempting to sign up test user...")
-            currentUser = try await supabaseService.signUp(email: testEmail, password: testPassword)
+            // For mock data, just create a test user directly
+            print("📝 Creating test user with mock data...")
+            try await supabaseService.signUpWithOTP(email: testEmail)
+            
+            // For mock data, we can directly verify with a dummy OTP
+            currentUser = try await supabaseService.verifyOTP(email: testEmail, token: "123456")
             isAuthenticated = true
             await loadInitialData()
-            print("✅ Test user created and signed in successfully")
-        } catch let signUpError {
-            // If sign up fails (user might already exist), try to sign in
-            print("❌ Sign up failed: \(signUpError.localizedDescription)")
-            print("🔄 Trying to sign in existing user...")
-            
-            do {
-                currentUser = try await supabaseService.signIn(email: testEmail, password: testPassword)
-                isAuthenticated = true
-                await loadInitialData()
-                print("✅ Test user signed in successfully")
-            } catch let signInError {
-                print("❌ Sign in also failed: \(signInError.localizedDescription)")
-                print("🔍 Sign up error details: \(signUpError)")
-                print("🔍 Sign in error details: \(signInError)")
-                
-                // Provide more specific error messages
-                if signUpError.localizedDescription.contains("Email rate limit") {
-                    errorMessage = "Too many signup attempts. Please wait a moment and try again."
-                } else if signUpError.localizedDescription.contains("email") && signInError.localizedDescription.contains("credentials") {
-                    errorMessage = "Authentication setup issue. Please check Supabase configuration."
-                } else {
-                    errorMessage = "Authentication failed. Sign up: \(signUpError.localizedDescription). Sign in: \(signInError.localizedDescription)"
-                }
-                
-                isAuthenticated = false
-            }
+            print("✅ Test user authenticated successfully")
+        } catch {
+            print("❌ Test user authentication failed: \(error.localizedDescription)")
+            errorMessage = "Authentication failed: \(error.localizedDescription)"
+            isAuthenticated = false
         }
         
         isLoading = false
@@ -163,7 +151,21 @@ class JournalViewModel: ObservableObject {
     
     // MARK: - Journal Entry Management
     func createJournalEntry(content: String) async {
-        guard let user = currentUser else { return }
+        print("🚨🚨🚨 CREATE JOURNAL ENTRY METHOD CALLED!")
+        print("🚨🚨🚨 CREATE JOURNAL ENTRY METHOD CALLED!")
+        print("🚨🚨🚨 CREATE JOURNAL ENTRY METHOD CALLED!")
+        print("🔘🔘🔘 CREATE JOURNAL ENTRY CALLED - Content: \(content)")
+        print("🔘🔘🔘 CREATE JOURNAL ENTRY CALLED - Content: \(content)")
+        print("🔘🔘🔘 CREATE JOURNAL ENTRY CALLED - Content: \(content)")
+        
+        guard let user = currentUser else { 
+            print("❌❌❌ createJournalEntry: No current user found")
+            errorMessage = "No user authenticated"
+            return 
+        }
+        
+        print("✅✅✅ createJournalEntry: User found - \(user.id)")
+        print("📝📝📝 createJournalEntry: Content - \(content)")
         
         isLoading = true
         errorMessage = nil
@@ -176,15 +178,18 @@ class JournalViewModel: ObservableObject {
                 content: content
             )
             
+            print("📝📝📝 createJournalEntry: Created entry with userId: \(entry.userId), guidedQuestionId: \(entry.guidedQuestionId ?? UUID())")
+            
             // Save to database
             let savedEntry = try await supabaseService.createJournalEntry(entry)
             
             // Refresh entries
             await loadJournalEntries()
             
-            print("Journal entry saved successfully: \(savedEntry.content)")
+            print("✅✅✅ Journal entry saved successfully: \(savedEntry.content)")
             
         } catch {
+            print("❌❌❌ Failed to save journal entry: \(error.localizedDescription)")
             errorMessage = "Failed to save journal entry: \(error.localizedDescription)"
         }
         
@@ -372,7 +377,8 @@ class JournalViewModel: ObservableObject {
                 aiPrompt: nil,
                 aiResponse: nil,
                 tags: ["open_question"], // Tag to identify as open question entry
-                isFavorite: false
+                isFavorite: false,
+                entryType: "open"
             )
             
             // Save to database with special handling for open question
