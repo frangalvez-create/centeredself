@@ -50,11 +50,7 @@ class SupabaseService: ObservableObject {
             let userProfile = UserProfile(
                 id: UUID(),
                 email: email,
-                fullName: "Test User",
-                avatarUrl: nil,
-                goals: nil,
-                createdAt: Date(),
-                updatedAt: Date()
+                displayName: "Test User"
             )
             mockUserProfile = userProfile
             print("Mock: OTP verified for \(email)")
@@ -69,11 +65,7 @@ class SupabaseService: ObservableObject {
             let userProfile = UserProfile(
                 id: user.id,
                 email: user.email ?? email,
-                fullName: user.userMetadata["full_name"]?.stringValue ?? "User",
-                avatarUrl: user.userMetadata["avatar_url"]?.stringValue,
-                goals: nil,
-                createdAt: user.createdAt,
-                updatedAt: Date()
+                displayName: user.userMetadata["full_name"]?.stringValue ?? "User"
             )
             
             print("✅ OTP verified successfully for \(email)")
@@ -134,11 +126,7 @@ class SupabaseService: ObservableObject {
             return UserProfile(
                 id: userId,
                 email: "test@example.com",
-                fullName: "Test User",
-                avatarUrl: nil,
-                goals: nil,
-                createdAt: Date(),
-                updatedAt: Date()
+                displayName: "Test User"
             )
         } else {
             // Real implementation - get user info from auth.users table
@@ -148,11 +136,7 @@ class SupabaseService: ObservableObject {
             return UserProfile(
                 id: session.user.id,
                 email: session.user.email ?? "unknown@example.com",
-                fullName: session.user.userMetadata["full_name"]?.stringValue ?? "User",
-                avatarUrl: session.user.userMetadata["avatar_url"]?.stringValue,
-                goals: nil,
-                createdAt: session.user.createdAt,
-                updatedAt: Date()
+                displayName: session.user.userMetadata["full_name"]?.stringValue ?? "User"
             )
         }
     }
@@ -284,6 +268,7 @@ class SupabaseService: ObservableObject {
                 aiResponse: entry.aiResponse,
                 tags: entry.tags,
                 isFavorite: entry.isFavorite,
+                entryType: entry.entryType,
                 createdAt: entry.createdAt,
                 updatedAt: Date()
             )
@@ -357,6 +342,7 @@ class SupabaseService: ObservableObject {
                 aiResponse: entry.aiResponse,
                 tags: entry.tags,
                 isFavorite: entry.isFavorite,
+                entryType: entry.entryType,
                 createdAt: Date(),
                 updatedAt: Date()
             )
@@ -494,6 +480,7 @@ class SupabaseService: ObservableObject {
                     aiResponse: "It's wonderful to hear that your family relationships are going well. Positive connections with family can significantly enhance emotional well-being and contribute to a supportive environment.",
                     tags: [],
                     isFavorite: true,
+                    entryType: "guided",
                     createdAt: Date(),
                     updatedAt: Date()
                 ),
@@ -506,6 +493,7 @@ class SupabaseService: ObservableObject {
                     aiResponse: "To further strengthen these relationships, consider setting aside regular time for family activities, practicing active listening during conversations, and expressing appreciation for each family member's contributions.",
                     tags: [],
                     isFavorite: true,
+                    entryType: "guided",
                     createdAt: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date(),
                     updatedAt: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
                 )

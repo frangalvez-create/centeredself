@@ -1498,7 +1498,7 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                 
                 if let user = journalViewModel.currentUser {
                     VStack(spacing: 8) {
-                        Text(user.fullName ?? "User")
+                        Text(user.displayName ?? "User")
                             .font(.title2)
                             .fontWeight(.medium)
                             .foregroundColor(Color.textBlue)
