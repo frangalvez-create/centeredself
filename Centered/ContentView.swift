@@ -104,33 +104,41 @@ struct ContentView: View {
                 .padding(.top, 4)
                 .padding(.bottom, 30)
             
-            // Guided Question Text - Loaded from Database
-            if let currentQuestion = journalViewModel.currentQuestion {
-                Text(currentQuestion.questionText)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(Color.textBlue)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(nil)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 40)
-                    .padding(.bottom, 10)
-            } else if journalViewModel.isLoading {
-                Text("Loading today's question...")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(Color.textBlue.opacity(0.6))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
-                    .padding(.bottom, 10)
-            } else {
-                Text("What thing, person or moment filled you with gratitude today?")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(Color.textBlue)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(nil)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 40)
-                    .padding(.bottom, 10)
+            // Guided Question Text with Refresh Button - Loaded from Database
+            HStack(spacing: 8) {
+                if let currentQuestion = journalViewModel.currentQuestion {
+                    Text(currentQuestion.questionText)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(Color.textBlue)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if journalViewModel.isLoading {
+                    Text("Loading today's question...")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(Color.textBlue.opacity(0.6))
+                        .multilineTextAlignment(.center)
+                } else {
+                    Text("What thing, person or moment filled you with gratitude today?")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(Color.textBlue)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                
+                // Guided Question Refresh Button (HIDDEN - Logic preserved for 2AM auto-click)
+                // Button(action: {
+                //     guidedRefreshButtonTapped()
+                // }) {
+                //     Image("guide_refresh")
+                //         .resizable()
+                //         .frame(width: 22, height: 22)
+                // }
+                // .disabled(journalViewModel.isLoading)
             }
+            .padding(.horizontal, 40)
+            .padding(.bottom, 10)
             
             // Text Input Field with Done Button - Dynamic height with proper sizing
             VStack {
@@ -336,16 +344,28 @@ struct ContentView: View {
             
             // OPEN QUESTION SECTION (25pt spacing below Guided Question)
             VStack(spacing: 0) {
-                // Static Open Question Text
-                Text("Share anything...\nfears, goals, confusions, delights, etc")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(Color.textBlue)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(nil)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 40)
-                    .padding(.bottom, 10)
-                    .padding(.top, 25) // 25pt spacing below Guided Question
+                // Static Open Question Text with Refresh Button
+                HStack(spacing: 8) {
+                    Text("Share anything...\nfears, goals, confusions, delights, etc")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(Color.textBlue)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                    
+                    // Open Question Refresh Button (HIDDEN - Logic preserved for 2AM auto-click)
+                    // Button(action: {
+                    //     openRefreshButtonTapped()
+                    // }) {
+                    //     Image("open_refresh")
+                    //         .resizable()
+                    //         .frame(width: 22, height: 22)
+                    // }
+                    // .disabled(journalViewModel.isLoading)
+                }
+                .padding(.horizontal, 40)
+                .padding(.bottom, 10)
+                .padding(.top, 25) // 25pt spacing below Guided Question
                 
                 // Open Question Text Input Field with Done Button - Dynamic height with proper sizing
                 VStack {
@@ -583,7 +603,36 @@ struct ContentView: View {
         .onAppear {
             Task {
                 await journalViewModel.loadTodaysQuestion()
+                // Check if we need to reset UI for new day (better than 2AM timer)
+                await journalViewModel.checkAndResetIfNeeded()
+                // Populate UI state from loaded journal entries
+                populateUIStateFromJournalEntries()
             }
+            
+            // Set up the callbacks for UI state management
+            journalViewModel.clearUIStateCallback = {
+                print("🧹 Direct callback triggered - clearing UI state")
+                clearAllUIState()
+            }
+            
+            journalViewModel.populateUIStateCallback = {
+                print("🔄 Direct callback triggered - populating UI state")
+                populateUIStateFromJournalEntries()
+            }
+        }
+        .onChange(of: journalViewModel.shouldClearUIState) { shouldClear in
+            print("🔄 onChange triggered - shouldClear: \(shouldClear)")
+            if shouldClear {
+                print("🧹 Clearing UI state due to user sign out")
+                clearAllUIState()
+                // Reset the trigger
+                journalViewModel.shouldClearUIState = false
+                print("🧹 UI state cleared and trigger reset")
+            }
+        }
+        .onDisappear {
+            // Global timer handles 2AM reset - no cleanup needed here
+            print("🕐 View disappeared - global timer continues running")
         }
     }
     
@@ -939,6 +988,151 @@ Capabilities and Reminders: You have access to the web search tools to find and 
         }
         
         print("Favorite button clicked - Journal entry marked as favorite")
+    }
+    
+    // MARK: - Question Refresh Button Actions
+    
+    private func guidedRefreshButtonTapped() {
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        // Reset UI state for guided question
+        journalResponse = ""
+        isTextLocked = false
+        showCenteredButton = false
+        showCenteredButtonClick = false
+        currentAIResponse = ""
+        showFavoriteButton = false
+        isFavoriteClicked = false
+        textEditorHeight = 150
+        
+        // Refresh guided question in database
+        Task {
+            await journalViewModel.refreshGuidedQuestion()
+        }
+        
+        print("Guided Question refresh button clicked")
+    }
+    
+    private func openRefreshButtonTapped() {
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        // Reset UI state for open question
+        openJournalResponse = ""
+        openIsTextLocked = false
+        openShowCenteredButton = false
+        openShowCenteredButtonClick = false
+        openCurrentAIResponse = ""
+        openShowFavoriteButton = false
+        openIsFavoriteClicked = false
+        openTextEditorHeight = 150
+        
+        // Refresh open question in database
+        Task {
+            await journalViewModel.refreshOpenQuestion()
+        }
+        
+        print("Open Question refresh button clicked")
+    }
+    
+    // MARK: - UI State Management
+    
+    private func populateUIStateFromJournalEntries() {
+        print("🔄 Populating UI state from journal entries")
+        
+        // Find today's guided question entry
+        let calendar = Calendar.current
+        let todaysGuidedEntry = journalViewModel.journalEntries.first { entry in
+            entry.entryType == "guided" && calendar.isDateInToday(entry.createdAt)
+        }
+        
+        if let guidedEntry = todaysGuidedEntry {
+            print("📝 Found today's guided entry: \(guidedEntry.content)")
+            journalResponse = guidedEntry.content
+            currentAIResponse = guidedEntry.aiResponse ?? ""
+            
+            // Set UI state based on whether AI response exists
+            if !currentAIResponse.isEmpty {
+                isTextLocked = true
+                showCenteredButtonClick = true
+                showFavoriteButton = true
+                isFavoriteClicked = guidedEntry.isFavorite
+                textEditorHeight = 300
+            }
+        }
+        
+        // Find today's open question entry
+        let todaysOpenEntry = journalViewModel.openQuestionJournalEntries.first { entry in
+            entry.entryType == "open" && calendar.isDateInToday(entry.createdAt)
+        }
+        
+        if let openEntry = todaysOpenEntry {
+            print("📝 Found today's open entry: \(openEntry.content)")
+            openJournalResponse = openEntry.content
+            openCurrentAIResponse = openEntry.aiResponse ?? ""
+            
+            // Set UI state based on whether AI response exists
+            if !openCurrentAIResponse.isEmpty {
+                openIsTextLocked = true
+                openShowCenteredButtonClick = true
+                openShowFavoriteButton = true
+                openIsFavoriteClicked = openEntry.isFavorite
+                openTextEditorHeight = 300
+            }
+        }
+        
+        print("✅ UI state populated from journal entries")
+    }
+    
+    private func clearAllUIState() {
+        print("🧹 Clearing all UI state for user isolation")
+        print("🧹 Before clear - journalResponse: '\(journalResponse)'")
+        print("🧹 Before clear - currentAIResponse: '\(currentAIResponse)'")
+        print("🧹 Before clear - openJournalResponse: '\(openJournalResponse)'")
+        print("🧹 Before clear - openCurrentAIResponse: '\(openCurrentAIResponse)'")
+        
+        // Clear guided question UI state
+        journalResponse = ""
+        isTextLocked = false
+        showCenteredButton = false
+        showCenteredButtonClick = false
+        currentAIResponse = ""
+        showFavoriteButton = false
+        isFavoriteClicked = false
+        textEditorHeight = 150
+        
+        // Clear open question UI state
+        openJournalResponse = ""
+        openIsTextLocked = false
+        openShowCenteredButton = false
+        openShowCenteredButtonClick = false
+        openCurrentAIResponse = ""
+        openShowFavoriteButton = false
+        openIsFavoriteClicked = false
+        openTextEditorHeight = 150
+        
+        // Clear centered page state
+        goalText = ""
+        isGoalLocked = false
+        showCPRefreshButton = false
+        
+        // Clear favorites page state
+        expandedEntries = []
+        
+        // Clear authentication state
+        email = ""
+        otpCode = ""
+        showOTPInput = false
+        otpSent = false
+        
+        print("🧹 After clear - journalResponse: '\(journalResponse)'")
+        print("🧹 After clear - currentAIResponse: '\(currentAIResponse)'")
+        print("🧹 After clear - openJournalResponse: '\(openJournalResponse)'")
+        print("🧹 After clear - openCurrentAIResponse: '\(openCurrentAIResponse)'")
+        print("✅ All UI state cleared for user isolation")
     }
     
     // MARK: - OPEN QUESTION HELPER FUNCTIONS (Duplicated from Guided Question)

@@ -11,6 +11,16 @@ class JournalViewModel: ObservableObject {
     @Published var isAuthenticated = false
     @Published var openQuestionJournalEntries: [JournalEntry] = []
     @Published var favoriteJournalEntries: [JournalEntry] = []
+    @Published var shouldClearUIState = false
+    
+    // Callback to clear UI state directly
+    var clearUIStateCallback: (() -> Void)?
+    
+    // Callback to populate UI state from loaded data
+    var populateUIStateCallback: (() -> Void)?
+    
+    // Track the last user ID to detect user changes
+    private var lastUserId: UUID?
     
     private let supabaseService = SupabaseService()
     private let openAIService = OpenAIService()
@@ -24,7 +34,22 @@ class JournalViewModel: ObservableObject {
     func checkAuthenticationStatus() async {
         if let userId = supabaseService.getCurrentUserId() {
             do {
-                currentUser = try await supabaseService.getUserProfile(userId: userId)
+                let userProfile = try await supabaseService.getUserProfile(userId: userId)
+                
+                // Check if this is a different user than before
+                let isDifferentUser = lastUserId != nil && lastUserId != userProfile.id
+                print("🔄 checkAuthenticationStatus - User change detected: \(isDifferentUser), Previous: \(lastUserId?.uuidString ?? "nil"), Current: \(userProfile.id.uuidString)")
+                
+                // Only clear UI state if switching to a different user
+                if isDifferentUser {
+                    print("🧹 Different user detected in checkAuthenticationStatus - clearing UI state")
+                    await clearUIState()
+                } else {
+                    print("✅ Same user in checkAuthenticationStatus - preserving UI state")
+                }
+                
+                currentUser = userProfile
+                lastUserId = userProfile.id // Update the tracked user ID
                 isAuthenticated = true
                 await loadInitialData()
             } catch {
@@ -60,7 +85,21 @@ class JournalViewModel: ObservableObject {
         
         do {
             let userProfile = try await supabaseService.verifyOTP(email: email, token: token)
+            
+            // Check if this is a different user than before
+            let isDifferentUser = lastUserId != nil && lastUserId != userProfile.id
+            print("🔄 User change detected: \(isDifferentUser), Previous: \(lastUserId?.uuidString ?? "nil"), Current: \(userProfile.id.uuidString)")
+            
+            // Only clear UI state if switching to a different user
+            if isDifferentUser {
+                print("🧹 Different user detected - clearing UI state")
+                await clearUIState()
+            } else {
+                print("✅ Same user - preserving UI state")
+            }
+            
             currentUser = userProfile
+            lastUserId = userProfile.id // Update the tracked user ID
             isAuthenticated = true
             print("✅ OTP verification successful")
             await loadInitialData()
@@ -81,9 +120,32 @@ class JournalViewModel: ObservableObject {
             isAuthenticated = false
             journalEntries = []
             currentQuestion = nil
+            openQuestionJournalEntries = []
+            favoriteJournalEntries = []
+            // Don't clear UI state here - let verifyOTP handle it when a different user signs in
+            print("🚪 User signed out - UI state preserved for same user re-login")
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+    
+    // MARK: - UI State Management
+    func clearUIState() async {
+        print("🧹 Triggering UI state clear for user isolation - shouldClearUIState set to true")
+        
+        // Try both approaches
+        shouldClearUIState = true
+        
+        // Also call the callback directly if available
+        if let callback = clearUIStateCallback {
+            print("🧹 Calling UI state clear callback directly")
+            callback()
+        }
+        
+        // Give the UI time to process the change before resetting
+        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        shouldClearUIState = false
+        print("🧹 Reset shouldClearUIState to false")
     }
     
     func authenticateTestUser() async {
@@ -117,6 +179,14 @@ class JournalViewModel: ObservableObject {
     private func loadInitialData() async {
         await loadTodaysQuestion()
         await loadJournalEntries()
+        await loadOpenQuestionJournalEntries()
+        
+        // Notify UI to populate state from loaded data
+        DispatchQueue.main.async {
+            if let callback = self.populateUIStateCallback {
+                callback()
+            }
+        }
     }
     
     func loadTodaysQuestion() async {
@@ -639,6 +709,107 @@ class JournalViewModel: ObservableObject {
                 print("❌ Failed to remove favorite entry: \(error.localizedDescription)")
             }
         }
+    }
+    
+    // MARK: - Question Refresh Functions
+    
+    func refreshGuidedQuestion() async {
+        guard let user = currentUser else { 
+            errorMessage = "User not authenticated"
+            return 
+        }
+        
+        do {
+            // Create new guided question entry with empty content (preserve history)
+            let newEntry = JournalEntry(
+                userId: user.id,
+                guidedQuestionId: currentQuestion?.id,
+                content: "",
+                entryType: "guided"
+            )
+            
+            _ = try await supabaseService.createJournalEntry(newEntry)
+            print("✅ Created new guided question entry (preserving history)")
+            
+            // Reload data to reflect changes
+            await loadJournalEntries()
+            
+        } catch {
+            errorMessage = "Failed to refresh guided question: \(error.localizedDescription)"
+            print("❌ Failed to refresh guided question: \(error.localizedDescription)")
+        }
+    }
+    
+    func refreshOpenQuestion() async {
+        guard let user = currentUser else { 
+            errorMessage = "User not authenticated"
+            return 
+        }
+        
+        do {
+            // Create new open question entry with empty content (preserve history)
+            let newEntry = JournalEntry(
+                userId: user.id,
+                guidedQuestionId: nil,
+                content: "",
+                tags: ["open_question"],
+                entryType: "open"
+            )
+            
+            _ = try await supabaseService.createOpenQuestionJournalEntry(newEntry, staticQuestion: "Share anything... fears, goals, confusions, delights, etc")
+            print("✅ Created new open question entry (preserving history)")
+            
+            // Reload data to reflect changes
+            await loadOpenQuestionJournalEntries()
+            
+        } catch {
+            errorMessage = "Failed to refresh open question: \(error.localizedDescription)"
+            print("❌ Failed to refresh open question: \(error.localizedDescription)")
+        }
+    }
+    
+    // MARK: - Smart Reset Functions (Better than 2AM timer)
+    
+    func checkAndResetIfNeeded() async {
+        guard let user = currentUser else { return }
+        
+        do {
+            // Get user's last journal entry date
+            let entries = try await supabaseService.fetchJournalEntries(userId: user.id)
+            
+            guard let lastEntry = entries.max(by: { $0.createdAt < $1.createdAt }) else {
+                // No entries yet, nothing to reset
+                return
+            }
+            
+            // Check if it's been past 2AM since last entry
+            let calendar = Calendar.current
+            let now = Date()
+            let lastEntryDate = lastEntry.createdAt
+            
+            // Get 2AM of the day after the last entry
+            var components = calendar.dateComponents([.year, .month, .day], from: lastEntryDate)
+            components.hour = 2
+            components.minute = 0
+            components.second = 0
+            
+            let next2AM = calendar.date(byAdding: .day, value: 1, to: calendar.date(from: components)!)!
+            
+            // If current time is past the next 2AM, reset the UI
+            if now >= next2AM {
+                print("🕐 It's past 2AM since last entry - resetting UI")
+                await resetUIForNewDay()
+            }
+            
+        } catch {
+            print("❌ Failed to check reset status: \(error.localizedDescription)")
+        }
+    }
+    
+    private func resetUIForNewDay() async {
+        // Reset UI state without deleting database entries
+        // This will be called from ContentView to reset the UI
+        print("🔄 Resetting UI for new day (preserving all history)")
     }
 }
 

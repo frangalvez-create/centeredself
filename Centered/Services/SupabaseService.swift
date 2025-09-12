@@ -314,18 +314,17 @@ class SupabaseService: ObservableObject {
     
     func deleteJournalEntry(id: UUID) async throws {
         if useMockData {
-            // Mock implementation
-            print("Mock: Deleted journal entry with ID: \(id)")
+            // Mock implementation - remove from mock storage
+            mockJournalEntries.removeAll { $0.id == id }
+            print("Mock: Deleted journal entry with ID: \(id), Remaining entries: \(mockJournalEntries.count)")
         } else {
-            // Real implementation (to be uncommented)
-            /*
-            try await supabase.database
+            // Real implementation
+            try await supabase
                 .from("journal_entries")
                 .delete()
                 .eq("id", value: id)
                 .execute()
-            */
-            throw NSError(domain: "NotImplemented", code: 0, userInfo: [NSLocalizedDescriptionKey: "Real Supabase not yet configured"])
+            print("Real: Deleted journal entry with ID: \(id)")
         }
     }
     
