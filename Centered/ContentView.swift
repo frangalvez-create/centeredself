@@ -226,6 +226,36 @@ struct ContentView: View {
                             .scrollContentBackground(.hidden)
                             .frame(height: max(150, min(300, textEditorHeight)))
                             .disabled(isTextLocked) // Lock text when Done is pressed
+                            .overlay(
+                                // Bottom fade mask to prevent text overlap with Done button
+                                // Only show when AI response is not yet generated (before Centered button click)
+                                Group {
+                                    if !isTextLocked && currentAIResponse.isEmpty {
+                                        VStack {
+                                            Spacer()
+                                            // Gradient mask with proper rounded bottom corners
+                                            LinearGradient(
+                                                gradient: Gradient(stops: [
+                                                    .init(color: Color.clear, location: 0.0),
+                                                    .init(color: Color.textFieldBackground, location: 1.0)
+                                                ]),
+                                                startPoint: .top,
+                                                endPoint: .bottom
+                                            )
+                                            .frame(height: 55) // 55pt height
+                                            .clipShape(
+                                                // Custom shape that matches the bottom rounded corners of the text field
+                                                UnevenRoundedRectangle(
+                                                    topLeadingRadius: 0,
+                                                    bottomLeadingRadius: 20,
+                                                    bottomTrailingRadius: 20,
+                                                    topTrailingRadius: 0
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+                            )
                             .onChange(of: journalResponse) {
                                 updateTextEditorHeight()
                             }
@@ -346,7 +376,7 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 // Static Open Question Text with Refresh Button
                 HStack(spacing: 8) {
-                    Text("Share anything...\nfears, goals, confusions, delights, etc")
+                    Text("How was your day? Share anything…\nhighs, lows, worries, insights, etc.")
                         .font(.system(size: 16, weight: .medium))
                         .foregroundColor(Color.textBlue)
                         .multilineTextAlignment(.center)
@@ -453,6 +483,36 @@ struct ContentView: View {
                                 .scrollContentBackground(.hidden)
                                 .frame(height: max(150, min(300, openTextEditorHeight)))
                                 .disabled(openIsTextLocked) // Lock text when Done is pressed
+                                .overlay(
+                                    // Bottom fade mask to prevent text overlap with Done button
+                                    // Only show when AI response is not yet generated (before Centered button click)
+                                    Group {
+                                        if !openIsTextLocked && openCurrentAIResponse.isEmpty {
+                                            VStack {
+                                                Spacer()
+                                                // Gradient mask with proper rounded bottom corners
+                                                LinearGradient(
+                                                    gradient: Gradient(stops: [
+                                                        .init(color: Color.clear, location: 0.0),
+                                                        .init(color: Color.textFieldBackground, location: 1.0)
+                                                    ]),
+                                                    startPoint: .top,
+                                                    endPoint: .bottom
+                                                )
+                                                .frame(height: 55) // 55pt height
+                                                .clipShape(
+                                                    // Custom shape that matches the bottom rounded corners of the text field
+                                                    UnevenRoundedRectangle(
+                                                        topLeadingRadius: 0,
+                                                        bottomLeadingRadius: 20,
+                                                        bottomTrailingRadius: 20,
+                                                        topTrailingRadius: 0
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
+                                )
                                 .onChange(of: openJournalResponse) {
                                     updateOpenTextEditorHeight()
                                 }
@@ -872,9 +932,8 @@ struct ContentView: View {
     }
     
     private func generateAndSaveAIPrompt() async {
-        // Get the most recent goal from the database
-        let goals = await journalViewModel.fetchGoals()
-        let mostRecentGoal = goals.first?.goals ?? ""
+        // Get the most recent goal from the loaded goals
+        let mostRecentGoal = journalViewModel.goals.first?.goals ?? ""
         
         // Create the AI prompt text with replacements
         let aiPromptText = createAIPromptText(content: journalResponse, goal: mostRecentGoal)
@@ -1084,6 +1143,16 @@ Capabilities and Reminders: You have access to the web search tools to find and 
             }
         }
         
+        // Load goal text from the most recent goal
+        if let mostRecentGoal = journalViewModel.goals.first {
+            print("📝 Found goal: \(mostRecentGoal.goals)")
+            goalText = mostRecentGoal.goals
+            isGoalLocked = true
+            showCPRefreshButton = true
+        } else {
+            print("📝 No goals found - goal text remains empty")
+        }
+        
         print("✅ UI state populated from journal entries")
     }
     
@@ -1218,9 +1287,8 @@ Capabilities and Reminders: You have access to the web search tools to find and 
     }
     
     private func generateAndSaveOpenAIPrompt() async {
-        // Get the most recent goal from the database
-        let goals = await journalViewModel.fetchGoals()
-        let mostRecentGoal = goals.first?.goals ?? ""
+        // Get the most recent goal from the loaded goals
+        let mostRecentGoal = journalViewModel.goals.first?.goals ?? ""
         
         // Create the AI prompt text with replacements
         let aiPromptText = createAIPromptText(content: openJournalResponse, goal: mostRecentGoal)

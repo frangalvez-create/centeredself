@@ -11,6 +11,7 @@ class JournalViewModel: ObservableObject {
     @Published var isAuthenticated = false
     @Published var openQuestionJournalEntries: [JournalEntry] = []
     @Published var favoriteJournalEntries: [JournalEntry] = []
+    @Published var goals: [Goal] = []
     @Published var shouldClearUIState = false
     
     // Callback to clear UI state directly
@@ -180,12 +181,28 @@ class JournalViewModel: ObservableObject {
         await loadTodaysQuestion()
         await loadJournalEntries()
         await loadOpenQuestionJournalEntries()
+        await loadGoals() // Load goals for persistence
         
         // Notify UI to populate state from loaded data
         DispatchQueue.main.async {
             if let callback = self.populateUIStateCallback {
                 callback()
             }
+        }
+    }
+    
+    func loadGoals() async {
+        guard let user = currentUser else { return }
+        
+        do {
+            goals = try await supabaseService.fetchGoals(userId: user.id)
+            print("✅ Goals loaded: \(goals.count) goals found")
+            if let firstGoal = goals.first {
+                print("📝 Most recent goal: \(firstGoal.goals)")
+            }
+        } catch {
+            errorMessage = "Failed to load goals: \(error.localizedDescription)"
+            print("❌ Failed to load goals: \(error.localizedDescription)")
         }
     }
     
@@ -488,7 +505,7 @@ class JournalViewModel: ObservableObject {
             )
             
             // Save to database with special handling for open question
-            let savedEntry = try await supabaseService.createOpenQuestionJournalEntry(entry, staticQuestion: "Share anything... fears, goals, confusions, delights, etc")
+            let savedEntry = try await supabaseService.createOpenQuestionJournalEntry(entry, staticQuestion: "How was your day? Share anything…\nhighs, lows, worries, insights, etc.")
             
             // Refresh entries
             await loadOpenQuestionJournalEntries()
@@ -795,7 +812,7 @@ class JournalViewModel: ObservableObject {
                 entryType: "open"
             )
             
-            _ = try await supabaseService.createOpenQuestionJournalEntry(newEntry, staticQuestion: "Share anything... fears, goals, confusions, delights, etc")
+            _ = try await supabaseService.createOpenQuestionJournalEntry(newEntry, staticQuestion: "How was your day? Share anything…\nhighs, lows, worries, insights, etc.")
             print("✅ Created new open question entry (preserving history)")
             
             // Reload data to reflect changes
