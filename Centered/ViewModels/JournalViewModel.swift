@@ -193,9 +193,42 @@ class JournalViewModel: ObservableObject {
         isLoading = true
         
         do {
-            currentQuestion = try await supabaseService.getRandomGuidedQuestion()
+            guard let user = currentUser else {
+                print("❌ loadTodaysQuestion: No current user")
+                isLoading = false
+                return
+            }
+            
+            // First, load journal entries to check if there's a recent one for today
+            let entries = try await supabaseService.fetchJournalEntries(userId: user.id)
+            
+            // Check if there's a journal entry from today
+            let today = Calendar.current.startOfDay(for: Date())
+            let todayEntries = entries.filter { entry in
+                Calendar.current.isDate(entry.createdAt, inSameDayAs: today)
+            }
+            
+            if let mostRecentTodayEntry = todayEntries.first,
+               let guidedQuestionId = mostRecentTodayEntry.guidedQuestionId {
+                // Load the guided question that was used for today's entry
+                let guidedQuestions = try await supabaseService.fetchGuidedQuestions()
+                if let question = guidedQuestions.first(where: { $0.id == guidedQuestionId }) {
+                    currentQuestion = question
+                    print("✅ loadTodaysQuestion: Loaded question from today's journal entry: \(question.questionText)")
+                } else {
+                    // Fallback to random question if the specific question isn't found
+                    currentQuestion = try await supabaseService.getRandomGuidedQuestion()
+                    print("⚠️ loadTodaysQuestion: Couldn't find guided question ID \(guidedQuestionId), using random question")
+                }
+            } else {
+                // No journal entry for today, load a random question
+                currentQuestion = try await supabaseService.getRandomGuidedQuestion()
+                print("✅ loadTodaysQuestion: No journal entry for today, loaded random question: \(currentQuestion?.questionText ?? "nil")")
+            }
+            
         } catch {
             errorMessage = "Failed to load today's question: \(error.localizedDescription)"
+            print("❌ loadTodaysQuestion error: \(error.localizedDescription)")
             // Fallback to default question
             currentQuestion = GuidedQuestion(
                 id: UUID(),
@@ -312,6 +345,7 @@ class JournalViewModel: ObservableObject {
             aiResponse: mostRecentEntry.aiResponse,
             tags: mostRecentEntry.tags,
             isFavorite: mostRecentEntry.isFavorite,
+            entryType: mostRecentEntry.entryType, // Preserve entry type
             createdAt: mostRecentEntry.createdAt,
             updatedAt: Date() // Update timestamp
         )
@@ -365,6 +399,7 @@ class JournalViewModel: ObservableObject {
                 aiResponse: aiResponse, // Add the AI response
                 tags: mostRecentEntry.tags,
                 isFavorite: mostRecentEntry.isFavorite,
+                entryType: mostRecentEntry.entryType, // Preserve entry type
                 createdAt: mostRecentEntry.createdAt,
                 updatedAt: Date() // Update timestamp
             )
@@ -417,6 +452,7 @@ class JournalViewModel: ObservableObject {
             aiResponse: mostRecentEntry.aiResponse,
             tags: mostRecentEntry.tags,
             isFavorite: isFavorite, // Update favorite status
+            entryType: mostRecentEntry.entryType, // Preserve entry type
             createdAt: mostRecentEntry.createdAt,
             updatedAt: Date() // Update timestamp
         )
@@ -501,6 +537,7 @@ class JournalViewModel: ObservableObject {
             aiResponse: mostRecentEntry.aiResponse,
             tags: mostRecentEntry.tags,
             isFavorite: mostRecentEntry.isFavorite,
+            entryType: mostRecentEntry.entryType, // Preserve entry type
             createdAt: mostRecentEntry.createdAt,
             updatedAt: Date() // Update timestamp
         )
@@ -554,6 +591,7 @@ class JournalViewModel: ObservableObject {
                 aiResponse: aiResponse, // Add the AI response
                 tags: mostRecentEntry.tags,
                 isFavorite: mostRecentEntry.isFavorite,
+                entryType: mostRecentEntry.entryType, // Preserve entry type
                 createdAt: mostRecentEntry.createdAt,
                 updatedAt: Date() // Update timestamp
             )
@@ -597,6 +635,7 @@ class JournalViewModel: ObservableObject {
             aiResponse: mostRecentEntry.aiResponse,
             tags: mostRecentEntry.tags,
             isFavorite: isFavorite, // Update favorite status
+            entryType: mostRecentEntry.entryType, // Preserve entry type
             createdAt: mostRecentEntry.createdAt,
             updatedAt: Date() // Update timestamp
         )

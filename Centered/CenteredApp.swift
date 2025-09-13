@@ -18,6 +18,10 @@ struct CenteredApp: App {
                 .environmentObject(journalViewModel)
                 .onAppear {
                     startGlobal2AMTimer()
+                    // Check for existing authentication session on app startup
+                    Task {
+                        await journalViewModel.checkAuthenticationStatus()
+                    }
                 }
                 .onDisappear {
                     stopGlobal2AMTimer()

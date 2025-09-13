@@ -292,18 +292,21 @@ class SupabaseService: ObservableObject {
     
     func fetchJournalEntries(userId: UUID) async throws -> [JournalEntry] {
         if useMockData {
-            // Mock implementation - return stored entries for this user
-            let userEntries = mockJournalEntries.filter { $0.userId == userId }
-            print("Mock: Returning \(userEntries.count) journal entries for user \(userId)")
+            // Mock implementation - return only guided question entries for this user (exclude open question entries)
+            let userEntries = mockJournalEntries.filter { 
+                $0.userId == userId && $0.guidedQuestionId != nil 
+            }
+            print("Mock: Returning \(userEntries.count) guided question journal entries for user \(userId)")
             for entry in userEntries {
                 print("Mock: Entry - Content: \(entry.content), AI Prompt: \(entry.aiPrompt ?? "nil"), AI Response: \(entry.aiResponse ?? "nil")")
             }
             return userEntries
         } else {
-            // Real implementation
+            // Real implementation - only fetch guided question entries (exclude open question entries)
             let response: [JournalEntry] = try await supabase.from("journal_entries")
                 .select()
                 .eq("user_id", value: userId)
+                .not("entry_type", operator: .eq, value: "open") // Exclude open question entries
                 .order("created_at", ascending: false)
                 .execute()
                 .value
