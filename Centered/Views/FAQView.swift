@@ -36,7 +36,7 @@ struct FAQView: View {
                                     .padding(.top, 50) // 50pt below FAQ title
                                 
                                 Text("Centered is a journaling and self-reflection app designed to help you explore your thoughts and experiences, build self-awareness, ease stress, manage emotions, celebrate progress and set meaningful goals through guided prompts and AI-powered insights.")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 14))
                                     .foregroundColor(Color(hex: "545555"))
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.leading, 15) // 15pt left padding
@@ -53,8 +53,8 @@ struct FAQView: View {
                                     .padding(.leading, 10) // 10pt left padding
                                     .padding(.top, 20) // 20pt below previous answer
                                 
-                                Text("You can enter journal logs once a day into our guide question section and/or write freely into the lower section. Both give you the option for AI insights after you've entered your log. All daily journal entries will refresh overnight and new journaling opportunities will come available the next day.")
-                                    .font(.system(size: 12))
+                                Text("You can add one journal entry per day in the guided question section and/or write freely in the lower section. After submitting, you'll have the option to receive AI insights by clicking the centered button. Journal entries refresh overnight, and new opportunities to journal become available the next day.")
+                                    .font(.system(size: 14))
                                     .foregroundColor(Color(hex: "545555"))
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.leading, 15) // 15pt left padding
@@ -71,8 +71,8 @@ struct FAQView: View {
                                     .padding(.leading, 10) // 10pt left padding
                                     .padding(.top, 20) // 20pt below previous answer
                                 
-                                Text("All daily journal entries will refresh overnight and new journaling opportunities will come available the next day. If you still see yesterday's journal entry in the morning, simply give your phone a shake and it will clear.")
-                                    .font(.system(size: 12))
+                                Text("Journal entries refresh overnight, and new opportunities open each day. If yesterday's entry still appears in the morning, just swipe down on your screen to clear it.")
+                                    .font(.system(size: 14))
                                     .foregroundColor(Color(hex: "545555"))
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.leading, 15) // 15pt left padding
@@ -90,7 +90,7 @@ struct FAQView: View {
                                     .padding(.top, 20) // 20pt below previous answer
                                 
                                 Text("CenteredSelf uses OpenAI's language model to provide personalized journaling prompts, insights, and suggestions based on your entries. Your data is encrypted, processed and stored securely.")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 14))
                                     .foregroundColor(Color(hex: "545555"))
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.leading, 15) // 15pt left padding
@@ -108,7 +108,7 @@ struct FAQView: View {
                                     .padding(.top, 20) // 20pt below previous answer
                                 
                                 Text("Yes, we take your privacy seriously. Your journal entries are stored securely and are only accessible to you. We use industry-standard security measures to protect your data.")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 14))
                                     .foregroundColor(Color(hex: "545555"))
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.leading, 15) // 15pt left padding
@@ -126,7 +126,7 @@ struct FAQView: View {
                                     .padding(.top, 20) // 20pt below previous answer
                                 
                                 Text("Simply create an account, verify your email, authenticate your One Time Passcode (OTP) and start journaling! You can choose from guided questions or write freely about anything on your mind. The AI will provide helpful insight and actions as you go.")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 14))
                                     .foregroundColor(Color(hex: "545555"))
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.leading, 15) // 15pt left padding
@@ -144,7 +144,7 @@ struct FAQView: View {
                                     .padding(.top, 20) // 20pt below previous answer
                                 
                                 Text("Currently, you can view and edit your entries within the app. Export functionality is planned for future updates. Your data remains accessible to you at all times.")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 14))
                                     .foregroundColor(Color(hex: "545555"))
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.leading, 15) // 15pt left padding
@@ -162,7 +162,7 @@ struct FAQView: View {
                                     .padding(.top, 20) // 20pt below previous answer
                                 
                                 Text("You can reach us at centeredselfapp@gmail.com for any questions, feedback, or support needs. We typically respond within 24-48 hours.")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 14))
                                     .foregroundColor(Color(hex: "545555"))
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.leading, 15) // 15pt left padding
