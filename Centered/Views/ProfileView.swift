@@ -17,7 +17,7 @@ struct ProfileView: View {
                 .padding(.top, 58) // 58pt from top of screen
             
             // User Name
-            Text(UserDefaults.standard.string(forKey: "firstName") ?? journalViewModel.currentUser?.firstName ?? "User")
+            Text(getUserSpecificFirstName())
                 .font(.system(size: 20, weight: .medium))
                 .foregroundColor(Color(hex: "3F5E82"))
                 .padding(.top, 10) // 10pt below profile logo
@@ -200,6 +200,22 @@ struct ProfileView: View {
         .sheet(isPresented: $showingFAQ) {
             FAQView()
         }
+        .onAppear {
+            // Refresh the view when it appears to show updated first name
+        }
+    }
+    
+    // Helper function to get user-specific first name
+    private func getUserSpecificFirstName() -> String {
+        let userId = journalViewModel.currentUser?.id.uuidString ?? "anonymous"
+        let firstNameKey = "firstName_\(userId)"
+        
+        if let savedFirstName = UserDefaults.standard.string(forKey: firstNameKey), !savedFirstName.isEmpty {
+            return savedFirstName
+        }
+        
+        // Fallback to currentUser firstName or "User"
+        return journalViewModel.currentUser?.firstName ?? "User"
     }
 }
 
