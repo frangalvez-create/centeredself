@@ -712,22 +712,31 @@ struct ContentView: View {
     
     private var authenticationView: some View {
         VStack(spacing: 20) {
-            Spacer()
-            
+            // Centered Logo - moved to 100pt from top
             Image("CS Logo")
                 .resizable()
                 .scaledToFit()
                 .frame(height: 120)
-                .padding(.bottom, 20)
+                .padding(.top, 100)
             
-            Text("Welcome to Centered")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-                .foregroundColor(Color.textBlue)
+            // Welcome to text - 22pt regular, Blue #3F5E82
+            Text("Welcome to")
+                .font(.system(size: 22))
+                .foregroundColor(Color(hex: "3F5E82"))
+            
+            // CenteredApp Logo - 5pt below Welcome to
+            Image("CenteredApp Logo")
+                .resizable()
+                .scaledToFit()
+                .frame(height: 60)
+                .padding(.top, 5)
+            
+            Spacer()
+                .frame(height: 45)
             
             Text("Enter your email to get started")
                 .font(.body)
-                .foregroundColor(Color.textBlue.opacity(0.7))
+                .foregroundColor(Color(hex: "3F5E82"))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
             
@@ -750,12 +759,12 @@ struct ContentView: View {
                                 }
                             }
                         }) {
-                            Text("Send OTP")
+                            Text("Send One Time Passcode")
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
-                                .background(Color.textBlue)
+                                .background(Color(hex: "3F5E82"))
                                 .cornerRadius(12)
                         }
                         .disabled(email.isEmpty || journalViewModel.isLoading)
@@ -829,26 +838,6 @@ struct ContentView: View {
                         .disabled(journalViewModel.isLoading)
                     }
                 }
-                
-                // Demo button for testing
-                Button(action: {
-                    Task {
-                        await journalViewModel.authenticateTestUser()
-                    }
-                }) {
-                    Text("Continue as Test User (Demo)")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Color.textBlue.opacity(0.7))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(Color.clear)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(Color.textBlue.opacity(0.3), lineWidth: 1)
-                        )
-                }
-                .padding(.horizontal, 40)
-                .padding(.top, 10)
             }
             
             Spacer()
