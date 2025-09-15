@@ -633,12 +633,21 @@ struct ContentView: View {
                         }
                     }
                     .frame(height: (openIsTextLocked && !openCurrentAIResponse.isEmpty) ? 300 : max(150, min(300, openTextEditorHeight)))
-                }
-                .padding(.horizontal, 30)
             }
+            .padding(.horizontal, 30)
             
-            // Add bottom padding for future navigation tabs
-            Spacer(minLength: 100) // Extra space at bottom for navigation tabs
+            // New journal entries text - 30pt below open question text box
+            Text("New journal entries available every morning.\nSwipe down to refresh.")
+                .font(.system(size: 12))
+                .foregroundColor(Color(hex: "545555"))
+                .opacity(0.7) // 70% opacity
+                .multilineTextAlignment(.center)
+                .padding(.top, 30) // 30pt below open question text box
+                .padding(.horizontal, 40)
+        }
+        
+        // Add bottom padding for future navigation tabs
+        Spacer(minLength: 100) // Extra space at bottom for navigation tabs
             }
             .padding(.bottom, 50) // Additional padding for navigation tabs
         }
@@ -1604,22 +1613,39 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                     .padding(.bottom, 20)
                 
                 // List of favorite entries with swipe-to-delete - 20pt below title
-                List {
-                    ForEach(journalViewModel.favoriteJournalEntries) { entry in
-                        favoriteEntryView(entry: entry)
-                            .listRowBackground(Color(hex: "E3E0C9"))
-                            .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets(top: 7.5, leading: 8, bottom: 7.5, trailing: 8))
+                if journalViewModel.favoriteJournalEntries.isEmpty {
+                    // Show empty state message when no favorites exist
+                    VStack {
+                        Spacer()
+                            .frame(height: 20) // Fixed height to raise text up 20pt
+                        
+                        Text("No favorite entries have been made yet..")
+                            .font(.system(size: 13))
+                            .foregroundColor(Color(hex: "545555"))
+                            .opacity(0.7) // 70% opacity
+                            .multilineTextAlignment(.center)
+                        
+                        Spacer()
                     }
-                    .onDelete { offsets in
-                        Task {
-                            await journalViewModel.deleteFavoriteEntries(at: offsets)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List {
+                        ForEach(journalViewModel.favoriteJournalEntries) { entry in
+                            favoriteEntryView(entry: entry)
+                                .listRowBackground(Color(hex: "E3E0C9"))
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 7.5, leading: 8, bottom: 7.5, trailing: 8))
+                        }
+                        .onDelete { offsets in
+                            Task {
+                                await journalViewModel.deleteFavoriteEntries(at: offsets)
+                            }
                         }
                     }
+                    .listStyle(PlainListStyle())
+                    .environment(\.editMode, isEditingFavorites ? .constant(.active) : .constant(.inactive))
+                    .scrollContentBackground(.hidden)
                 }
-                .listStyle(PlainListStyle())
-                .environment(\.editMode, isEditingFavorites ? .constant(.active) : .constant(.inactive))
-                .scrollContentBackground(.hidden)
             }
             .background(Color(hex: "E3E0C9"))
             
