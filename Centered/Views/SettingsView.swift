@@ -166,24 +166,38 @@ struct SettingsView: View {
     
     // Load persisted data from UserDefaults
     private func loadPersistedData() {
-        if let savedFirstName = UserDefaults.standard.string(forKey: "firstName") {
+        // Get user-specific keys to prevent data leakage between users
+        let userId = journalViewModel.currentUser?.id.uuidString ?? "anonymous"
+        let firstNameKey = "firstName_\(userId)"
+        let lastNameKey = "lastName_\(userId)"
+        let frequencyKey = "notificationFrequency_\(userId)"
+        let streakKey = "streakEndingNotification_\(userId)"
+        
+        if let savedFirstName = UserDefaults.standard.string(forKey: firstNameKey) {
             firstName = savedFirstName
         }
-        if let savedLastName = UserDefaults.standard.string(forKey: "lastName") {
+        if let savedLastName = UserDefaults.standard.string(forKey: lastNameKey) {
             lastName = savedLastName
         }
-        if let savedFrequency = UserDefaults.standard.string(forKey: "notificationFrequency") {
+        if let savedFrequency = UserDefaults.standard.string(forKey: frequencyKey) {
             notificationFrequency = savedFrequency
         }
-        streakEndingNotification = UserDefaults.standard.bool(forKey: "streakEndingNotification")
+        streakEndingNotification = UserDefaults.standard.bool(forKey: streakKey)
     }
     
     // Save data to UserDefaults
     private func savePersistedData() {
-        UserDefaults.standard.set(firstName, forKey: "firstName")
-        UserDefaults.standard.set(lastName, forKey: "lastName")
-        UserDefaults.standard.set(notificationFrequency, forKey: "notificationFrequency")
-        UserDefaults.standard.set(streakEndingNotification, forKey: "streakEndingNotification")
+        // Get user-specific keys to prevent data leakage between users
+        let userId = journalViewModel.currentUser?.id.uuidString ?? "anonymous"
+        let firstNameKey = "firstName_\(userId)"
+        let lastNameKey = "lastName_\(userId)"
+        let frequencyKey = "notificationFrequency_\(userId)"
+        let streakKey = "streakEndingNotification_\(userId)"
+        
+        UserDefaults.standard.set(firstName, forKey: firstNameKey)
+        UserDefaults.standard.set(lastName, forKey: lastNameKey)
+        UserDefaults.standard.set(notificationFrequency, forKey: frequencyKey)
+        UserDefaults.standard.set(streakEndingNotification, forKey: streakKey)
     }
     
     // Update user profile in the app
