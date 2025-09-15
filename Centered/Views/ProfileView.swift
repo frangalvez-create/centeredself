@@ -5,6 +5,7 @@ struct ProfileView: View {
     @State private var showingSettings = false
     @State private var showingContact = false
     @State private var showingInfo = false
+    @State private var showingFAQ = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -135,6 +136,36 @@ struct ProfileView: View {
                 }
                 .buttonStyle(PlainButtonStyle())
                 .padding(.top, 25) // 25pt below Contact section
+                
+                // FAQ Section
+                Button(action: {
+                    showingFAQ = true
+                }) {
+                    HStack {
+                        Image("faq")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 26, height: 26)
+                            .padding(.leading, 10) // 10pt from left edge
+                        
+                        Text("FAQ")
+                            .font(.system(size: 16))
+                            .foregroundColor(Color(hex: "3F5E82"))
+                            .padding(.leading, 10) // 10pt to the right of icon
+                        
+                        Spacer()
+                        
+                        Image("info forward")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 26, height: 26)
+                            .padding(.trailing, 20) // 20pt from right edge
+                    }
+                    .padding(.vertical, 15)
+                    .background(Color.clear)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .padding(.top, 25) // 25pt below Info section
             }
             .padding(.top, 80) // 80pt below statistics section
             .padding(.leading, 10) // 10pt more left padding
@@ -165,6 +196,9 @@ struct ProfileView: View {
         }
         .sheet(isPresented: $showingInfo) {
             InfoView()
+        }
+        .sheet(isPresented: $showingFAQ) {
+            FAQView()
         }
     }
 }
