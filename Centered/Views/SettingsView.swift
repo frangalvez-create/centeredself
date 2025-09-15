@@ -125,8 +125,6 @@ struct SettingsView: View {
                         }
                         .padding(.top, 10) // 10pt below Frequency
                     }
-                    
-                    Spacer()
                 }
                 .frame(maxWidth: .infinity) // Expand to full width
                 .padding(.horizontal, 0) // Remove horizontal padding
@@ -139,6 +137,16 @@ struct SettingsView: View {
         .frame(maxWidth: .infinity) // Expand NavigationView to full width
         .onAppear {
             loadPersistedData()
+        }
+        
+        // Swipe Down Text - positioned at bottom of screen
+        VStack {
+            Spacer()
+            Text("Swipe Down")
+                .font(.system(size: 14))
+                .foregroundColor(Color(hex: "545555"))
+                .opacity(0.7) // 70% opacity
+                .padding(.bottom, 30) // 30pt from bottom
         }
         .onChange(of: firstName) { _ in
             savePersistedData()

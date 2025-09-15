@@ -148,7 +148,7 @@ struct ProfileView: View {
                 }
             }) {
                 Text("Log Out")
-                    .font(.system(size: 15))
+                    .font(.system(size: 16))
                     .foregroundColor(Color(hex: "3F5E82"))
             }
             .padding(.bottom, 40) // 40pt from bottom
@@ -161,10 +161,7 @@ struct ProfileView: View {
                 .environmentObject(journalViewModel)
         }
         .sheet(isPresented: $showingContact) {
-            // ContactView will be created later
-            Text("Contact Page - Coming Soon")
-                .font(.title)
-                .padding()
+            ContactView()
         }
         .sheet(isPresented: $showingInfo) {
             // InfoView will be created later
