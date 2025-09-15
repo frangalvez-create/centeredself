@@ -16,7 +16,7 @@ struct ProfileView: View {
                 .padding(.top, 58) // 58pt from top of screen
             
             // User Name
-            Text("User")
+            Text(UserDefaults.standard.string(forKey: "firstName") ?? journalViewModel.currentUser?.firstName ?? "User")
                 .font(.system(size: 20, weight: .medium))
                 .foregroundColor(Color(hex: "3F5E82"))
                 .padding(.top, 10) // 10pt below profile logo
@@ -157,10 +157,8 @@ struct ProfileView: View {
         .background(Color(hex: "E3E0C9"))
         .ignoresSafeArea(.all)
         .sheet(isPresented: $showingSettings) {
-            // SettingsView will be created later
-            Text("Settings Page - Coming Soon")
-                .font(.title)
-                .padding()
+            SettingsView()
+                .environmentObject(journalViewModel)
         }
         .sheet(isPresented: $showingContact) {
             // ContactView will be created later

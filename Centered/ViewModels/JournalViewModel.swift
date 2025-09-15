@@ -877,6 +877,36 @@ class JournalViewModel: ObservableObject {
         }
     }
     
+    // MARK: - User Profile Updates
+    
+    func updateUserProfile(firstName: String, lastName: String? = nil, birthday: Date? = nil, age: String? = nil, notificationFrequency: String? = nil, streakEndingNotification: Bool? = nil) async {
+        guard let user = currentUser else { 
+            errorMessage = "User not authenticated"
+            return 
+        }
+        
+        do {
+            // Update the user's profile in Supabase
+            try await supabaseService.updateUserProfile(
+                firstName: firstName,
+                lastName: lastName,
+                birthday: birthday,
+                age: age,
+                notificationFrequency: notificationFrequency,
+                streakEndingNotification: streakEndingNotification
+            )
+            
+            // Update the local user profile
+            currentUser?.firstName = firstName
+            
+            print("✅ Updated user profile with first name: \(firstName)")
+            
+        } catch {
+            errorMessage = "Failed to update user profile: \(error.localizedDescription)"
+            print("❌ Failed to update user profile: \(error.localizedDescription)")
+        }
+    }
+    
     private func resetUIForNewDay() async {
         // Reset UI state without deleting database entries
         // This will be called from ContentView to reset the UI
