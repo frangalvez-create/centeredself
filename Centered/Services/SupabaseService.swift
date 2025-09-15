@@ -532,37 +532,45 @@ class SupabaseService: ObservableObject {
     }
     
     // MARK: - User Profile Updates
-    func updateUserProfile(firstName: String, lastName: String? = nil, birthday: Date? = nil, age: String? = nil, notificationFrequency: String? = nil, streakEndingNotification: Bool? = nil) async throws {
+    func updateUserProfile(firstName: String, lastName: String? = nil, notificationFrequency: String? = nil, streakEndingNotification: Bool? = nil) async throws {
         if useMockData {
             print("Mock: Updated user profile with first name: \(firstName)")
         } else {
-            // Real implementation - update user profile in user_profiles table
-            guard let userId = try await supabase.auth.user?.id else {
+            // Use the same pattern as existing working code
+            guard let userId = supabase.auth.currentUser?.id else {
                 throw NSError(domain: "AuthError", code: 0, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
             }
             
-            // Prepare update data
-            var updateData: [String: Any] = ["first_name": firstName]
-            if let lastName = lastName { updateData["last_name"] = lastName }
-            if let birthday = birthday { updateData["birthday"] = birthday }
-            if let age = age, let ageInt = Int(age) { updateData["age"] = ageInt }
-            if let notificationFrequency = notificationFrequency { updateData["notification_frequency"] = notificationFrequency }
-            if let streakEndingNotification = streakEndingNotification { updateData["streak_ending_notification"] = streakEndingNotification }
+            // Real implementation - save to user_profiles table
+            struct ProfileData: Codable {
+                let user_id: String
+                let first_name: String
+                let last_name: String?
+                let notification_frequency: String?
+                let streak_ending_notification: Bool?
+                let updated_at: String
+            }
             
-            // Try to update existing profile, or insert if it doesn't exist
-            let result = try await supabase.from("user_profiles")
-                .upsert([
-                    "user_id": userId.uuidString,
-                    "first_name": firstName,
-                    "last_name": lastName ?? "",
-                    "birthday": birthday?.ISO8601Format(),
-                    "age": age != nil ? Int(age!) : nil,
-                    "notification_frequency": notificationFrequency ?? "Weekly",
-                    "streak_ending_notification": streakEndingNotification ?? true
-                ])
+            let profileData = ProfileData(
+                user_id: userId.uuidString,
+                first_name: firstName,
+                last_name: lastName,
+                notification_frequency: notificationFrequency,
+                streak_ending_notification: streakEndingNotification,
+                updated_at: ISO8601DateFormatter().string(from: Date())
+            )
+            
+            // Use upsert to insert or update the user profile
+            let _ = try await supabase
+                .from("user_profiles")
+                .upsert(profileData, onConflict: "user_id")
                 .execute()
             
-            print("✅ Updated user profile successfully")
+            print("✅ User profile updated successfully for user: \(userId)")
+            print("   First Name: \(firstName)")
+            print("   Last Name: \(lastName ?? "nil")")
+            print("   Notification Frequency: \(notificationFrequency ?? "nil")")
+            print("   Streak Ending Notification: \(streakEndingNotification ?? false)")
         }
     }
     
@@ -572,22 +580,35 @@ class SupabaseService: ObservableObject {
             return [
                 "first_name": "Test",
                 "last_name": "User",
-                "age": 25,
                 "notification_frequency": "Weekly",
                 "streak_ending_notification": true
             ]
         } else {
-            guard let userId = try await supabase.auth.user?.id else {
+            // Use the same pattern as existing working code
+            guard let userId = supabase.auth.currentUser?.id else {
                 throw NSError(domain: "AuthError", code: 0, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
             }
             
-            let profiles: [[String: Any]] = try await supabase.from("user_profiles")
+            // Real implementation - fetch from user_profiles table
+            let response = try await supabase
+                .from("user_profiles")
                 .select()
                 .eq("user_id", value: userId.uuidString)
                 .execute()
-                .value
             
-            return profiles.first
+            if let profileData = response.data.first as? [String: Any] {
+                print("✅ User profile fetched successfully for user: \(userId)")
+                return profileData
+            } else {
+                print("ℹ️ No user profile found for user: \(userId) - returning default values")
+                // Return default values so existing users don't break
+                return [
+                    "first_name": "" as Any,
+                    "last_name": "" as Any,
+                    "notification_frequency": "Weekly",
+                    "streak_ending_notification": true
+                ]
+            }
         }
     }
 }

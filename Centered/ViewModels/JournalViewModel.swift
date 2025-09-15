@@ -879,7 +879,7 @@ class JournalViewModel: ObservableObject {
     
     // MARK: - User Profile Updates
     
-    func updateUserProfile(firstName: String, lastName: String? = nil, birthday: Date? = nil, age: String? = nil, notificationFrequency: String? = nil, streakEndingNotification: Bool? = nil) async {
+    func updateUserProfile(firstName: String, lastName: String? = nil, notificationFrequency: String? = nil, streakEndingNotification: Bool? = nil) async {
         guard let user = currentUser else { 
             errorMessage = "User not authenticated"
             return 
@@ -890,8 +890,6 @@ class JournalViewModel: ObservableObject {
             try await supabaseService.updateUserProfile(
                 firstName: firstName,
                 lastName: lastName,
-                birthday: birthday,
-                age: age,
                 notificationFrequency: notificationFrequency,
                 streakEndingNotification: streakEndingNotification
             )
