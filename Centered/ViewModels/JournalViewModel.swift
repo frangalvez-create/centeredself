@@ -259,16 +259,29 @@ class JournalViewModel: ObservableObject {
             }
             
         } catch {
-            errorMessage = "Failed to load today's question: \(error.localizedDescription)"
-            print("❌ loadTodaysQuestion error: \(error.localizedDescription)")
-            // Fallback to default question
-            currentQuestion = GuidedQuestion(
-                id: UUID(),
-                questionText: "What thing, person or moment filled you with gratitude today?",
-                isActive: true,
-                orderIndex: 1,
-                createdAt: Date()
-            )
+            // Handle specific error types more gracefully
+            if error.localizedDescription.contains("cancelled") {
+                print("⚠️ loadTodaysQuestion: Request was cancelled, using fallback question")
+                // Don't show error for cancelled requests - just use fallback
+                currentQuestion = GuidedQuestion(
+                    id: UUID(),
+                    questionText: "What thing, person or moment filled you with gratitude today?",
+                    isActive: true,
+                    orderIndex: 1,
+                    createdAt: Date()
+                )
+            } else {
+                errorMessage = "Failed to load today's question: \(error.localizedDescription)"
+                print("❌ loadTodaysQuestion error: \(error.localizedDescription)")
+                // Fallback to default question
+                currentQuestion = GuidedQuestion(
+                    id: UUID(),
+                    questionText: "What thing, person or moment filled you with gratitude today?",
+                    isActive: true,
+                    orderIndex: 1,
+                    createdAt: Date()
+                )
+            }
         }
         
         isLoading = false
@@ -280,7 +293,14 @@ class JournalViewModel: ObservableObject {
         do {
             journalEntries = try await supabaseService.fetchJournalEntries(userId: user.id)
         } catch {
-            errorMessage = "Failed to load journal entries: \(error.localizedDescription)"
+            // Handle cancelled requests gracefully
+            if error.localizedDescription.contains("cancelled") {
+                print("⚠️ loadJournalEntries: Request was cancelled, keeping existing entries")
+                // Don't show error for cancelled requests - keep existing data
+            } else {
+                errorMessage = "Failed to load journal entries: \(error.localizedDescription)"
+                print("❌ loadJournalEntries error: \(error.localizedDescription)")
+            }
         }
     }
     

@@ -343,7 +343,8 @@ struct ContentView: View {
                                     Image(getButtonImageName())
                                         .resizable()
                                         .scaledToFit()
-                                        .frame(width: 28, height: 28)
+                                        .frame(width: 24, height: 24)
+                                        .opacity(0.8)
                                 }
                                 .frame(width: 44, height: 44) // Keep 44x44 touch target
                                 .padding(.trailing, 5)
@@ -600,7 +601,8 @@ struct ContentView: View {
                                         Image(getOpenButtonImageName())
                                             .resizable()
                                             .scaledToFit()
-                                            .frame(width: 28, height: 28)
+                                            .frame(width: 24, height: 24)
+                                            .opacity(0.8)
                                     }
                                     .frame(width: 44, height: 44) // Keep 44x44 touch target
                                     .padding(.trailing, 5)
@@ -665,6 +667,13 @@ struct ContentView: View {
                 }
             }
         )
+        .refreshable {
+            // Pull to refresh gesture - manual journal text refresh
+            await journalViewModel.checkAndResetIfNeeded()
+            await journalViewModel.loadTodaysQuestion()
+            // Populate UI state from loaded journal entries
+            populateUIStateFromJournalEntries()
+        }
         .onAppear {
             Task {
                 await journalViewModel.loadTodaysQuestion()
@@ -1566,8 +1575,8 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                                 .renderingMode(.original)
                                 .resizable()
                                 .scaledToFit()
-                                .frame(width: 25, height: 25)
-                                .opacity(showCPRefreshButton ? 0.60 : 1.0) // 60% opacity for CP Refresh, full opacity for CP Done
+                                .frame(width: 24, height: 24)
+                                .opacity(0.8) // 80% opacity for both CP Done and CP Refresh buttons
                         }
                         .padding(.trailing, 5) // 5pt from right edge
                         }
