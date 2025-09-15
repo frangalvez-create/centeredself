@@ -164,10 +164,7 @@ struct ProfileView: View {
             ContactView()
         }
         .sheet(isPresented: $showingInfo) {
-            // InfoView will be created later
-            Text("Info Page - Coming Soon")
-                .font(.title)
-                .padding()
+            InfoView()
         }
     }
 }
