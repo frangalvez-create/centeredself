@@ -61,7 +61,7 @@ struct ContentView: View {
                         case 2:
                             favoritesPageView
                         case 3:
-                            profilePageView
+                            ProfileView()
                         default:
                             mainJournalView
                         }
@@ -75,6 +75,11 @@ struct ContentView: View {
                 .ignoresSafeArea(.all)
             } else {
                 authenticationView
+            }
+        }
+        .onAppear {
+            Task {
+                await journalViewModel.checkAuthenticationStatus()
             }
         }
         .alert("Error", isPresented: .constant(journalViewModel.errorMessage != nil)) {
@@ -1747,59 +1752,6 @@ Capabilities and Reminders: You have access to the web search tools to find and 
         return text
     }
     
-    private var profilePageView: some View {
-        VStack(spacing: 30) {
-            Spacer()
-            
-            // Profile Header
-            VStack(spacing: 16) {
-                Text("Profile")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                    .foregroundColor(Color.textBlue)
-                
-                if let user = journalViewModel.currentUser {
-                    VStack(spacing: 8) {
-                        Text(user.displayName ?? "User")
-                            .font(.title2)
-                            .fontWeight(.medium)
-                            .foregroundColor(Color.textBlue)
-                        
-                        Text(user.email ?? "No email")
-                            .font(.body)
-                            .foregroundColor(Color.textBlue.opacity(0.7))
-                    }
-                }
-            }
-            
-            Spacer()
-            
-            // Logout Button
-            Button(action: {
-                Task {
-                    await journalViewModel.signOut()
-                }
-            }) {
-                HStack {
-                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                        .font(.title2)
-                    Text("Log Out")
-                        .font(.title2)
-                        .fontWeight(.medium)
-                }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 56)
-                .background(Color.red)
-                .cornerRadius(16)
-                .padding(.horizontal, 40)
-            }
-            
-            Spacer()
-        }
-        .background(Color.backgroundBeige)
-        .ignoresSafeArea(.all, edges: .top)
-    }
     
     // Custom Tab Bar
     var customTabBar: some View {

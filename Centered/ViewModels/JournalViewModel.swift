@@ -33,6 +33,21 @@ class JournalViewModel: ObservableObject {
     
     // MARK: - Authentication
     func checkAuthenticationStatus() async {
+        // For mock data, automatically authenticate with a test user
+        if supabaseService.isUsingMockData() {
+            print("🔄 Using mock data - auto-authenticating for testing")
+            let mockUser = UserProfile(
+                id: UUID(),
+                email: "test@example.com",
+                displayName: "Test User"
+            )
+            currentUser = mockUser
+            lastUserId = mockUser.id
+            isAuthenticated = true
+            await loadInitialData()
+            return
+        }
+        
         if let userId = supabaseService.getCurrentUserId() {
             do {
                 let userProfile = try await supabaseService.getUserProfile(userId: userId)

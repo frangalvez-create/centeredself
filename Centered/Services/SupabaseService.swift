@@ -29,6 +29,10 @@ class SupabaseService: ObservableObject {
         }
     }
     
+    func isUsingMockData() -> Bool {
+        return useMockData
+    }
+    
     // MARK: - Authentication
     func signUpWithOTP(email: String) async throws {
         if useMockData {
