@@ -23,6 +23,9 @@ class JournalViewModel: ObservableObject {
     // Track the last user ID to detect user changes
     private var lastUserId: UUID?
     
+    // Track when we last performed a reset to prevent multiple resets per day
+    private var lastResetDate: Date?
+    
     private let supabaseService = SupabaseService()
     private let openAIService = OpenAIService()
     
@@ -326,14 +329,20 @@ class JournalViewModel: ObservableObject {
         errorMessage = nil
         
         do {
-            // Create journal entry with current question
+            // If currentQuestion is nil, try to load a question first
+            if currentQuestion == nil {
+                print("⚠️ createJournalEntry: currentQuestion is nil, loading a question first")
+                await loadTodaysQuestion()
+            }
+            
+            // Create journal entry with current question (or nil if still no question)
             let entry = JournalEntry(
                 userId: user.id,
                 guidedQuestionId: currentQuestion?.id,
                 content: content
             )
             
-            print("📝📝📝 createJournalEntry: Created entry with userId: \(entry.userId), guidedQuestionId: \(entry.guidedQuestionId ?? UUID())")
+            print("📝📝📝 createJournalEntry: Created entry with userId: \(entry.userId), guidedQuestionId: \(entry.guidedQuestionId?.uuidString ?? "nil")")
             
             // Save to database
             let savedEntry = try await supabaseService.createJournalEntry(entry)
@@ -862,7 +871,10 @@ class JournalViewModel: ObservableObject {
     // MARK: - Smart Reset Functions (Better than 2AM timer)
     
     func checkAndResetIfNeeded() async {
-        guard let user = currentUser else { return }
+        guard let user = currentUser else { 
+            print("🕐 checkAndResetIfNeeded: No current user, skipping")
+            return 
+        }
         
         do {
             // Get user's last journal entry date
@@ -870,6 +882,7 @@ class JournalViewModel: ObservableObject {
             
             guard let lastEntry = entries.max(by: { $0.createdAt < $1.createdAt }) else {
                 // No entries yet, nothing to reset
+                print("🕐 checkAndResetIfNeeded: No journal entries found, skipping reset")
                 return
             }
             
@@ -877,6 +890,8 @@ class JournalViewModel: ObservableObject {
             let calendar = Calendar.current
             let now = Date()
             let lastEntryDate = lastEntry.createdAt
+            
+            print("🕐 checkAndResetIfNeeded: Last entry at \(lastEntryDate), Current time: \(now)")
             
             // Get 2AM of the day after the last entry
             var components = calendar.dateComponents([.year, .month, .day], from: lastEntryDate)
@@ -886,10 +901,24 @@ class JournalViewModel: ObservableObject {
             
             let next2AM = calendar.date(byAdding: .day, value: 1, to: calendar.date(from: components)!)!
             
+            print("🕐 checkAndResetIfNeeded: Next 2AM reset time: \(next2AM)")
+            print("🕐 checkAndResetIfNeeded: Is now >= next2AM? \(now >= next2AM)")
+            
             // If current time is past the next 2AM, reset the UI
             if now >= next2AM {
+                // Check if we've already reset today to prevent multiple resets
+                let calendar = Calendar.current
+                if let lastReset = lastResetDate,
+                   calendar.isDate(lastReset, inSameDayAs: now) {
+                    print("🕐 Already reset today at \(lastReset), skipping additional reset")
+                    return
+                }
+                
                 print("🕐 It's past 2AM since last entry - resetting UI")
+                lastResetDate = now
                 await resetUIForNewDay()
+            } else {
+                print("🕐 Not yet time for reset - skipping")
             }
             
         } catch {
@@ -929,6 +958,14 @@ class JournalViewModel: ObservableObject {
         // Reset UI state without deleting database entries
         // This will be called from ContentView to reset the UI
         print("🔄 Resetting UI for new day (preserving all history)")
+        
+        // Trigger UI state clear using the callback mechanism
+        DispatchQueue.main.async {
+            if let callback = self.clearUIStateCallback {
+                print("🧹 Calling UI state clear callback for new day reset")
+                callback()
+            }
+        }
     }
 }
 

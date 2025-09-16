@@ -17,19 +17,21 @@ struct CenteredApp: App {
             ContentView()
                 .environmentObject(journalViewModel)
                 .onAppear {
-                    startGlobal2AMTimer()
+                    // Global timer disabled - using pull-to-refresh instead
+                    // startGlobal2AMTimer()
                     // Check for existing authentication session on app startup
                     Task {
                         await journalViewModel.checkAuthenticationStatus()
                     }
                 }
                 .onDisappear {
-                    stopGlobal2AMTimer()
+                    // Global timer disabled - using pull-to-refresh instead
+                    // stopGlobal2AMTimer()
                 }
         }
     }
     
-    // MARK: - Global 2AM Auto-Reset Timer
+    // MARK: - Global 2AM Auto-Reset Timer (DISABLED - Using pull-to-refresh instead)
     
     private func startGlobal2AMTimer() {
         // Stop any existing timer
