@@ -367,6 +367,7 @@ struct ContentView: View {
                                         .scaledToFit()
                                         .frame(width: 24, height: 24)
                                         .opacity(0.8)
+                                        .scaleEffect(showCenteredButton ? 1.3 : 1.0)
                                 }
                                 .frame(width: 44, height: 44) // Keep 44x44 touch target
                                 .padding(.trailing, 5)
@@ -625,6 +626,7 @@ struct ContentView: View {
                                             .scaledToFit()
                                             .frame(width: 24, height: 24)
                                             .opacity(0.8)
+                                            .scaleEffect(openShowCenteredButton ? 1.3 : 1.0)
                                     }
                                     .frame(width: 44, height: 44) // Keep 44x44 touch target
                                     .padding(.trailing, 5)
@@ -931,8 +933,10 @@ struct ContentView: View {
         print("🔘🔘🔘 DONE BUTTON TAPPED - Content: \(journalResponse)")
         print("🔘🔘🔘 DONE BUTTON TAPPED - Content: \(journalResponse)")
         
-        // Change to Centered Button and lock text
-        showCenteredButton = true
+        // Change to Centered Button and lock text with animation
+        withAnimation(.spring(response: 3.0, dampingFraction: 0.2)) {
+            showCenteredButton = true
+        }
         isTextLocked = true
         
         // Perform haptic feedback
@@ -1287,8 +1291,10 @@ Capabilities and Reminders: You have access to the web search tools to find and 
     }
     
     private func openDoneButtonTapped() {
-        // Change to Centered Button and lock text
-        openShowCenteredButton = true
+        // Change to Centered Button and lock text with animation
+        withAnimation(.spring(response: 3.0, dampingFraction: 0.2)) {
+            openShowCenteredButton = true
+        }
         openIsTextLocked = true
         
         // Perform haptic feedback
