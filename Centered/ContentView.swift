@@ -1571,8 +1571,8 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                             )
                             .disabled(isGoalLocked) // Disable editing when locked
                             .onReceive(goalText.publisher.collect()) { _ in
-                                if goalText.count > 100 {
-                                    goalText = String(goalText.prefix(100))
+                                if goalText.count > 50 {
+                                    goalText = String(goalText.prefix(50))
                                 }
                             }
                             
@@ -1616,6 +1616,18 @@ Capabilities and Reminders: You have access to the web search tools to find and 
         }
         .background(Color(hex: "E3E0C9"))
         .ignoresSafeArea(.all, edges: .top)
+        .onAppear {
+            // Reload goals when Centered tab appears to ensure goal text is up to date
+            Task {
+                await journalViewModel.loadGoals()
+                // Update goal text from the most recent goal
+                if let mostRecentGoal = journalViewModel.goals.first {
+                    goalText = mostRecentGoal.goals
+                    isGoalLocked = true
+                    showCPRefreshButton = true
+                }
+            }
+        }
     }
     
     @State private var isEditingFavorites = false
