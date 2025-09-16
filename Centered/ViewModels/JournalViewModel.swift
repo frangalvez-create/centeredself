@@ -711,6 +711,40 @@ class JournalViewModel: ObservableObject {
         }
     }
     
+    // MARK: - Streak Calculation
+    func calculateEntryStreak() -> Int {
+        guard let user = currentUser else { return 0 }
+        
+        // Get all journal entries for the user, sorted by creation date (newest first)
+        let allEntries = journalEntries + openQuestionJournalEntries
+        let sortedEntries = allEntries.sorted { $0.createdAt > $1.createdAt }
+        
+        guard !sortedEntries.isEmpty else { return 0 }
+        
+        let calendar = Calendar.current
+        let today = Date()
+        var streak = 0
+        var currentDate = today
+        
+        // Start from today and work backwards
+        for entry in sortedEntries {
+            let entryDate = entry.createdAt
+            
+            // Check if this entry was created on the current date we're checking
+            if calendar.isDate(entryDate, inSameDayAs: currentDate) {
+                streak += 1
+                // Move to the previous day
+                currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
+            } else if entryDate < currentDate {
+                // If the entry is older than the current date we're checking, break
+                break
+            }
+        }
+        
+        print("📊 Calculated entry streak: \(streak) days")
+        return streak
+    }
+    
     // MARK: - Goal Management
     func createGoal(content: String, goals: String) async {
         guard let user = currentUser else { return }
