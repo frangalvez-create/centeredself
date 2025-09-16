@@ -1942,7 +1942,10 @@ Capabilities and Reminders: You have access to the web search tools to find and 
     }
     
     private func checkAndShowWelcomeMessage() {
-        let hasSeenWelcome = UserDefaults.standard.bool(forKey: "hasSeenWelcome")
+        // Get user-specific key to prevent data leakage between users
+        let userId = journalViewModel.currentUser?.id.uuidString ?? "anonymous"
+        let hasSeenWelcomeKey = "hasSeenWelcome_\(userId)"
+        let hasSeenWelcome = UserDefaults.standard.bool(forKey: hasSeenWelcomeKey)
         if !hasSeenWelcome {
             showWelcomeMessage = true
         }
@@ -1950,7 +1953,10 @@ Capabilities and Reminders: You have access to the web search tools to find and 
     
     private func dismissWelcomeMessage() {
         showWelcomeMessage = false
-        UserDefaults.standard.set(true, forKey: "hasSeenWelcome")
+        // Get user-specific key to prevent data leakage between users
+        let userId = journalViewModel.currentUser?.id.uuidString ?? "anonymous"
+        let hasSeenWelcomeKey = "hasSeenWelcome_\(userId)"
+        UserDefaults.standard.set(true, forKey: hasSeenWelcomeKey)
     }
 }
 
