@@ -1188,7 +1188,10 @@ Capabilities and Reminders: You have access to the web search tools to find and 
             isGoalLocked = true
             showCPRefreshButton = true
         } else {
-            print("📝 No goals found - goal text remains empty")
+            print("📝 No goals found - clearing goal text")
+            goalText = ""
+            isGoalLocked = false
+            showCPRefreshButton = false
         }
         
         print("✅ UI state populated from journal entries")
@@ -1620,11 +1623,16 @@ Capabilities and Reminders: You have access to the web search tools to find and 
             // Reload goals when Centered tab appears to ensure goal text is up to date
             Task {
                 await journalViewModel.loadGoals()
-                // Update goal text from the most recent goal
+                // Update goal text from the most recent goal - ONLY if the user has goals
                 if let mostRecentGoal = journalViewModel.goals.first {
                     goalText = mostRecentGoal.goals
                     isGoalLocked = true
                     showCPRefreshButton = true
+                } else {
+                    // Clear goal text if user has no goals
+                    goalText = ""
+                    isGoalLocked = false
+                    showCPRefreshButton = false
                 }
             }
         }
