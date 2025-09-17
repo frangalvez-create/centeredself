@@ -129,7 +129,7 @@ struct ContentView: View {
                 .scaledToFit()
                 .frame(height: 40)
                 .padding(.top, 4)
-                .padding(.bottom, 30)
+                .padding(.bottom, 27)
             
             // Guided Question Text with Refresh Button - Loaded from Database
             HStack(spacing: 8) {
@@ -424,7 +424,7 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 40)
                 .padding(.bottom, 10)
-                .padding(.top, 25) // 25pt spacing below Guided Question
+                .padding(.top, 22) // 22pt spacing below Guided Question
                 
                 // Open Question Text Input Field with Done Button - Dynamic height with proper sizing
                 VStack {
@@ -660,18 +660,18 @@ struct ContentView: View {
             }
             .padding(.horizontal, 30)
             
-            // New journal entries text - 30pt below open question text box
+            // New journal entries text - 8pt below open question text box
             Text("New journal entries available every morning.\nSwipe down to refresh.")
-                .font(.system(size: 12))
+                .font(.system(size: 11))
                 .foregroundColor(Color(hex: "545555"))
                 .opacity(0.7) // 70% opacity
                 .multilineTextAlignment(.center)
-                .padding(.top, 30) // 30pt below open question text box
+                .padding(.top, 8) // 8pt below open question text box
                 .padding(.horizontal, 40)
             
-            // Goal section - 30pt below "Swipe down to refresh" text
+            // Goal section - 45pt below "Swipe down to refresh" text
             VStack(spacing: 4) {
-                Text("I want to be")
+                Text("My Goal is to be…")
                     .font(.system(size: 16))
                     .foregroundColor(Color(hex: "545555"))
                 
@@ -687,7 +687,7 @@ struct ContentView: View {
                         .padding(.trailing, (isGoalLocked || goalText.isEmpty) ? 15 : 50) // Center when locked or empty, make room for button when unlocked and has text
                         .padding(.top, 6)
                         .padding(.bottom, 6)
-                        .background(Color(hex: "F5F4EB"))
+                        .background(Color(hex: "E8E6D4"))
                         .cornerRadius(8)
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
@@ -733,7 +733,7 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 40) // Centered with more padding
             }
-            .padding(.top, 30) // 30pt below "Swipe down to refresh" text
+            .padding(.top, 45) // 45pt below "Swipe down to refresh" text
         }
         
         // Add bottom padding for future navigation tabs

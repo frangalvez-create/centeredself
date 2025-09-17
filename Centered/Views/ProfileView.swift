@@ -201,7 +201,11 @@ struct ProfileView: View {
             FAQView()
         }
         .onAppear {
-            // Refresh the view when it appears to show updated first name
+            // Load journal entries and open question entries to calculate streak
+            Task {
+                await journalViewModel.loadJournalEntries()
+                await journalViewModel.loadOpenQuestionJournalEntries()
+            }
         }
     }
     
