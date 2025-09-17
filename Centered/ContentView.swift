@@ -668,6 +668,72 @@ struct ContentView: View {
                 .multilineTextAlignment(.center)
                 .padding(.top, 30) // 30pt below open question text box
                 .padding(.horizontal, 40)
+            
+            // Goal section - 30pt below "Swipe down to refresh" text
+            VStack(spacing: 4) {
+                Text("I want to be")
+                    .font(.system(size: 16))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                // Goal text field with button overlay
+                ZStack(alignment: .trailing) {
+                    ZStack {
+                        // Custom TextField without placeholder
+                        TextField("", text: $goalText)
+                        .font(.system(size: 16))
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(Color(hex: "545555"))
+                        .padding(.leading, 15)
+                        .padding(.trailing, (isGoalLocked || goalText.isEmpty) ? 15 : 50) // Center when locked or empty, make room for button when unlocked and has text
+                        .padding(.top, 6)
+                        .padding(.bottom, 6)
+                        .background(Color(hex: "F5F4EB"))
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                        )
+                        .disabled(isGoalLocked) // Disable editing when locked
+                        .onReceive(goalText.publisher.collect()) { _ in
+                            if goalText.count > 50 {
+                                goalText = String(goalText.prefix(50))
+                            }
+                        }
+                        
+                        // Custom placeholder text with smaller font
+                        if goalText.isEmpty {
+                            Text("ex. Less critical, more ambitious, more empathetic")
+                                .font(.system(size: 12))
+                                .foregroundColor(Color(hex: "545555").opacity(0.6))
+                                .multilineTextAlignment(.center)
+                                .allowsHitTesting(false) // Allow taps to go through to TextField
+                        }
+                    }
+                    
+                    // CP Done/Refresh Button positioned at the right edge (only show when text is entered)
+                    if !goalText.isEmpty {
+                        Button(action: {
+                        if showCPRefreshButton {
+                            // CP Refresh button clicked - reset
+                            cpRefreshButtonTapped()
+                        } else {
+                            // CP Done button clicked - lock in
+                            cpDoneButtonTapped()
+                        }
+                    }) {
+                        Image(showCPRefreshButton ? "CP Refresh" : "CP Done")
+                            .renderingMode(.original)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 24, height: 24)
+                            .opacity(0.8) // 80% opacity for both CP Done and CP Refresh buttons
+                    }
+                    .padding(.trailing, 5) // 5pt from right edge
+                    }
+                }
+                .padding(.horizontal, 40) // Centered with more padding
+            }
+            .padding(.top, 30) // 30pt below "Swipe down to refresh" text
         }
         
         // Add bottom padding for future navigation tabs
@@ -714,6 +780,20 @@ struct ContentView: View {
                 await journalViewModel.checkAndResetIfNeeded()
                 // Populate UI state from loaded journal entries
                 populateUIStateFromJournalEntries()
+                
+                // Load goals when Journal tab appears to ensure goal text is up to date
+                await journalViewModel.loadGoals()
+                // Update goal text from the most recent goal - ONLY if the user has goals
+                if let mostRecentGoal = journalViewModel.goals.first {
+                    goalText = mostRecentGoal.goals
+                    isGoalLocked = true
+                    showCPRefreshButton = true
+                } else {
+                    // Clear goal text if user has no goals
+                    goalText = ""
+                    isGoalLocked = false
+                    showCPRefreshButton = false
+                }
             }
             
             // Set up the callbacks for UI state management
@@ -1484,7 +1564,7 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                     .resizable()
                     .scaledToFit()
                     .frame(height: 204) // Reduced by 15% (240 * 0.85 = 204)
-                    .padding(.top, 2) // Increased gap by 10pt (from -8pt to +2pt)
+                    .padding(.top, 17) // Changed from 2pt to 17pt
                     .padding(.bottom, 8) // Add bottom padding to create exact 2pt gap
                 
                 // First text chunk
@@ -1493,47 +1573,19 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                     .foregroundColor(Color(hex: "3F5E82"))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 20)
+                    .padding(.top, 15) // Added 15pt top padding
                 
                 // Second text chunk
-                Text("Keeping a daily journal is a simple yet powerful way to become more centered. Journaling has proven to help clear your mind, build self-awareness, ease stress, manage emotions, celebrate progress, and set meaningful goals.")
-                    .font(.system(size: 15))
+                (Text("Daily Journal").font(.system(size: 15, weight: .bold)) + Text(" - Keeping a daily journal is a simple yet powerful way to become more centered. Journaling has proven to help clear your mind, build self-awareness, ease stress, manage emotions, celebrate progress, and set meaningful goals.").font(.system(size: 15)))
                     .foregroundColor(Color(hex: "3F5E82"))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 20)
-                    .padding(.top, 12) // Changed to 12pt
+                    .padding(.top, 17) // Changed from 12pt to 17pt
                 
-                // Third text chunk with journal link
-                HStack(spacing: 8) {
-                    HStack(spacing: 2) {
-                        Text("Start journaling")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(Color(hex: "3F5E82"))
-                        
-                        Button(action: {
-                            selectedTab = 0 // Navigate to Journal tab
-                        }) {
-                            Text("here")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundColor(Color(hex: "3F5E82"))
-                        }
-                    }
-                    
-                    Button(action: {
-                        selectedTab = 0 // Navigate to Journal tab
-                    }) {
-                        Image("Journal chunk")
-                            .renderingMode(.original)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 25, height: 25)
-                    }
-                }
-                .padding(.top, 12) // Changed to 12pt
                 
                 // Fourth text chunk with overlay icon
                 ZStack {
-                    Text("Our app elevates your journaling experience with personalized, AI-powered guidance that is supportive, inspiring, and goal-oriented. After each journal entry, tap the        icon to unlock tailored insights. You can even set a behavioral goal below, and the app will customize its guidance to help you achieve it.")
-                        .font(.system(size: 15))
+                    (Text("AI Insights").font(.system(size: 15, weight: .bold)) + Text(" - Our app elevates your journaling experience with personalized, AI-powered guidance that is supportive, inspiring, and goal-oriented. After each journal entry, tap the        icon to unlock tailored insights. You can even set a behavioral goal, and the app will customize its guidance to help you achieve it.").font(.system(size: 15)))
                         .foregroundColor(Color(hex: "3F5E82"))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 20)
@@ -1544,98 +1596,16 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                         .resizable()
                         .scaledToFit()
                         .frame(width: 17, height: 17)
-                        .offset(x: -5, y: 2) // Final adjustment: moved up 3pt for perfect positioning between "the" and "icon"
+                        .offset(x: 124, y: 2) // Changed horizontal position to x: 124
                 }
-                .padding(.top, 12) // Changed to 12pt
+                .padding(.top, 17) // Changed from 12pt to 17pt
                 
-                // Fifth text chunk with text field and button
-                VStack(spacing: 4) {
-                    Text("I want to be")
-                        .font(.system(size: 16))
-                        .foregroundColor(Color(hex: "545555"))
-                    
-                    // Goal text field with button overlay
-                    ZStack(alignment: .trailing) {
-                        ZStack {
-                            // Custom TextField without placeholder
-                            TextField("", text: $goalText)
-                            .font(.system(size: 16))
-                            .multilineTextAlignment(.center)
-                            .foregroundColor(Color(hex: "545555"))
-                            .padding(.leading, 15)
-                            .padding(.trailing, (isGoalLocked || goalText.isEmpty) ? 15 : 50) // Center when locked or empty, make room for button when unlocked and has text
-                            .padding(.top, 6)
-                            .padding(.bottom, 6)
-                            .background(Color(hex: "F5F4EB"))
-                            .cornerRadius(8)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                            )
-                            .disabled(isGoalLocked) // Disable editing when locked
-                            .onReceive(goalText.publisher.collect()) { _ in
-                                if goalText.count > 50 {
-                                    goalText = String(goalText.prefix(50))
-                                }
-                            }
-                            
-                            // Custom placeholder text with smaller font
-                            if goalText.isEmpty {
-                                Text("ex. Less critical, more ambitious, more empathetic")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(Color(hex: "545555").opacity(0.6))
-                                    .multilineTextAlignment(.center)
-                                    .allowsHitTesting(false) // Allow taps to go through to TextField
-                            }
-                        }
-                        
-                        // CP Done/Refresh Button positioned at the right edge (only show when text is entered)
-                        if !goalText.isEmpty {
-                            Button(action: {
-                            if showCPRefreshButton {
-                                // CP Refresh button clicked - reset
-                                cpRefreshButtonTapped()
-                            } else {
-                                // CP Done button clicked - lock in
-                                cpDoneButtonTapped()
-                            }
-                        }) {
-                            Image(showCPRefreshButton ? "CP Refresh" : "CP Done")
-                                .renderingMode(.original)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 24, height: 24)
-                                .opacity(0.8) // 80% opacity for both CP Done and CP Refresh buttons
-                        }
-                        .padding(.trailing, 5) // 5pt from right edge
-                        }
-                    }
-                    .padding(.horizontal, 40) // Centered with more padding
-                }
-                .padding(.top, 12) // Changed to 12pt
                 
                 Spacer(minLength: 100)
             }
         }
         .background(Color(hex: "E3E0C9"))
         .ignoresSafeArea(.all, edges: .top)
-        .onAppear {
-            // Reload goals when Centered tab appears to ensure goal text is up to date
-            Task {
-                await journalViewModel.loadGoals()
-                // Update goal text from the most recent goal - ONLY if the user has goals
-                if let mostRecentGoal = journalViewModel.goals.first {
-                    goalText = mostRecentGoal.goals
-                    isGoalLocked = true
-                    showCPRefreshButton = true
-                } else {
-                    // Clear goal text if user has no goals
-                    goalText = ""
-                    isGoalLocked = false
-                    showCPRefreshButton = false
-                }
-            }
-        }
     }
     
     @State private var isEditingFavorites = false
