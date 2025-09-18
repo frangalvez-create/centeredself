@@ -724,7 +724,8 @@ class JournalViewModel: ObservableObject {
         let calendar = Calendar.current
         let today = Date()
         var streak = 0
-        var currentDate = today
+        // Start from yesterday to count streak up to yesterday (not including today)
+        var currentDate = calendar.date(byAdding: .day, value: -1, to: today) ?? today
         
         // Start from today and work backwards
         for entry in sortedEntries {
