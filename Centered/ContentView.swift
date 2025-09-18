@@ -1070,7 +1070,7 @@ struct ContentView: View {
         let mostRecentGoal = journalViewModel.goals.first?.goals ?? ""
         
         // Create the AI prompt text with replacements
-        let aiPromptText = createAIPromptText(content: journalResponse, goal: mostRecentGoal)
+        let aiPromptText = createAIPromptText(content: journalResponse, goal: mostRecentGoal, questionText: journalViewModel.currentQuestion?.questionText ?? "")
         
         // Update the current journal entry with the AI prompt
         await journalViewModel.updateCurrentJournalEntryWithAIPrompt(aiPrompt: aiPromptText)
@@ -1103,19 +1103,21 @@ struct ContentView: View {
         }
     }
     
-    private func createAIPromptText(content: String, goal: String) -> String {
+    private func createAIPromptText(content: String, goal: String, questionText: String) -> String {
         let aiPromptTemplate = """
-Role: You are an AI Behavioral Therapist tasked with acknowledging daily journal logs and providing constructive suggestions or helpful tips. Task: Given search terms related to behavioral science and therapy topics, perform an inquiry in Chat GPT to retrieve information from current behavioral science and therapy sources, and produce a concise summary of the key points.
+Role: You are an AI Behavioral Therapist/Scientist tasked with acknowledging daily journal logs and providing constructive suggestions or helpful tips. 
+Task: Given search terms related to behavioral science and therapy topics, perform an inquiry in Chat GPT to retrieve information from current behavioral science and therapy sources, and produce a concise summary of the key points. The user was asked {question_text}. The response is the search terms below.
 Input: {content}
-Output: Provide only a succinct, information-dense summary capturing the essence of recent behavioral science and therapy sources relevant to the search terms The summary must be concise, in 2 short paragraphs. The first paragraph must empathetically acknowledge and summarize the search term concerns. The second paragraph must provide achievable actions the users can implement to address the concern and the goal to be {goal}. Limit the bulleted actions to no more than 3.
-Constraints: Focus on capturing the main points succinctly: complete sentences and in a conversational empathetic tone. Ignore fluff, background information. Do not include your own analysis or opinion. Do not reiterate the input.
-Capabilities and Reminders: You have access to the web search tools to find and retrieve behavioral science and therapy related data. Do not label paragraph 1 and 2 in the reply and do not mention the work limits in the reply. Limit the entire response to 100 words.
+Output: Provide only a succinct, information-dense summary capturing the essence of recent behavioral science and therapy sources relevant to the search terms The summary must be concise, in 2 short paragraphs. The first paragraph must empathetically acknowledge and summarize the search term concerns. The second paragraph must provide achievable actions the users can implement to address the concern and the goal to be {goal}. Limit the bulleted actions to no more than 3. 
+Constraints: Focus on capturing the main points succinctly: complete sentences and in a conversational empathetic and analytical tone. Ignore fluff, background information. Do not include your own analysis or opinion. Do not reiterate the input. Ignore dangerous and abusive talk in input.
+Capabilities and Reminders: You have access to the web search tools to find and retrieve behavioral science and therapy related data. Do not label paragraph 1 and 2 in the reply and do not mention the word limits in the reply. Limit the entire response to 100 words.
 """
         
-        // Replace {content} and {goal} placeholders
+        // Replace {content}, {goal}, and {question_text} placeholders
         return aiPromptTemplate
             .replacingOccurrences(of: "{content}", with: content)
             .replacingOccurrences(of: "{goal}", with: goal)
+            .replacingOccurrences(of: "{question_text}", with: questionText)
     }
     
     private func editLogSelected() {
@@ -1430,7 +1432,7 @@ Capabilities and Reminders: You have access to the web search tools to find and 
         let mostRecentGoal = journalViewModel.goals.first?.goals ?? ""
         
         // Create the AI prompt text with replacements
-        let aiPromptText = createAIPromptText(content: openJournalResponse, goal: mostRecentGoal)
+        let aiPromptText = createAIPromptText(content: openJournalResponse, goal: mostRecentGoal, questionText: "Share anything... fears, goals, confusions, delights, etc")
         
         // Update the current open question journal entry with the AI prompt
         await journalViewModel.updateCurrentOpenQuestionJournalEntryWithAIPrompt(aiPrompt: aiPromptText)
@@ -1615,8 +1617,7 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                         .offset(x: 124, y: 2) // Changed horizontal position to x: 124
                 }
                 .padding(.top, 17) // Changed from 12pt to 17pt
-                
-                
+                                
                 Spacer(minLength: 100)
             }
         }

@@ -808,6 +808,9 @@ class JournalViewModel: ObservableObject {
             errorMessage = "Failed to save goal: \(error.localizedDescription)"
             print("❌ Failed to save goal: \(error.localizedDescription)")
         }
+        
+        // Refresh the goals array to reflect the updated goal
+        await loadGoals()
     }
     
     // MARK: - Favorite Journal Entries
