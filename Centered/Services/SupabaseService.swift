@@ -596,7 +596,7 @@ class SupabaseService: ObservableObject {
                 .eq("user_id", value: userId.uuidString)
                 .execute()
             
-            if let profileData = response.data.first as? [String: Any] {
+            if let profileData = try JSONSerialization.jsonObject(with: response.data) as? [String: Any] {
                 print("✅ User profile fetched successfully for user: \(userId)")
                 return profileData
             } else {
