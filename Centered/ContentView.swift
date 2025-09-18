@@ -858,21 +858,24 @@ struct ContentView: View {
                 .frame(height: 60)
                 .padding(.top, 5)
             
-            Spacer()
-                .frame(height: 45)
-            
-            Text("Enter your email to get started")
-                .font(.body)
-                .foregroundColor(Color(hex: "3F5E82"))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-            
             VStack(spacing: 15) {
                 if !showOTPInput {
-                    // Email Input
+                    // Email Input Screen
                     VStack(spacing: 15) {
+                        // Instruction text - only show on email screen
+                        Text("Enter your email to get started")
+                            .font(.body)
+                            .foregroundColor(Color(hex: "3F5E82"))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                        
+                        // Email TextField with fixed background color
                         TextField("Enter your email", text: $email)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .textFieldStyle(PlainTextFieldStyle())
+                            .padding()
+                            .background(Color(hex: "F5F4EB"))
+                            .cornerRadius(12)
+                            .foregroundColor(.black)
                             .keyboardType(.emailAddress)
                             .autocapitalization(.none)
                             .padding(.horizontal, 40)
@@ -898,56 +901,59 @@ struct ContentView: View {
                         .padding(.horizontal, 40)
                     }
                 } else {
-                    // OTP Code Input
+                    // OTP Code Input Screen
                     VStack(spacing: 15) {
+                        // Check your email text - 5pt below logo (adjusted spacing)
                         Text("Check your email for the OTP code")
                             .font(.body)
-                            .foregroundColor(Color.textBlue.opacity(0.7))
+                            .foregroundColor(Color(hex: "3F5E82"))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
+                            .padding(.top, 5) // 5pt padding as requested
                         
-                        Text("Enter the 6-digit code sent to your email")
-                            .font(.caption)
-                            .foregroundColor(Color.textBlue.opacity(0.5))
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 40)
-                        
+                        // OTP TextField with fixed background color
                         TextField("Enter OTP code", text: $otpCode)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .textFieldStyle(PlainTextFieldStyle())
+                            .padding(.vertical, 12) // Reduced height (3/4 of current size)
+                            .background(Color(hex: "F5F4EB"))
+                            .cornerRadius(12)
+                            .foregroundColor(.black)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.center)
+                            .font(.system(size: 20, weight: .medium))
                             .padding(.horizontal, 40)
+                            .padding(.top, 5) // 5pt padding as requested
                         
                         HStack(spacing: 15) {
-                            Button(action: {
-                                showOTPInput = false
-                                otpSent = false
-                            }) {
-                                Text("Back")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundColor(Color.textBlue)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(Color.clear)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .stroke(Color.textBlue, lineWidth: 1)
-                                    )
+                        Button(action: {
+                            showOTPInput = false
+                            otpSent = false
+                        }) {
+                            Text("Back")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(Color(hex: "3F5E82"))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color.clear)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color(hex: "3F5E82"), lineWidth: 1)
+                                )
+                        }
+                        
+                        Button(action: {
+                            Task {
+                                await journalViewModel.verifyOTP(email: email, token: otpCode)
                             }
-                            
-                            Button(action: {
-                                Task {
-                                    await journalViewModel.verifyOTP(email: email, token: otpCode)
-                                }
-                            }) {
-                                Text("Verify")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(Color.textBlue)
-                                    .cornerRadius(8)
-                            }
+                        }) {
+                            Text("Verify")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color(hex: "3F5E82"))
+                                .cornerRadius(8)
+                        }
                             .disabled(otpCode.isEmpty || journalViewModel.isLoading)
                         }
                         .padding(.horizontal, 40)
@@ -958,9 +964,9 @@ struct ContentView: View {
                                 await journalViewModel.sendOTP(email: email)
                             }
                         }) {
-                            Text("Resend Code")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(Color.textBlue.opacity(0.7))
+                        Text("Resend Code")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(Color(hex: "3F5E82").opacity(0.7))
                         }
                         .disabled(journalViewModel.isLoading)
                     }
@@ -971,6 +977,10 @@ struct ContentView: View {
         }
         .background(Color.backgroundBeige)
         .ignoresSafeArea(.all)
+        .onTapGesture {
+            // Dismiss keyboard when tapping outside
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
     }
     
     private func updateTextEditorHeight() {
