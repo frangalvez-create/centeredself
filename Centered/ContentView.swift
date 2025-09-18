@@ -660,36 +660,25 @@ struct ContentView: View {
             }
             .padding(.horizontal, 30)
             
-            // New journal entries text - 5pt below open question text box
-            VStack(spacing: 0) {
-                Text("New journal entries available every morning.\nSwipe down to refresh.")
-                    .font(.system(size: 11))
-                    .foregroundColor(Color(hex: "545555"))
-                    .opacity(0.7) // 70% opacity
-                    .multilineTextAlignment(.center)
-                    .padding(.top, 5) // 5pt below open question text box
-                    .padding(.horizontal, 40)
+            // Embossed gray line - 20pt below open question text box
+            ZStack {
+                // Shadow line (darker)
+                Rectangle()
+                    .fill(Color(hex: "545555"))
+                    .opacity(0.225) // 75% of 0.3
+                    .frame(height: 1)
+                    .offset(y: 1)
                 
-                // Embossed gray line - 25pt below swipe down text
-                ZStack {
-                    // Shadow line (darker)
-                    Rectangle()
-                        .fill(Color(hex: "545555"))
-                        .opacity(0.225) // 75% of 0.3
-                        .frame(height: 1)
-                        .offset(y: 1)
-                    
-                    // Main line (lighter)
-                    Rectangle()
-                        .fill(Color(hex: "545555"))
-                        .opacity(0.075) // 75% of 0.1
-                        .frame(height: 1)
-                }
-                .padding(.top, 25) // 25pt below swipe down text
-                .padding(.horizontal, 40)
+                // Main line (lighter)
+                Rectangle()
+                    .fill(Color(hex: "545555"))
+                    .opacity(0.075) // 75% of 0.1
+                    .frame(height: 1)
             }
+            .padding(.top, 25) // 25pt below open question text box
+            .padding(.horizontal, 40)
             
-            // Goal section - 20pt below "Swipe down to refresh" text (20pt to line + 0pt after line)
+            // Goal section - 20pt below embossed line
             VStack(spacing: 4) {
                 Text("My Goal is to be…")
                     .font(.system(size: 16))
@@ -749,8 +738,17 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 40) // Centered with more padding
             }
-            .padding(.top, 20) // 20pt below "Swipe down to refresh" text (20pt to line + 0pt after line)
+            .padding(.top, 20) // 20pt below embossed line
         }
+        
+        // Refresh text - 5pt below goal text field
+        Text("New journal entries available every morning.\nSwipe down to refresh.")
+            .font(.system(size: 11))
+            .foregroundColor(Color(hex: "545555"))
+            .opacity(0.7) // 70% opacity
+            .multilineTextAlignment(.center)
+            .padding(.top, 5) // 5pt below goal text field
+            .padding(.horizontal, 40)
         
         // Add bottom padding for future navigation tabs
         Spacer(minLength: 100) // Extra space at bottom for navigation tabs
