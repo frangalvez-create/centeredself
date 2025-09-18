@@ -283,7 +283,7 @@ struct ContentView: View {
                                     }
                                 }
                             )
-                            .onChange(of: journalResponse) {
+                            .onChange(of: journalResponse) { _ in
                                 updateTextEditorHeight()
                             }
                     }
@@ -542,7 +542,7 @@ struct ContentView: View {
                                         }
                                     }
                                 )
-                                .onChange(of: openJournalResponse) {
+                                .onChange(of: openJournalResponse) { _ in
                                     updateOpenTextEditorHeight()
                                 }
                         }
