@@ -42,6 +42,9 @@ struct ContentView: View {
     // Favorites Page State
     @State private var expandedEntries: Set<UUID> = []
     
+    // Info Popup State
+    @State private var showInfoPopup: Bool = false
+    
     // Authentication State
     @State private var email: String = ""
     @State private var otpCode: String = ""
@@ -77,6 +80,14 @@ struct ContentView: View {
                 }
                 .background(Color(hex: "E3E0C9"))
                 .ignoresSafeArea(.all)
+                .overlay(
+                    // Info Popup
+                    Group {
+                        if showInfoPopup {
+                            infoPopupView
+                        }
+                    }
+                )
                 .overlay(
                     // Welcome Message Modal
                     Group {
@@ -115,8 +126,9 @@ struct ContentView: View {
     }
     
     private var mainJournalView: some View {
-        ScrollView {
-            VStack(spacing: 0) {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: 0) {
             // Top Logo (CS Logo.png)
             Image("CS Logo")
                 .resizable()
@@ -131,6 +143,22 @@ struct ContentView: View {
                 .frame(height: 40)
                 .padding(.top, 4)
                 .padding(.bottom, 25)
+            
+            // Q Info Icon - positioned higher and to the right of DJ.png
+            HStack {
+                Spacer()
+                Button(action: {
+                    showInfoPopup = true
+                }) {
+                    Image("Q")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 27, height: 27)
+                }
+                .offset(x: 110) // Move 110pt to the right
+                Spacer()
+            }
+            .offset(y: -57) // Raise 12pt higher than before (-45 + -12 = -57)
             
             // Guided Question Text with Refresh Button - Loaded from Database
             HStack(spacing: 8) {
@@ -708,6 +736,10 @@ struct ContentView: View {
                             if goalText.count > 50 {
                                 goalText = String(goalText.prefix(50))
                             }
+                            // Auto-scroll to goal section when typing
+                            withAnimation(.easeInOut(duration: 0.5)) {
+                                proxy.scrollTo("goalSection", anchor: .bottom)
+                            }
                         }
                         
                         // Custom placeholder text with smaller font
@@ -748,15 +780,17 @@ struct ContentView: View {
                 .padding(.horizontal, 40) // Centered with more padding
             }
             .padding(.top, 16) // 16pt below embossed line
+            .id("goalSection")
         }
         
         // Add bottom padding for future navigation tabs
         Spacer(minLength: 300) // Extra space at bottom for navigation tabs
             }
             .padding(.bottom, 50) // Additional padding for navigation tabs
+            }
+            .background(Color.backgroundBeige)
+            .ignoresSafeArea(.all, edges: .top)
         }
-        .background(Color.backgroundBeige)
-        .ignoresSafeArea(.all, edges: .top)
         .overlay(
             // Loading indicator
             Group {
@@ -1998,6 +2032,57 @@ Capabilities and Reminders: You have access to the web search tools to find and 
         let userId = journalViewModel.currentUser?.id.uuidString ?? "anonymous"
         let hasSeenWelcomeKey = "hasSeenWelcome_\(userId)"
         UserDefaults.standard.set(true, forKey: hasSeenWelcomeKey)
+    }
+    
+    private var infoPopupView: some View {
+        ZStack {
+            // Background overlay
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    showInfoPopup = false
+                }
+            
+            // Simple popup content
+            VStack(alignment: .leading, spacing: 8) {
+                Text("How Journaling Works")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                Text("• The top question changes daily and may ask about your relationships, emotions, health, or other topics.")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                Text("• The second question stays the same—a free-write about your day.")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                Text("• After completing your entries, tap the AI button to receive personalized insights.")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                Text("Tip:")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                Text("The more detail you share, the more helpful and accurate the AI insights will be.")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                Text("New questions are available each morning. Swipe down to refresh")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                Text("Personal goals change all the time. If yours changed, you can enter a new one.")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "545555"))
+            }
+            .padding(16)
+            .background(Color(hex: "E3E0C9"))
+            .cornerRadius(16)
+            .shadow(radius: 10)
+            .padding(.horizontal, 20)
+        }
     }
 }
 
