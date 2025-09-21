@@ -37,6 +37,7 @@ struct ContentView: View {
     @State private var goalText: String = ""
     @State private var isGoalLocked: Bool = false
     @State private var showCPRefreshButton: Bool = false
+    @State private var goalTextHeight: CGFloat = 40
     
     // Favorites Page State
     @State private var expandedEntries: Set<UUID> = []
@@ -405,7 +406,7 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 // Static Open Question Text with Refresh Button
                 HStack(spacing: 8) {
-                    Text("How was your day? Share anything…\nhighs, lows, worries, insights, etc.")
+                    Text("How was your day? Share anything…\nhighs, lows, worries, perspective, etc.")
                         .font(.system(size: 16, weight: .medium))
                         .foregroundColor(Color.textBlue)
                         .multilineTextAlignment(.center)
@@ -678,7 +679,7 @@ struct ContentView: View {
             .padding(.top, 25) // 25pt below open question text box
             .padding(.horizontal, 40)
             
-            // Goal section - 20pt below embossed line
+            // Goal section - 16pt below embossed line
             VStack(spacing: 4) {
                 Text("My Goal is to be…")
                     .font(.system(size: 16))
@@ -687,19 +688,23 @@ struct ContentView: View {
                 // Goal text field with button overlay
                 ZStack(alignment: .trailing) {
                     ZStack {
-                        // Custom TextField without placeholder
-                        TextField("", text: $goalText)
+                        // Custom TextEditor with dynamic height and centered text
+                        TextEditor(text: $goalText)
                         .font(.system(size: 16))
-                        .multilineTextAlignment(.center)
                         .foregroundColor(Color(hex: "545555"))
+                        .multilineTextAlignment(.center) // Center the text
                         .padding(.leading, 15)
                         .padding(.trailing, (isGoalLocked || goalText.isEmpty) ? 15 : 50) // Center when locked or empty, make room for button when unlocked and has text
-                        .padding(.top, 6)
+                        .padding(.top, 0)
                         .padding(.bottom, 6)
                         .background(Color(hex: "F5F4EB"))
                         .cornerRadius(8)
                         .disabled(isGoalLocked) // Disable editing when locked
-                        .onReceive(goalText.publisher.collect()) { _ in
+                        .frame(height: max(40, goalTextHeight)) // Dynamic height starting at 40pt
+                        .scrollContentBackground(.hidden)
+                        .onChange(of: goalText) { _ in
+                            updateGoalTextHeight()
+                            // Character limit for multiline
                             if goalText.count > 50 {
                                 goalText = String(goalText.prefix(50))
                             }
@@ -711,7 +716,11 @@ struct ContentView: View {
                                 .font(.system(size: 12))
                                 .foregroundColor(Color(hex: "545555").opacity(0.6))
                                 .multilineTextAlignment(.center)
-                                .allowsHitTesting(false) // Allow taps to go through to TextField
+                                .allowsHitTesting(false) // Allow taps to go through to TextEditor
+                                .padding(.leading, 15)
+                                .padding(.trailing, 15)
+                                .padding(.top, 6)
+                                .padding(.bottom, 6)
                         }
                     }
                     
@@ -738,7 +747,7 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 40) // Centered with more padding
             }
-            .padding(.top, 20) // 20pt below embossed line
+            .padding(.top, 16) // 16pt below embossed line
         }
         
         // Add bottom padding for future navigation tabs
@@ -1376,6 +1385,36 @@ Capabilities and Reminders: You have access to the web search tools to find and 
         let validatedHeight = calculatedHeight.isNaN || calculatedHeight.isInfinite ? 150 : calculatedHeight
         
         openTextEditorHeight = max(150, min(250, validatedHeight))
+    }
+    
+    private func updateGoalTextHeight() {
+        // Return early if text is empty to avoid NaN calculations
+        guard !goalText.isEmpty else {
+            goalTextHeight = 40
+            return
+        }
+        
+        let font = UIFont.systemFont(ofSize: 16)
+        let maxWidth = UIScreen.main.bounds.width - 120 // Account for padding and button space
+        
+        // Ensure maxWidth is valid
+        guard maxWidth > 0 else {
+            goalTextHeight = 40
+            return
+        }
+        
+        let boundingRect = goalText.boundingRect(
+            with: CGSize(width: maxWidth, height: .greatestFiniteMagnitude),
+            options: .usesLineFragmentOrigin,
+            attributes: [.font: font],
+            context: nil
+        )
+        
+        // Validate the calculated height to prevent NaN
+        let calculatedHeight = boundingRect.height + 20 // Extra padding for comfort
+        let validatedHeight = calculatedHeight.isNaN || calculatedHeight.isInfinite ? 40 : calculatedHeight
+        
+        goalTextHeight = max(40, min(120, validatedHeight)) // Max 120pt height for multiline
     }
     
     private func getOpenButtonImageName() -> String {
