@@ -741,17 +741,8 @@ struct ContentView: View {
             .padding(.top, 20) // 20pt below embossed line
         }
         
-        // Refresh text - 5pt below goal text field
-        Text("New journal entries available every morning.\nSwipe down to refresh.")
-            .font(.system(size: 11))
-            .foregroundColor(Color(hex: "545555"))
-            .opacity(0.7) // 70% opacity
-            .multilineTextAlignment(.center)
-            .padding(.top, 5) // 5pt below goal text field
-            .padding(.horizontal, 40)
-        
         // Add bottom padding for future navigation tabs
-        Spacer(minLength: 100) // Extra space at bottom for navigation tabs
+        Spacer(minLength: 300) // Extra space at bottom for navigation tabs
             }
             .padding(.bottom, 50) // Additional padding for navigation tabs
         }
@@ -1037,10 +1028,8 @@ struct ContentView: View {
         print("🔘🔘🔘 DONE BUTTON TAPPED - Content: \(journalResponse)")
         print("🔘🔘🔘 DONE BUTTON TAPPED - Content: \(journalResponse)")
         
-        // Change to Centered Button and lock text with animation
-        withAnimation(.spring(response: 3.0, dampingFraction: 0.2)) {
-            showCenteredButton = true
-        }
+        // Change to Centered Button and lock text (no animation on Done button)
+        showCenteredButton = true
         isTextLocked = true
         
         // Perform haptic feedback
@@ -1400,10 +1389,8 @@ Capabilities and Reminders: You have access to the web search tools to find and 
     }
     
     private func openDoneButtonTapped() {
-        // Change to Centered Button and lock text with animation
-        withAnimation(.spring(response: 3.0, dampingFraction: 0.2)) {
-            openShowCenteredButton = true
-        }
+        // Change to Centered Button and lock text (no animation on Done button)
+        openShowCenteredButton = true
         openIsTextLocked = true
         
         // Perform haptic feedback
@@ -1625,7 +1612,7 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                         .offset(x: 124, y: 2) // Changed horizontal position to x: 124
                 }
                 .padding(.top, 17) // Changed from 12pt to 17pt
-                                
+                            
                 Spacer(minLength: 100)
             }
         }
