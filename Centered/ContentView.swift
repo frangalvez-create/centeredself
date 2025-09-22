@@ -202,7 +202,7 @@ struct ContentView: View {
                     // Background for the text editor
                     RoundedRectangle(cornerRadius: 20)
                         .fill(Color.textFieldBackground)
-                        .frame(height: (isTextLocked && !currentAIResponse.isEmpty) ? 300 : max(150, min(300, textEditorHeight)))
+                        .frame(height: (isTextLocked && !currentAIResponse.isEmpty) ? 350 : max(150, min(300, textEditorHeight)))
                     
                     // Text Editor and AI Response Display
                     if isTextLocked && !currentAIResponse.isEmpty {
@@ -242,7 +242,7 @@ struct ContentView: View {
                                 }
                             }
                         }
-                        .frame(height: 300) // Always use max height when showing AI response
+                        .frame(height: 350) // Always use max height when showing AI response
                         .clipped() // Ensure content doesn't extend beyond container
                         .overlay(
                             // Bottom fade mask to prevent text overlap with favorite button
@@ -426,7 +426,7 @@ struct ContentView: View {
                         }
                     }
                 }
-                .frame(height: (isTextLocked && !currentAIResponse.isEmpty) ? 300 : max(150, min(300, textEditorHeight)))
+                .frame(height: (isTextLocked && !currentAIResponse.isEmpty) ? 350 : max(150, min(300, textEditorHeight)))
             }
             .padding(.horizontal, 30)
             
@@ -461,7 +461,7 @@ struct ContentView: View {
                         // Background for the text editor
                         RoundedRectangle(cornerRadius: 20)
                             .fill(Color.textFieldBackground)
-                            .frame(height: (openIsTextLocked && !openCurrentAIResponse.isEmpty) ? 300 : max(150, min(300, openTextEditorHeight)))
+                            .frame(height: (openIsTextLocked && !openCurrentAIResponse.isEmpty) ? 350 : max(150, min(300, openTextEditorHeight)))
                         
                         // Text Editor and AI Response Display
                         if openIsTextLocked && !openCurrentAIResponse.isEmpty {
@@ -501,7 +501,7 @@ struct ContentView: View {
                                     }
                                 }
                             }
-                            .frame(height: 300) // Always use max height when showing AI response
+                            .frame(height: 350) // Always use max height when showing AI response
                             .clipped() // Ensure content doesn't extend beyond container
                             .overlay(
                                 // Bottom fade mask to prevent text overlap with favorite button
@@ -685,7 +685,7 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .frame(height: (openIsTextLocked && !openCurrentAIResponse.isEmpty) ? 300 : max(150, min(300, openTextEditorHeight)))
+                    .frame(height: (openIsTextLocked && !openCurrentAIResponse.isEmpty) ? 350 : max(150, min(300, openTextEditorHeight)))
             }
             .padding(.horizontal, 30)
             
@@ -736,7 +736,7 @@ struct ContentView: View {
                             if goalText.count > 50 {
                                 goalText = String(goalText.prefix(50))
                             }
-                            // Auto-scroll to goal section when typing
+                            // Auto-scroll to bottom of page when typing
                             withAnimation(.easeInOut(duration: 0.5)) {
                                 proxy.scrollTo("goalSection", anchor: .bottom)
                             }
@@ -1150,7 +1150,7 @@ Task: Given search terms related to behavioral science and therapy topics, perfo
 Input: {content}
 Output: Provide only a succinct, information-dense summary capturing the essence of recent behavioral science and therapy sources relevant to the search terms The summary must be concise, in 2 short paragraphs. The first paragraph must empathetically acknowledge and summarize the search term concerns. The second paragraph must provide achievable actions the users can implement to address the concern and the goal to be {goal}. Limit the bulleted actions to no more than 3. 
 Constraints: Focus on capturing the main points succinctly: complete sentences and in a conversational empathetic and analytical tone. Ignore fluff, background information. Do not include your own analysis or opinion. Do not reiterate the input. Ignore dangerous and abusive talk in input.
-Capabilities and Reminders: You have access to the web search tools to find and retrieve behavioral science and therapy related data. Do not label paragraph 1 and 2 in the reply and do not mention the word limits in the reply. Limit the entire response to 100 words.
+Capabilities and Reminders: You have access to the web search tools, published research papers/studies and gain knowledge to find and retrieve behavioral science and therapy related data. Do not label paragraph 1 and 2 in the reply and do not mention the word limits in the reply. Limit the entire response to 150 words.
 """
         
         // Replace {content}, {goal}, and {question_text} placeholders
@@ -1671,18 +1671,11 @@ Capabilities and Reminders: You have access to the web search tools to find and 
                 
                 // Fourth text chunk with overlay icon
                 ZStack {
-                    (Text("AI Insights").font(.system(size: 15, weight: .bold)) + Text(" - Our app elevates your journaling experience with personalized, AI-powered guidance that is supportive, inspiring, and goal-oriented. After each journal entry, tap the        icon to unlock tailored insights. You can even set a behavioral goal, and the app will customize its guidance to help you achieve it.").font(.system(size: 15)))
+                    (Text("AI Insights").font(.system(size: 15, weight: .bold)) + Text(" - Our app elevates your journaling experience with personalized, AI-powered guidance that is supportive, inspiring, and goal-oriented. After each journal entry, tap the \"AI\" button to unlock tailored insights. You can even set a behavioral goal, and the app will customize its guidance to help you achieve it.").font(.system(size: 15)))
                         .foregroundColor(Color(hex: "3F5E82"))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 20)
                     
-                    // Overlay icon positioned between "the" and "icon"
-                    Image("Centered chunk")
-                        .renderingMode(.original)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 17, height: 17)
-                        .offset(x: 124, y: 2) // Changed horizontal position to x: 124
                 }
                 .padding(.top, 17) // Changed from 12pt to 17pt
                             
