@@ -736,10 +736,6 @@ struct ContentView: View {
                             if goalText.count > 50 {
                                 goalText = String(goalText.prefix(50))
                             }
-                            // Auto-scroll to bottom of page when typing
-                            withAnimation(.easeInOut(duration: 0.5)) {
-                                proxy.scrollTo("goalSection", anchor: .bottom)
-                            }
                         }
                         
                         // Custom placeholder text with smaller font
@@ -780,7 +776,6 @@ struct ContentView: View {
                 .padding(.horizontal, 40) // Centered with more padding
             }
             .padding(.top, 16) // 16pt below embossed line
-            .id("goalSection")
         }
         
         // Add bottom padding for future navigation tabs
