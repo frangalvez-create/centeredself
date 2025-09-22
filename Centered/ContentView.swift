@@ -44,6 +44,7 @@ struct ContentView: View {
     
     // Info Popup State
     @State private var showInfoPopup: Bool = false
+    @State private var showGoalInfoPopup: Bool = false
     
     // Authentication State
     @State private var email: String = ""
@@ -85,6 +86,9 @@ struct ContentView: View {
                     Group {
                         if showInfoPopup {
                             infoPopupView
+                        }
+                        if showGoalInfoPopup {
+                            goalInfoPopupView
                         }
                     }
                 )
@@ -145,20 +149,6 @@ struct ContentView: View {
                 .padding(.bottom, 25)
             
             // Q Info Icon - positioned higher and to the right of DJ.png
-            HStack {
-                Spacer()
-                Button(action: {
-                    showInfoPopup = true
-                }) {
-                    Image("Q")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 27, height: 27)
-                }
-                .offset(x: 110) // Move 110pt to the right
-                Spacer()
-            }
-            .offset(y: -57) // Raise 12pt higher than before (-45 + -12 = -57)
             
             // Guided Question Text with Refresh Button - Loaded from Database
             HStack(spacing: 8) {
@@ -451,6 +441,19 @@ struct ContentView: View {
                     // }
                     // .disabled(journalViewModel.isLoading)
                 }
+                .overlay(
+                    // Q Icon as overlay - positioned 10pt down and 10pt to the right
+                    Button(action: {
+                        showInfoPopup = true
+                    }) {
+                        Image("Q")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 27, height: 27)
+                    }
+                    .offset(x: 30, y: 8), // 30pt to the right and 8pt down
+                    alignment: .trailing
+                )
                 .padding(.horizontal, 40)
                 .padding(.bottom, 10)
                 .padding(.top, 22) // 22pt spacing below Guided Question
@@ -776,6 +779,19 @@ struct ContentView: View {
                 .padding(.horizontal, 40) // Centered with more padding
             }
             .padding(.top, 16) // 16pt below embossed line
+            .overlay(
+                // Q2 Icon as overlay - positioned to the right of "My Goal is to be..." text
+                Button(action: {
+                    showGoalInfoPopup = true
+                }) {
+                    Image("Q2")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 27, height: 27)
+                }
+                .offset(x: 330, y: 8), // 330pt to the right, 8pt down
+                alignment: .topLeading
+            )
         }
         
         // Add bottom padding for future navigation tabs
@@ -2045,7 +2061,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
                     .font(.system(size: 15))
                     .foregroundColor(Color(hex: "545555"))
                 
-                Text("• After completing your entries, tap the AI button to receive personalized insights.")
+                Text("• After completing your entries, there is an option to tap the AI button to receive customized insights.")
                     .font(.system(size: 15))
                     .foregroundColor(Color(hex: "545555"))
                 
@@ -2061,9 +2077,30 @@ Capabilities and Reminders: You have access to the web search tools, published r
                     .font(.system(size: 15))
                     .foregroundColor(Color(hex: "545555"))
                 
-                Text("Personal goals change all the time. If yours changed, you can enter a new one.")
+            }
+            .padding(16)
+            .background(Color(hex: "E3E0C9"))
+            .cornerRadius(16)
+            .shadow(radius: 10)
+            .padding(.horizontal, 20)
+        }
+    }
+    
+    private var goalInfoPopupView: some View {
+        ZStack {
+            // Background overlay
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    showGoalInfoPopup = false
+                }
+            
+            // Popup content
+            VStack(spacing: 8) {
+                Text("You can enter a personal goal in this field (e.g., 'be less angry' or 'be more patient'), and the AI will tailor its insights around it. Since goals can change, you can update yours anytime by clicking the refresh button and entering a new one.")
                     .font(.system(size: 15))
                     .foregroundColor(Color(hex: "545555"))
+                    .multilineTextAlignment(.leading)
             }
             .padding(16)
             .background(Color(hex: "E3E0C9"))

@@ -15,21 +15,22 @@ class OpenAIService: ObservableObject {
         self.apiKey = key
     }
     
-    /// Generates AI response using GPT-4o mini with web search capabilities
+    /// Generates AI response using GPT-5 mini with reasoning and verbosity controls
     func generateAIResponse(for prompt: String) async throws -> String {
         print("🤖 Sending request to OpenAI API with prompt: \(prompt.prefix(100))...")
         
         // Create the request body for OpenAI Chat Completions API
         let requestBody: [String: Any] = [
-            "model": "gpt-4o-mini",
+            "model": "gpt-5-mini",
             "messages": [
                 [
                     "role": "user",
                     "content": prompt
                 ]
             ],
-            "max_tokens": 500,
-            "temperature": 0.7
+            "max_completion_tokens": 500,
+            "reasoning_effort": "low",      // optional, if less "thinking" is okay
+            "verbosity": "medium"           // controls how detailed/concise outputs are
         ]
         
         // Create URL request
