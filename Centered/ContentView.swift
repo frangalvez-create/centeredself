@@ -424,7 +424,7 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 // Static Open Question Text with Refresh Button
                 HStack(spacing: 8) {
-                    Text("How was your day? Share anything…\nhighs, lows, worries, perspective, etc.")
+                    Text("Looking at today or yesterday, share moments or thoughts that stood out.")
                         .font(.system(size: 16, weight: .medium))
                         .foregroundColor(Color.textBlue)
                         .multilineTextAlignment(.center)
@@ -771,7 +771,7 @@ struct ContentView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 24, height: 24)
-                            .opacity(0.8) // 80% opacity for both CP Done and CP Refresh buttons
+                            .opacity(showCPRefreshButton ? 0.6 : 0.8) // 60% opacity for CP Refresh, 80% for CP Done
                     }
                     .padding(.trailing, 5) // 5pt from right edge
                     }
@@ -880,6 +880,53 @@ struct ContentView: View {
             // Global timer handles 2AM reset - no cleanup needed here
             print("🕐 View disappeared - global timer continues running")
         }
+        .overlay(
+            // Date display - positioned at top left
+            VStack {
+                HStack {
+                    Text(formatCurrentDate())
+                        .font(.system(size: 13))
+                        .foregroundColor(Color(hex: "545555").opacity(0.8))
+                        .padding(.top, 50)
+                        .padding(.leading, 35)
+                    Spacer()
+                }
+                Spacer()
+            },
+            alignment: .topLeading
+        )
+        .overlay(
+            // Entries Streak display - positioned at top right
+            VStack {
+                HStack {
+                    Spacer()
+                    Text("Log Streak: \(journalViewModel.calculateEntryStreak())")
+                        .font(.system(size: 13))
+                        .foregroundColor(Color(hex: "545555").opacity(0.8))
+                        .padding(.top, 50)
+                        .padding(.trailing, 30)
+                }
+                Spacer()
+            },
+            alignment: .topTrailing
+        )
+    }
+    
+    // Format current date as "Sept 24th" format
+    private func formatCurrentDate() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        
+        let calendar = Calendar.current
+        let day = calendar.component(.day, from: Date())
+        
+        let ordinalFormatter = NumberFormatter()
+        ordinalFormatter.numberStyle = .ordinal
+        
+        let monthDay = formatter.string(from: Date())
+        let ordinalDay = ordinalFormatter.string(from: NSNumber(value: day)) ?? "\(day)"
+        
+        return monthDay.replacingOccurrences(of: "\(day)", with: ordinalDay)
     }
     
     private var authenticationView: some View {
@@ -1716,15 +1763,15 @@ Capabilities and Reminders: You have access to the web search tools, published r
                     .renderingMode(.original)
                     .resizable()
                     .scaledToFit()
-                    .scaleEffect(0.53) // 0.44 * 1.2 = increased by 20%
-                    .padding(.bottom, 20)
+                    .scaleEffect(0.353) // Reduced to 2/3 of previous size (0.53 * 0.667)
+                    .padding(.bottom, 10)
                 
-                // List of favorite entries with swipe-to-delete - 20pt below title
+                // List of favorite entries with swipe-to-delete - 10pt below title
                 if journalViewModel.favoriteJournalEntries.isEmpty {
                     // Show empty state message when no favorites exist
                     VStack {
                         Spacer()
-                            .frame(height: 20) // Fixed height to raise text up 20pt
+                            .frame(height: 10) // Fixed height to raise text up 10pt
                         
                         Text("No favorite entries have been made yet..")
                             .font(.system(size: 13))
@@ -2053,7 +2100,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(Color(hex: "545555"))
                 
-                Text("• The top question changes daily and may ask about your relationships, emotions, health, or other topics.")
+                Text("• The top question change daily. The topics include gratitude, mindset, mental and physical health and other similar topics.")
                     .font(.system(size: 15))
                     .foregroundColor(Color(hex: "545555"))
                 
@@ -2097,10 +2144,23 @@ Capabilities and Reminders: You have access to the web search tools, published r
             
             // Popup content
             VStack(spacing: 8) {
-                Text("You can enter a personal goal in this field (e.g., 'be less angry' or 'be more patient'), and the AI will tailor its insights around it. Since goals can change, you can update yours anytime by clicking the refresh button and entering a new one.")
+                Text("Goals")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(Color(hex: "545555"))
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                Text("You can enter a personal goal in this field (e.g. 'less worried' or 'more patient'), and the AI will tailor its insights around it.")
                     .font(.system(size: 15))
                     .foregroundColor(Color(hex: "545555"))
                     .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                Text("Since goals can change, you can update your goal anytime by clicking the refresh button and entering a new one.")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "545555"))
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(16)
             .background(Color(hex: "E3E0C9"))

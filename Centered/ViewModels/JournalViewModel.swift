@@ -234,32 +234,9 @@ class JournalViewModel: ObservableObject {
                 return
             }
             
-            // First, load journal entries to check if there's a recent one for today
-            let entries = try await supabaseService.fetchJournalEntries(userId: user.id)
-            
-            // Check if there's a journal entry from today
-            let today = Calendar.current.startOfDay(for: Date())
-            let todayEntries = entries.filter { entry in
-                Calendar.current.isDate(entry.createdAt, inSameDayAs: today)
-            }
-            
-            if let mostRecentTodayEntry = todayEntries.first,
-               let guidedQuestionId = mostRecentTodayEntry.guidedQuestionId {
-                // Load the guided question that was used for today's entry
-                let guidedQuestions = try await supabaseService.fetchGuidedQuestions()
-                if let question = guidedQuestions.first(where: { $0.id == guidedQuestionId }) {
-                    currentQuestion = question
-                    print("✅ loadTodaysQuestion: Loaded question from today's journal entry: \(question.questionText)")
-                } else {
-                    // Fallback to random question if the specific question isn't found
-                    currentQuestion = try await supabaseService.getRandomGuidedQuestion()
-                    print("⚠️ loadTodaysQuestion: Couldn't find guided question ID \(guidedQuestionId), using random question")
-                }
-            } else {
-                // No journal entry for today, load a random question
-                currentQuestion = try await supabaseService.getRandomGuidedQuestion()
-                print("✅ loadTodaysQuestion: No journal entry for today, loaded random question: \(currentQuestion?.questionText ?? "nil")")
-            }
+            // Use date-based question selection - all users get the same question each day
+            currentQuestion = try await supabaseService.getTodaysGuidedQuestion()
+            print("✅ loadTodaysQuestion: Loaded date-based question: \(currentQuestion?.questionText ?? "nil")")
             
         } catch {
             // Handle specific error types more gracefully
@@ -549,7 +526,7 @@ class JournalViewModel: ObservableObject {
             )
             
             // Save to database with special handling for open question
-            let savedEntry = try await supabaseService.createOpenQuestionJournalEntry(entry, staticQuestion: "How was your day? Share anything…\nhighs, lows, worries, insights, etc.")
+            let savedEntry = try await supabaseService.createOpenQuestionJournalEntry(entry, staticQuestion: "Looking at today or yesterday, share moments or thoughts that stood out.")
             
             // Refresh entries
             await loadOpenQuestionJournalEntries()
@@ -894,7 +871,7 @@ class JournalViewModel: ObservableObject {
                 entryType: "open"
             )
             
-            _ = try await supabaseService.createOpenQuestionJournalEntry(newEntry, staticQuestion: "How was your day? Share anything…\nhighs, lows, worries, insights, etc.")
+            _ = try await supabaseService.createOpenQuestionJournalEntry(newEntry, staticQuestion: "Looking at today or yesterday, share moments or thoughts that stood out.")
             print("✅ Created new open question entry (preserving history)")
             
             // Reload data to reflect changes

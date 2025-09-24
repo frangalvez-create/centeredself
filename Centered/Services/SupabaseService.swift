@@ -205,6 +205,26 @@ class SupabaseService: ObservableObject {
         return questions.randomElement()
     }
     
+    func getTodaysGuidedQuestion() async throws -> GuidedQuestion? {
+        let questions = try await fetchGuidedQuestions()
+        
+        // Sort questions by order_index to ensure consistent ordering
+        let sortedQuestions = questions.sorted { $0.orderIndex ?? 0 < $1.orderIndex ?? 0 }
+        
+        // Calculate days since a reference date (January 1, 2024)
+        let referenceDate = Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 1))!
+        let today = Calendar.current.startOfDay(for: Date())
+        let daysSinceReference = Calendar.current.dateComponents([.day], from: referenceDate, to: today).day ?? 0
+        
+        // Use modulo to cycle through questions
+        let questionIndex = daysSinceReference % sortedQuestions.count
+        let todaysQuestion = sortedQuestions[questionIndex]
+        
+        print("📅 Date-based question selection: Day \(daysSinceReference), Question index \(questionIndex), Question: \(todaysQuestion.questionText)")
+        
+        return todaysQuestion
+    }
+    
     // MARK: - Journal Entries
     func createJournalEntry(_ entry: JournalEntry) async throws -> JournalEntry {
         print("🔘🔘🔘 SUPABASE CREATE JOURNAL ENTRY CALLED - Content: \(entry.content)")

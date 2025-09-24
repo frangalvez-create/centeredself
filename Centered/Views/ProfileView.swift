@@ -39,7 +39,7 @@ struct ProfileView: View {
                 Spacer()
                 
                 // Entry Streak
-                Text("Entry Streak: \(journalViewModel.calculateEntryStreak())")
+                Text("Log Streak: \(journalViewModel.calculateEntryStreak())")
                     .font(.system(size: 15))
                     .foregroundColor(Color(hex: "545555"))
                     .padding(.trailing, 30) // 30pt from right edge
