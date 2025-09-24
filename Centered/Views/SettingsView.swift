@@ -8,9 +8,6 @@ struct SettingsView: View {
     @State private var firstName: String = ""
     @State private var lastName: String = ""
     
-    // State variables for notification settings
-    @State private var notificationFrequency: String = "Weekly"
-    @State private var streakEndingNotification: Bool = true
     
     var body: some View {
         ZStack {
@@ -72,58 +69,6 @@ struct SettingsView: View {
                                 .padding(.leading, 10) // 10pt spacing from label
                         }
                         
-                        
-                        // Notifications Header
-                        Text("Notifications")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(Color(hex: "3F5E82"))
-                            .padding(.leading, 10) // 10pt left padding
-                            .padding(.top, 50) // 50pt below Last Name field
-                        
-                        // Frequency Dropdown
-                        HStack(spacing: 0) {
-                            Text("Frequency")
-                                .font(.system(size: 16))
-                                .foregroundColor(Color(hex: "3F5E82"))
-                                .frame(width: 100, alignment: .leading)
-                                .padding(.leading, 10) // 10pt from left edge
-                            
-                            Menu {
-                                Button("Weekly") {
-                                    notificationFrequency = "Weekly"
-                                }
-                                Button("Monthly") {
-                                    notificationFrequency = "Monthly"
-                                }
-                            } label: {
-                                HStack {
-                                    Text(notificationFrequency)
-                                        .font(.system(size: 16))
-                                        .foregroundColor(Color(hex: "3F5E82"))
-                                    Image(systemName: "chevron.down")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(Color(hex: "3F5E82"))
-                                }
-                                .frame(maxWidth: 140) // Doubled: 70pt -> 140pt
-                                .padding(.leading, 10) // 10pt spacing from label
-                            }
-                        }
-                        .padding(.top, 10) // 10pt below Notifications text
-                        
-                        // Streak Ending Toggle
-                        HStack(spacing: 0) {
-                            Text("Streak Ending")
-                                .font(.system(size: 16))
-                                .foregroundColor(Color(hex: "3F5E82"))
-                                .frame(width: 100, alignment: .leading)
-                                .padding(.leading, 10) // 10pt from left edge
-                            
-                            Toggle("", isOn: $streakEndingNotification)
-                                .toggleStyle(SwitchToggleStyle())
-                                .frame(maxWidth: 30) // Keep toggle size
-                                .padding(.leading, 25) // 25pt spacing from label
-                        }
-                        .padding(.top, 10) // 10pt below Frequency
                     }
                 }
                 .frame(maxWidth: .infinity) // Expand to full width
@@ -155,12 +100,6 @@ struct SettingsView: View {
         .onChange(of: lastName) { _ in
             savePersistedData()
         }
-        .onChange(of: notificationFrequency) { _ in
-            savePersistedData()
-        }
-        .onChange(of: streakEndingNotification) { _ in
-            savePersistedData()
-        }
     }
 }
     
@@ -170,8 +109,6 @@ struct SettingsView: View {
         let userId = journalViewModel.currentUser?.id.uuidString ?? "anonymous"
         let firstNameKey = "firstName_\(userId)"
         let lastNameKey = "lastName_\(userId)"
-        let frequencyKey = "notificationFrequency_\(userId)"
-        let streakKey = "streakEndingNotification_\(userId)"
         
         if let savedFirstName = UserDefaults.standard.string(forKey: firstNameKey) {
             firstName = savedFirstName
@@ -179,10 +116,6 @@ struct SettingsView: View {
         if let savedLastName = UserDefaults.standard.string(forKey: lastNameKey) {
             lastName = savedLastName
         }
-        if let savedFrequency = UserDefaults.standard.string(forKey: frequencyKey) {
-            notificationFrequency = savedFrequency
-        }
-        streakEndingNotification = UserDefaults.standard.bool(forKey: streakKey)
     }
     
     // Save data to UserDefaults
@@ -191,13 +124,9 @@ struct SettingsView: View {
         let userId = journalViewModel.currentUser?.id.uuidString ?? "anonymous"
         let firstNameKey = "firstName_\(userId)"
         let lastNameKey = "lastName_\(userId)"
-        let frequencyKey = "notificationFrequency_\(userId)"
-        let streakKey = "streakEndingNotification_\(userId)"
         
         UserDefaults.standard.set(firstName, forKey: firstNameKey)
         UserDefaults.standard.set(lastName, forKey: lastNameKey)
-        UserDefaults.standard.set(notificationFrequency, forKey: frequencyKey)
-        UserDefaults.standard.set(streakEndingNotification, forKey: streakKey)
     }
     
     // Update user profile in the app
@@ -207,8 +136,8 @@ struct SettingsView: View {
                 await journalViewModel.updateUserProfile(
                     firstName: firstName,
                     lastName: lastName.isEmpty ? nil : lastName,
-                    notificationFrequency: notificationFrequency,
-                    streakEndingNotification: streakEndingNotification
+                    notificationFrequency: nil,
+                    streakEndingNotification: nil
                 )
             }
         }
