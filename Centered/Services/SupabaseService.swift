@@ -552,7 +552,7 @@ class SupabaseService: ObservableObject {
     }
     
     // MARK: - User Profile Updates
-    func updateUserProfile(firstName: String, lastName: String? = nil, notificationFrequency: String? = nil, streakEndingNotification: Bool? = nil) async throws {
+    func updateUserProfile(firstName: String? = nil, lastName: String? = nil, gender: String? = nil, occupation: String? = nil, notificationFrequency: String? = nil, streakEndingNotification: Bool? = nil) async throws {
         if useMockData {
             print("Mock: Updated user profile with first name: \(firstName)")
         } else {
@@ -564,8 +564,10 @@ class SupabaseService: ObservableObject {
             // Real implementation - save to user_profiles table
             struct ProfileData: Codable {
                 let user_id: String
-                let first_name: String
+                let first_name: String?
                 let last_name: String?
+                let gender: String?
+                let occupation: String?
                 let updated_at: String
             }
             
@@ -573,6 +575,8 @@ class SupabaseService: ObservableObject {
                 user_id: userId.uuidString,
                 first_name: firstName,
                 last_name: lastName,
+                gender: gender,
+                occupation: occupation,
                 updated_at: ISO8601DateFormatter().string(from: Date())
             )
             
@@ -583,6 +587,8 @@ class SupabaseService: ObservableObject {
                     .update([
                         "first_name": firstName,
                         "last_name": lastName,
+                        "gender": gender,
+                        "occupation": occupation,
                         "updated_at": ISO8601DateFormatter().string(from: Date())
                     ])
                     .eq("user_id", value: userId.uuidString)
@@ -619,6 +625,9 @@ class SupabaseService: ObservableObject {
                 email: "test@example.com",
                 displayName: "Test User",
                 firstName: "Test",
+                lastName: "User",
+                gender: "Non-binary",
+                occupation: "Software Developer",
                 currentStreak: 5,
                 longestStreak: 10,
                 totalJournalEntries: 15,
@@ -647,6 +656,9 @@ class SupabaseService: ObservableObject {
                     email: supabase.auth.currentUser?.email ?? "unknown@example.com",
                     displayName: profile["first_name"] as? String ?? "User",
                     firstName: profile["first_name"] as? String,
+                    lastName: profile["last_name"] as? String,
+                    gender: profile["gender"] as? String,
+                    occupation: profile["occupation"] as? String,
                     currentStreak: 0, // Default values for now
                     longestStreak: 0,
                     totalJournalEntries: 0,
