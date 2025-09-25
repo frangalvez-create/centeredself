@@ -4,10 +4,10 @@ struct SettingsView: View {
     @EnvironmentObject var journalViewModel: JournalViewModel
     @Environment(\.dismiss) private var dismiss
     
-    // State variables for user information
-    @State private var firstName: String = ""
-    @State private var lastName: String = ""
-    
+    // State variables for First Name field (duplicated from goals field)
+    @State private var firstNameText: String = ""
+    @State private var isFirstNameLocked: Bool = false
+    @State private var showFirstNameRefreshButton: Bool = false
     
     var body: some View {
         ZStack {
@@ -30,115 +30,137 @@ struct SettingsView: View {
                         .foregroundColor(Color(hex: "3F5E82"))
                         .padding(.top, 25) // 25pt below logo
                     
-                    // Profile and Notifications Section (Combined Container)
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Profile")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(Color(hex: "3F5E82"))
-                            .padding(.leading, 10) // 10pt left padding
-                            .padding(.top, 60) // 60pt below Settings text
-                        
-                        // First Name Field
-                        HStack(spacing: 0) {
+                    // First Name section - 30pt below Settings text
+                    VStack(spacing: 4) {
+                        HStack(spacing: 15) {
                             Text("First Name")
                                 .font(.system(size: 16))
-                                .foregroundColor(Color(hex: "3F5E82"))
-                                .frame(width: 100, alignment: .leading)
-                                .padding(.leading, 10) // 10pt from left edge
+                                .foregroundColor(Color(hex: "545555"))
                             
-                            TextField("Enter first name", text: $firstName)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                            // First Name text field with button overlay
+                            ZStack(alignment: .trailing) {
+                                // Single-line TextField instead of TextEditor
+                                TextField("", text: $firstNameText)
                                 .font(.system(size: 16))
-                                .frame(maxWidth: 210) // Tripled: 70pt -> 210pt
-                                .padding(.leading, 10) // 10pt spacing from label
+                                .foregroundColor(Color(hex: "545555"))
+                                .padding(.leading, 15)
+                                .padding(.trailing, (isFirstNameLocked || firstNameText.isEmpty) ? 15 : 50) // Make room for button when unlocked and has text
+                                .padding(.vertical, 6) // Vertical padding for single line
+                                .background(Color(hex: "F5F4EB"))
+                                .cornerRadius(8)
+                                .disabled(isFirstNameLocked) // Disable editing when locked
+                                .frame(maxWidth: UIScreen.main.bounds.width * 0.4) // Reduced width to fit in HStack
+                                .onChange(of: firstNameText) { _ in
+                                    // Character limit for single line
+                                    if firstNameText.count > 50 {
+                                        firstNameText = String(firstNameText.prefix(50))
+                                    }
+                                }
+                                
+                                // CP Done/Refresh Button positioned at the right edge (only show when text is entered)
+                                if !firstNameText.isEmpty {
+                                    Button(action: {
+                                    if showFirstNameRefreshButton {
+                                        // CP Refresh button clicked - reset
+                                        cpFirstNameRefreshButtonTapped()
+                                    } else {
+                                        // CP Done button clicked - lock in
+                                        cpFirstNameDoneButtonTapped()
+                                    }
+                                }) {
+                                    Image(showFirstNameRefreshButton ? "CP Refresh" : "CP Done")
+                                        .renderingMode(.original)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 24, height: 24)
+                                        .opacity(showFirstNameRefreshButton ? 0.6 : 0.8) // 60% opacity for CP Refresh, 80% for CP Done
+                                }
+                                .padding(.trailing, 5) // 5pt from right edge
+                                }
+                            }
                         }
-                        .padding(.top, 10) // 10pt below Profile text
-                        
-                        // Last Name Field
-                        HStack(spacing: 0) {
-                            Text("Last Name")
-                                .font(.system(size: 16))
-                                .foregroundColor(Color(hex: "3F5E82"))
-                                .frame(width: 100, alignment: .leading)
-                                .padding(.leading, 10) // 10pt from left edge
-                            
-                            TextField("Enter last name", text: $lastName)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
-                                .font(.system(size: 16))
-                                .frame(maxWidth: 210) // Tripled: 70pt -> 210pt
-                                .padding(.leading, 10) // 10pt spacing from label
-                        }
-                        
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 40) // Overall horizontal padding
                     }
+                    .padding(.top, 30) // 30pt below Settings text
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 0)
+                    .background(Color(hex: "E3E0C9"))
                 }
-                .frame(maxWidth: .infinity) // Expand to full width
-                .padding(.horizontal, 0) // Remove horizontal padding
-                .background(Color(hex: "E3E0C9")) // Background for main content
+                .frame(maxWidth: .infinity)
+                .background(Color(hex: "E3E0C9"))
+                .navigationBarHidden(true)
             }
-            .frame(maxWidth: .infinity) // Expand ScrollView to full width
-            .background(Color(hex: "E3E0C9")) // Background for ScrollView
-            .navigationBarHidden(true)
+            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity) // Expand NavigationView to full width
         .onAppear {
-            loadPersistedData()
-        }
-        
-        // Swipe Down Text - positioned at bottom of screen
-        VStack {
-            Spacer()
-            Text("Swipe Down")
-                .font(.system(size: 14))
-                .foregroundColor(Color(hex: "545555"))
-                .opacity(0.7) // 70% opacity
-                .padding(.bottom, 30) // 30pt from bottom
-        }
-        .onChange(of: firstName) { _ in
-            savePersistedData()
-            updateUserProfile()
-        }
-        .onChange(of: lastName) { _ in
-            savePersistedData()
-        }
-    }
-}
-    
-    // Load persisted data from UserDefaults
-    private func loadPersistedData() {
-        // Get user-specific keys to prevent data leakage between users
-        let userId = journalViewModel.currentUser?.id.uuidString ?? "anonymous"
-        let firstNameKey = "firstName_\(userId)"
-        let lastNameKey = "lastName_\(userId)"
-        
-        if let savedFirstName = UserDefaults.standard.string(forKey: firstNameKey) {
-            firstName = savedFirstName
-        }
-        if let savedLastName = UserDefaults.standard.string(forKey: lastNameKey) {
-            lastName = savedLastName
+            loadFirstNameFromDatabase()
         }
     }
     
-    // Save data to UserDefaults
-    private func savePersistedData() {
-        // Get user-specific keys to prevent data leakage between users
-        let userId = journalViewModel.currentUser?.id.uuidString ?? "anonymous"
-        let firstNameKey = "firstName_\(userId)"
-        let lastNameKey = "lastName_\(userId)"
+    // MARK: - Functions (duplicated from goals field)
+    
+    private func cpFirstNameDoneButtonTapped() {
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
         
-        UserDefaults.standard.set(firstName, forKey: firstNameKey)
-        UserDefaults.standard.set(lastName, forKey: lastNameKey)
+        // Lock the text field and show refresh button
+        isFirstNameLocked = true
+        showFirstNameRefreshButton = true
+        
+        // Save first name to database
+        Task {
+            await saveFirstNameToDatabase(firstNameText)
+        }
+        
+        print("✅ First Name saved: \(firstNameText)")
     }
     
-    // Update user profile in the app
-    private func updateUserProfile() {
-        if !firstName.isEmpty {
-            Task {
-                await journalViewModel.updateUserProfile(
-                    firstName: firstName,
-                    lastName: lastName.isEmpty ? nil : lastName,
-                    notificationFrequency: nil,
-                    streakEndingNotification: nil
-                )
+    private func cpFirstNameRefreshButtonTapped() {
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        // Reset the first name entry process
+        firstNameText = ""
+        isFirstNameLocked = false
+        showFirstNameRefreshButton = false
+        
+        print("CP Refresh button clicked - First Name entry reset")
+    }
+    
+    private func saveFirstNameToDatabase(_ firstName: String) async {
+        guard !firstName.isEmpty else { return }
+        
+        do {
+            try await journalViewModel.supabaseService.updateUserProfile(
+                firstName: firstName,
+                lastName: nil,
+                notificationFrequency: nil,
+                streakEndingNotification: nil
+            )
+            print("✅ First Name saved successfully: \(firstName)")
+        } catch {
+            print("❌ Failed to save first name: \(error)")
+        }
+    }
+    
+    private func loadFirstNameFromDatabase() {
+        Task {
+            do {
+                let profile = try await journalViewModel.supabaseService.loadUserProfile()
+                if let profile = profile, let firstName = profile.firstName, !firstName.isEmpty {
+                    firstNameText = firstName
+                    isFirstNameLocked = true
+                    showFirstNameRefreshButton = true
+                    print("✅ First Name loaded from database: \(firstName)")
+                } else {
+                    print("ℹ️ No first name found in database")
+                }
+            } catch {
+                print("❌ Failed to load first name: \(error)")
             }
         }
     }

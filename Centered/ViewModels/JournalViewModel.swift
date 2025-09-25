@@ -26,7 +26,7 @@ class JournalViewModel: ObservableObject {
     // Track when we last performed a reset to prevent multiple resets per day
     private var lastResetDate: Date?
     
-    private let supabaseService = SupabaseService()
+    let supabaseService = SupabaseService()
     private let openAIService = OpenAIService()
     
     init() {
@@ -944,12 +944,19 @@ class JournalViewModel: ObservableObject {
     // MARK: - User Profile Updates
     
     func updateUserProfile(firstName: String, lastName: String? = nil, notificationFrequency: String? = nil, streakEndingNotification: Bool? = nil) async {
+        print("🔄 JournalViewModel: updateUserProfile() called")
+        print("   firstName: '\(firstName)'")
+        print("   lastName: '\(lastName ?? "nil")'")
+        print("   currentUser: \(currentUser?.email ?? "nil")")
+        
         guard let user = currentUser else { 
             errorMessage = "User not authenticated"
+            print("❌ JournalViewModel: User not authenticated")
             return 
         }
         
         do {
+            print("✅ JournalViewModel: Calling supabaseService.updateUserProfile")
             // Update the user's profile in Supabase
             try await supabaseService.updateUserProfile(
                 firstName: firstName,

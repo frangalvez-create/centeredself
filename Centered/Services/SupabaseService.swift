@@ -566,8 +566,6 @@ class SupabaseService: ObservableObject {
                 let user_id: String
                 let first_name: String
                 let last_name: String?
-                let notification_frequency: String?
-                let streak_ending_notification: Bool?
                 let updated_at: String
             }
             
@@ -575,22 +573,90 @@ class SupabaseService: ObservableObject {
                 user_id: userId.uuidString,
                 first_name: firstName,
                 last_name: lastName,
-                notification_frequency: notificationFrequency,
-                streak_ending_notification: streakEndingNotification,
                 updated_at: ISO8601DateFormatter().string(from: Date())
             )
             
-            // Use upsert to insert or update the user profile
-            let _ = try await supabase
-                .from("user_profiles")
-                .upsert(profileData, onConflict: "user_id")
-                .execute()
+            // Try to update first, if no rows affected, then insert
+            do {
+                let updateResponse = try await supabase
+                    .from("user_profiles")
+                    .update([
+                        "first_name": firstName,
+                        "last_name": lastName,
+                        "updated_at": ISO8601DateFormatter().string(from: Date())
+                    ])
+                    .eq("user_id", value: userId.uuidString)
+                    .execute()
+                
+                // Check if any rows were actually updated by parsing the response
+                if let responseData = try JSONSerialization.jsonObject(with: updateResponse.data) as? [[String: Any]],
+                   responseData.isEmpty {
+                    // No rows were updated, insert a new record
+                    let _ = try await supabase
+                        .from("user_profiles")
+                        .insert(profileData)
+                        .execute()
+                }
+            } catch {
+                // If update fails, try to insert a new record
+                let _ = try await supabase
+                    .from("user_profiles")
+                    .insert(profileData)
+                    .execute()
+            }
             
             print("✅ User profile updated successfully for user: \(userId)")
             print("   First Name: \(firstName)")
             print("   Last Name: \(lastName ?? "nil")")
-            print("   Notification Frequency: \(notificationFrequency ?? "nil")")
-            print("   Streak Ending Notification: \(streakEndingNotification ?? false)")
+        }
+    }
+    
+    func loadUserProfile() async throws -> UserProfile? {
+        if useMockData {
+            print("Mock: Loading user profile")
+            return UserProfile(
+                id: UUID(),
+                email: "test@example.com",
+                displayName: "Test User",
+                firstName: "Test",
+                currentStreak: 5,
+                longestStreak: 10,
+                totalJournalEntries: 15,
+                createdAt: Date(),
+                updatedAt: Date()
+            )
+        } else {
+            // Use the same pattern as existing working code
+            guard let userId = supabase.auth.currentUser?.id else {
+                throw NSError(domain: "AuthError", code: 0, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            }
+            
+            // Real implementation - fetch from user_profiles table
+            let response = try await supabase
+                .from("user_profiles")
+                .select()
+                .eq("user_id", value: userId.uuidString)
+                .execute()
+            
+            if let profileData = try JSONSerialization.jsonObject(with: response.data) as? [[String: Any]],
+               let profile = profileData.first {
+                print("✅ User profile loaded successfully for user: \(userId)")
+                
+                return UserProfile(
+                    id: userId,
+                    email: supabase.auth.currentUser?.email ?? "unknown@example.com",
+                    displayName: profile["first_name"] as? String ?? "User",
+                    firstName: profile["first_name"] as? String,
+                    currentStreak: 0, // Default values for now
+                    longestStreak: 0,
+                    totalJournalEntries: 0,
+                    createdAt: Date(),
+                    updatedAt: Date()
+                )
+            } else {
+                print("ℹ️ No user profile found for user: \(userId) - returning nil")
+                return nil
+            }
         }
     }
     
