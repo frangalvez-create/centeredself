@@ -45,12 +45,14 @@ struct SettingsView: View {
                         .foregroundColor(Color(hex: "3F5E82"))
                         .padding(.top, 25) // 25pt below logo
                     
-                    // First Name section - 30pt below Settings text
+                    // First Name section - 70pt below Settings text
                     VStack(spacing: 4) {
-                        HStack(spacing: 15) {
+                        HStack {
                             Text("First Name")
                                 .font(.system(size: 16))
-                                .foregroundColor(Color(hex: "545555"))
+                                .foregroundColor(Color(hex: "3F5E82"))
+                            
+                            Spacer()
                             
                             // First Name text field with button overlay
                             ZStack(alignment: .trailing) {
@@ -64,7 +66,7 @@ struct SettingsView: View {
                                 .background(Color(hex: "F5F4EB"))
                                 .cornerRadius(8)
                                 .disabled(isFirstNameLocked) // Disable editing when locked
-                                .frame(maxWidth: UIScreen.main.bounds.width * 0.4) // Reduced width to fit in HStack
+                                .frame(width: UIScreen.main.bounds.width * 0.5) // Fixed width
                                 .onChange(of: firstNameText) { _ in
                                     // Character limit for single line
                                     if firstNameText.count > 50 {
@@ -93,18 +95,21 @@ struct SettingsView: View {
                                 .padding(.trailing, 5) // 5pt from right edge
                                 }
                             }
+                            .padding(.trailing, 20) // 20pt from right edge of screen
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 40) // Overall horizontal padding
                     }
-                    .padding(.top, 30) // 30pt below Settings text
+                    .padding(.top, 70) // 70pt below Settings text
                     
                     // Last Name section - directly below First Name
                     VStack(spacing: 4) {
-                        HStack(spacing: 15) {
+                        HStack {
                             Text("Last Name")
                                 .font(.system(size: 16))
-                                .foregroundColor(Color(hex: "545555"))
+                                .foregroundColor(Color(hex: "3F5E82"))
+                            
+                            Spacer()
                             
                             // Last Name text field with button overlay
                             ZStack(alignment: .trailing) {
@@ -118,7 +123,7 @@ struct SettingsView: View {
                                 .background(Color(hex: "F5F4EB"))
                                 .cornerRadius(8)
                                 .disabled(isLastNameLocked) // Disable editing when locked
-                                .frame(maxWidth: UIScreen.main.bounds.width * 0.4) // Reduced width to fit in HStack
+                                .frame(width: UIScreen.main.bounds.width * 0.5) // Fixed width
                                 .onChange(of: lastNameText) { _ in
                                     // Character limit for single line
                                     if lastNameText.count > 50 {
@@ -147,6 +152,7 @@ struct SettingsView: View {
                                 .padding(.trailing, 5) // 5pt from right edge
                                 }
                             }
+                            .padding(.trailing, 20) // 20pt from right edge of screen
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 40) // Overall horizontal padding
@@ -155,10 +161,12 @@ struct SettingsView: View {
                     
                     // Gender section - directly below Last Name
                     VStack(spacing: 4) {
-                        HStack(spacing: 15) {
+                        HStack {
                             Text("Gender")
                                 .font(.system(size: 16))
-                                .foregroundColor(Color(hex: "545555"))
+                                .foregroundColor(Color(hex: "3F5E82"))
+                            
+                            Spacer()
                             
                             // Gender text field with button overlay
                             ZStack(alignment: .trailing) {
@@ -172,7 +180,7 @@ struct SettingsView: View {
                                 .background(Color(hex: "F5F4EB"))
                                 .cornerRadius(8)
                                 .disabled(isGenderLocked) // Disable editing when locked
-                                .frame(maxWidth: UIScreen.main.bounds.width * 0.4) // Reduced width to fit in HStack
+                                .frame(width: UIScreen.main.bounds.width * 0.5) // Fixed width
                                 .onChange(of: genderText) { _ in
                                     // Character limit for single line
                                     if genderText.count > 50 {
@@ -201,6 +209,7 @@ struct SettingsView: View {
                                 .padding(.trailing, 5) // 5pt from right edge
                                 }
                             }
+                            .padding(.trailing, 20) // 20pt from right edge of screen
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 40) // Overall horizontal padding
@@ -209,10 +218,12 @@ struct SettingsView: View {
                     
                     // Occupation section - directly below Gender
                     VStack(spacing: 4) {
-                        HStack(spacing: 15) {
+                        HStack {
                             Text("Occupation")
                                 .font(.system(size: 16))
-                                .foregroundColor(Color(hex: "545555"))
+                                .foregroundColor(Color(hex: "3F5E82"))
+                            
+                            Spacer()
                             
                             // Occupation text field with button overlay
                             ZStack(alignment: .trailing) {
@@ -226,7 +237,7 @@ struct SettingsView: View {
                                 .background(Color(hex: "F5F4EB"))
                                 .cornerRadius(8)
                                 .disabled(isOccupationLocked) // Disable editing when locked
-                                .frame(maxWidth: UIScreen.main.bounds.width * 0.4) // Reduced width to fit in HStack
+                                .frame(width: UIScreen.main.bounds.width * 0.5) // Fixed width
                                 .onChange(of: occupationText) { _ in
                                     // Character limit for single line
                                     if occupationText.count > 50 {
@@ -255,6 +266,7 @@ struct SettingsView: View {
                                 .padding(.trailing, 5) // 5pt from right edge
                                 }
                             }
+                            .padding(.trailing, 20) // 20pt from right edge of screen
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 40) // Overall horizontal padding
