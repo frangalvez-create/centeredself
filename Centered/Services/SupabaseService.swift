@@ -552,7 +552,7 @@ class SupabaseService: ObservableObject {
     }
     
     // MARK: - User Profile Updates
-    func updateUserProfile(firstName: String? = nil, lastName: String? = nil, gender: String? = nil, occupation: String? = nil, notificationFrequency: String? = nil, streakEndingNotification: Bool? = nil) async throws {
+    func updateUserProfile(firstName: String? = nil, lastName: String? = nil, gender: String? = nil, occupation: String? = nil, birthdate: String? = nil, notificationFrequency: String? = nil, streakEndingNotification: Bool? = nil) async throws {
         if useMockData {
             print("Mock: Updated user profile with first name: \(firstName)")
         } else {
@@ -568,6 +568,7 @@ class SupabaseService: ObservableObject {
                 let last_name: String?
                 let gender: String?
                 let occupation: String?
+                let birthdate: String?
                 let updated_at: String
             }
             
@@ -577,6 +578,7 @@ class SupabaseService: ObservableObject {
                 last_name: lastName,
                 gender: gender,
                 occupation: occupation,
+                birthdate: birthdate,
                 updated_at: ISO8601DateFormatter().string(from: Date())
             )
             
@@ -589,6 +591,7 @@ class SupabaseService: ObservableObject {
                         "last_name": lastName,
                         "gender": gender,
                         "occupation": occupation,
+                        "birthdate": birthdate,
                         "updated_at": ISO8601DateFormatter().string(from: Date())
                     ])
                     .eq("user_id", value: userId.uuidString)
@@ -614,6 +617,7 @@ class SupabaseService: ObservableObject {
             print("✅ User profile updated successfully for user: \(userId)")
             print("   First Name: \(firstName)")
             print("   Last Name: \(lastName ?? "nil")")
+            print("   Birthdate: \(birthdate ?? "nil")")
         }
     }
     
@@ -628,6 +632,7 @@ class SupabaseService: ObservableObject {
                 lastName: "User",
                 gender: "Non-binary",
                 occupation: "Software Developer",
+                birthdate: "01/15/1990",
                 currentStreak: 5,
                 longestStreak: 10,
                 totalJournalEntries: 15,
@@ -659,6 +664,7 @@ class SupabaseService: ObservableObject {
                     lastName: profile["last_name"] as? String,
                     gender: profile["gender"] as? String,
                     occupation: profile["occupation"] as? String,
+                    birthdate: profile["birthdate"] as? String,
                     currentStreak: 0, // Default values for now
                     longestStreak: 0,
                     totalJournalEntries: 0,

@@ -8,6 +8,7 @@ struct UserProfile: Identifiable, Codable {
     var lastName: String?
     var gender: String?
     var occupation: String?
+    var birthdate: String?
     let currentStreak: Int
     let longestStreak: Int
     let totalJournalEntries: Int
@@ -22,6 +23,7 @@ struct UserProfile: Identifiable, Codable {
         case lastName = "last_name"
         case gender = "gender"
         case occupation = "occupation"
+        case birthdate = "birthdate"
         case currentStreak = "current_streak"
         case longestStreak = "longest_streak"
         case totalJournalEntries = "total_journal_entries"
@@ -29,7 +31,7 @@ struct UserProfile: Identifiable, Codable {
         case updatedAt = "updated_at"
     }
     
-    init(id: UUID, email: String, displayName: String? = nil, firstName: String? = nil, lastName: String? = nil, gender: String? = nil, occupation: String? = nil, currentStreak: Int = 0, longestStreak: Int = 0, totalJournalEntries: Int = 0, createdAt: Date = Date(), updatedAt: Date = Date()) {
+    init(id: UUID, email: String, displayName: String? = nil, firstName: String? = nil, lastName: String? = nil, gender: String? = nil, occupation: String? = nil, birthdate: String? = nil, currentStreak: Int = 0, longestStreak: Int = 0, totalJournalEntries: Int = 0, createdAt: Date = Date(), updatedAt: Date = Date()) {
         self.id = id
         self.email = email
         self.displayName = displayName
@@ -37,6 +39,7 @@ struct UserProfile: Identifiable, Codable {
         self.lastName = lastName
         self.gender = gender
         self.occupation = occupation
+        self.birthdate = birthdate
         self.currentStreak = currentStreak
         self.longestStreak = longestStreak
         self.totalJournalEntries = totalJournalEntries

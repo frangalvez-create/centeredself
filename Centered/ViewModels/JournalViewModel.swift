@@ -943,7 +943,7 @@ class JournalViewModel: ObservableObject {
     
     // MARK: - User Profile Updates
     
-    func updateUserProfile(firstName: String? = nil, lastName: String? = nil, gender: String? = nil, occupation: String? = nil, notificationFrequency: String? = nil, streakEndingNotification: Bool? = nil) async {
+    func updateUserProfile(firstName: String? = nil, lastName: String? = nil, gender: String? = nil, occupation: String? = nil, birthdate: String? = nil, notificationFrequency: String? = nil, streakEndingNotification: Bool? = nil) async {
         print("🔄 JournalViewModel: updateUserProfile() called")
         print("   firstName: '\(firstName)'")
         print("   lastName: '\(lastName ?? "nil")'")
@@ -961,6 +961,9 @@ class JournalViewModel: ObservableObject {
             try await supabaseService.updateUserProfile(
                 firstName: firstName,
                 lastName: lastName,
+                gender: gender,
+                occupation: occupation,
+                birthdate: birthdate,
                 notificationFrequency: notificationFrequency,
                 streakEndingNotification: streakEndingNotification
             )
