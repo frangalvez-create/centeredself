@@ -16,17 +16,12 @@ struct ProfileView: View {
                 .frame(height: 80)
                 .padding(.top, 58) // 58pt from top of screen
             
-            // User Name
-            Text(getUserSpecificFirstName())
-                .font(.system(size: 20, weight: .medium))
-                .foregroundColor(Color(hex: "3F5E82"))
-                .padding(.top, 10) // 10pt below profile logo
             
             // User Email
             Text(journalViewModel.currentUser?.email ?? "user@example.com")
                 .font(.system(size: 18))
                 .foregroundColor(Color(hex: "3F5E82"))
-                .padding(.top, 10) // 10pt below user name
+                .padding(.top, 30) // 30pt below profile logo
             
             // Statistics Section
             HStack {
@@ -207,19 +202,6 @@ struct ProfileView: View {
                 await journalViewModel.loadOpenQuestionJournalEntries()
             }
         }
-    }
-    
-    // Helper function to get user-specific first name
-    private func getUserSpecificFirstName() -> String {
-        let userId = journalViewModel.currentUser?.id.uuidString ?? "anonymous"
-        let firstNameKey = "firstName_\(userId)"
-        
-        if let savedFirstName = UserDefaults.standard.string(forKey: firstNameKey), !savedFirstName.isEmpty {
-            return savedFirstName
-        }
-        
-        // Fallback to currentUser firstName or "User"
-        return journalViewModel.currentUser?.firstName ?? "User"
     }
 }
 

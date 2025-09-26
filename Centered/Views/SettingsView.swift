@@ -19,17 +19,16 @@ struct SettingsView: View {
     @State private var isGenderLocked: Bool = false
     @State private var showGenderRefreshButton: Bool = false
     
-                // State variables for Occupation field (duplicated from Gender field)
-                @State private var occupationText: String = ""
-                @State private var isOccupationLocked: Bool = false
-                @State private var showOccupationRefreshButton: Bool = false
-                
-                // State variables for Birthdate field (duplicated from Occupation field)
-                @State private var birthdateText: String = ""
-                @State private var isBirthdateLocked: Bool = false
-                @State private var showBirthdateRefreshButton: Bool = false
-                
+    // State variables for Occupation field (duplicated from Gender field)
+    @State private var occupationText: String = ""
+    @State private var isOccupationLocked: Bool = false
+    @State private var showOccupationRefreshButton: Bool = false
     
+    // State variables for Birthdate field (duplicated from Occupation field)
+    @State private var birthdateText: String = ""
+    @State private var isBirthdateLocked: Bool = false
+    @State private var showBirthdateRefreshButton: Bool = false
+                
     var body: some View {
         ZStack {
             Color(hex: "E3E0C9")
@@ -45,8 +44,8 @@ struct SettingsView: View {
                         .frame(height: 80)
                         .padding(.top, 20) // 20pt from top
                     
-                    // Settings Title
-                    Text("Settings")
+                    // User Settings Title
+                    Text("User Settings")
                         .font(.system(size: 20))
                         .foregroundColor(Color(hex: "3F5E82"))
                         .padding(.top, 25) // 25pt below logo
@@ -101,7 +100,7 @@ struct SettingsView: View {
                                 .padding(.trailing, 5) // 5pt from right edge
                                 }
                             }
-                            .padding(.trailing, 20) // 20pt from right edge of screen
+                            .padding(.trailing, 15) // 15pt from right edge of screen
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 40) // Overall horizontal padding
@@ -158,7 +157,7 @@ struct SettingsView: View {
                                 .padding(.trailing, 5) // 5pt from right edge
                                 }
                             }
-                            .padding(.trailing, 20) // 20pt from right edge of screen
+                            .padding(.trailing, 15) // 15pt from right edge of screen
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 40) // Overall horizontal padding
@@ -168,7 +167,7 @@ struct SettingsView: View {
                     // Gender section - directly below Last Name
                     VStack(spacing: 4) {
                         HStack {
-                            Text("Gender")
+                            Text("Gender*")
                                 .font(.system(size: 16))
                                 .foregroundColor(Color(hex: "3F5E82"))
                             
@@ -215,7 +214,7 @@ struct SettingsView: View {
                                 .padding(.trailing, 5) // 5pt from right edge
                                 }
                             }
-                            .padding(.trailing, 20) // 20pt from right edge of screen
+                            .padding(.trailing, 15) // 15pt from right edge of screen
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 40) // Overall horizontal padding
@@ -224,10 +223,10 @@ struct SettingsView: View {
                     
                     // Occupation section - directly below Gender
                     VStack(spacing: 4) {
-                                HStack {
-                            Text("Occupation")
-                                        .font(.system(size: 16))
-                                        .foregroundColor(Color(hex: "3F5E82"))
+                        HStack {
+                            Text("Occupation*")
+                                .font(.system(size: 16))
+                                .foregroundColor(Color(hex: "3F5E82"))
                             
                             Spacer()
                             
@@ -272,7 +271,7 @@ struct SettingsView: View {
                                 .padding(.trailing, 5) // 5pt from right edge
                                 }
                             }
-                            .padding(.trailing, 20) // 20pt from right edge of screen
+                            .padding(.trailing, 15) // 15pt from right edge of screen
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 40) // Overall horizontal padding
@@ -282,7 +281,7 @@ struct SettingsView: View {
                     // Birthdate section - directly below Occupation
                     VStack(spacing: 4) {
                         HStack {
-                            Text("Birthdate")
+                            Text("Birthdate*")
                                 .font(.system(size: 16))
                                 .foregroundColor(Color(hex: "3F5E82"))
                             
@@ -329,31 +328,38 @@ struct SettingsView: View {
                                 .padding(.trailing, 5) // 5pt from right edge
                                 }
                             }
-                            .padding(.trailing, 20) // 20pt from right edge of screen
+                            .padding(.trailing, 15) // 15pt from right edge of screen
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 40) // Overall horizontal padding
                     }
                     .padding(.top, 10) // 10pt below Occupation section
+                    
+                    // AI Enhancement Note - 250pt below Birthdate section
+                    Text("* these elements will be used to further enhance the AI insights response")
+                        .font(.system(size: 12))
+                        .foregroundColor(Color(hex: "545555"))
+                        .opacity(0.8)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.horizontal, 40)
+                        .padding(.top, 250) // 250pt below Birthdate section
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 0)
-                    .background(Color(hex: "E3E0C9"))
                 }
                 .frame(maxWidth: .infinity)
+                .padding(.horizontal, 0)
                 .background(Color(hex: "E3E0C9"))
                 .navigationBarHidden(true)
             }
             .frame(maxWidth: .infinity)
         }
         .onAppear {
-                        print("🔄 SettingsView onAppear called")
-                        loadFirstNameFromDatabase()
-                        loadLastNameFromDatabase()
-                        loadGenderFromDatabase()
-                        loadOccupationFromDatabase()
-                        loadBirthdateFromDatabase()
-                    }
+            print("🔄 SettingsView onAppear called")
+            loadFirstNameFromDatabase()
+            loadLastNameFromDatabase()
+            loadGenderFromDatabase()
+            loadOccupationFromDatabase()
+            loadBirthdateFromDatabase()
+        }
     }
     
     // MARK: - Functions (duplicated from goals field)
@@ -395,15 +401,15 @@ struct SettingsView: View {
             // Load current profile to preserve existing lastName
             let currentProfile = try await journalViewModel.supabaseService.loadUserProfile()
             
-                        try await journalViewModel.supabaseService.updateUserProfile(
-                            firstName: firstName,
-                            lastName: currentProfile?.lastName, // Preserve existing lastName
-                            gender: currentProfile?.gender, // Preserve existing gender
-                            occupation: currentProfile?.occupation, // Preserve existing occupation
-                            birthdate: currentProfile?.birthdate, // Preserve existing birthdate
-                            notificationFrequency: nil,
-                            streakEndingNotification: nil
-                        )
+            try await journalViewModel.supabaseService.updateUserProfile(
+                firstName: firstName,
+                lastName: currentProfile?.lastName, // Preserve existing lastName
+                gender: currentProfile?.gender, // Preserve existing gender
+                occupation: currentProfile?.occupation, // Preserve existing occupation
+                birthdate: currentProfile?.birthdate, // Preserve existing birthdate
+                notificationFrequency: nil,
+                streakEndingNotification: nil
+            )
             print("✅ First Name saved successfully: \(firstName)")
         } catch {
             print("❌ Failed to save first name: \(error)")
@@ -467,15 +473,15 @@ struct SettingsView: View {
             // Load current profile to preserve existing firstName
             let currentProfile = try await journalViewModel.supabaseService.loadUserProfile()
             
-                        try await journalViewModel.supabaseService.updateUserProfile(
-                            firstName: currentProfile?.firstName, // Preserve existing firstName
-                            lastName: lastName,
-                            gender: currentProfile?.gender, // Preserve existing gender
-                            occupation: currentProfile?.occupation, // Preserve existing occupation
-                            birthdate: currentProfile?.birthdate, // Preserve existing birthdate
-                            notificationFrequency: nil,
-                            streakEndingNotification: nil
-                        )
+            try await journalViewModel.supabaseService.updateUserProfile(
+                firstName: currentProfile?.firstName, // Preserve existing firstName
+                lastName: lastName,
+                gender: currentProfile?.gender, // Preserve existing gender
+                occupation: currentProfile?.occupation, // Preserve existing occupation
+                birthdate: currentProfile?.birthdate, // Preserve existing birthdate
+                notificationFrequency: nil,
+                streakEndingNotification: nil
+            )
             print("✅ Last Name saved successfully: \(lastName)")
         } catch {
             print("❌ Failed to save last name: \(error)")
@@ -539,15 +545,15 @@ struct SettingsView: View {
             // Load current profile to preserve existing firstName and lastName
             let currentProfile = try await journalViewModel.supabaseService.loadUserProfile()
             
-                        try await journalViewModel.supabaseService.updateUserProfile(
-                            firstName: currentProfile?.firstName, // Preserve existing firstName
-                            lastName: currentProfile?.lastName, // Preserve existing lastName
-                            gender: gender,
-                            occupation: currentProfile?.occupation, // Preserve existing occupation
-                            birthdate: currentProfile?.birthdate, // Preserve existing birthdate
-                            notificationFrequency: nil,
-                            streakEndingNotification: nil
-                        )
+            try await journalViewModel.supabaseService.updateUserProfile(
+                firstName: currentProfile?.firstName, // Preserve existing firstName
+                lastName: currentProfile?.lastName, // Preserve existing lastName
+                gender: gender,
+                occupation: currentProfile?.occupation, // Preserve existing occupation
+                birthdate: currentProfile?.birthdate, // Preserve existing birthdate
+                notificationFrequency: nil,
+                streakEndingNotification: nil
+            )
             print("✅ Gender saved successfully: \(gender)")
         } catch {
             print("❌ Failed to save gender: \(error)")
@@ -555,7 +561,7 @@ struct SettingsView: View {
     }
     
     private func loadGenderFromDatabase() {
-            Task {
+        Task {
             do {
                 let profile = try await journalViewModel.supabaseService.loadUserProfile()
                 if let profile = profile, let gender = profile.gender, !gender.isEmpty {
@@ -611,110 +617,110 @@ struct SettingsView: View {
             // Load current profile to preserve existing firstName, lastName, and gender
             let currentProfile = try await journalViewModel.supabaseService.loadUserProfile()
             
-                        try await journalViewModel.supabaseService.updateUserProfile(
-                            firstName: currentProfile?.firstName, // Preserve existing firstName
-                            lastName: currentProfile?.lastName, // Preserve existing lastName
-                            gender: currentProfile?.gender, // Preserve existing gender
-                            occupation: occupation,
-                            birthdate: currentProfile?.birthdate, // Preserve existing birthdate
-                            notificationFrequency: nil,
-                            streakEndingNotification: nil
-                        )
+            try await journalViewModel.supabaseService.updateUserProfile(
+                firstName: currentProfile?.firstName, // Preserve existing firstName
+                lastName: currentProfile?.lastName, // Preserve existing lastName
+                gender: currentProfile?.gender, // Preserve existing gender
+                occupation: occupation,
+                birthdate: currentProfile?.birthdate, // Preserve existing birthdate
+                notificationFrequency: nil,
+                streakEndingNotification: nil
+            )
             print("✅ Occupation saved successfully: \(occupation)")
         } catch {
             print("❌ Failed to save occupation: \(error)")
         }
     }
     
-                private func loadOccupationFromDatabase() {
-                    Task {
-                        do {
-                            let profile = try await journalViewModel.supabaseService.loadUserProfile()
-                            if let profile = profile, let occupation = profile.occupation, !occupation.isEmpty {
-                                occupationText = occupation
-                                isOccupationLocked = true
-                                showOccupationRefreshButton = true
-                                print("✅ Occupation loaded from database: \(occupation)")
-                            } else {
-                                print("ℹ️ No occupation found in database")
-                            }
-                        } catch {
-                            print("❌ Failed to load occupation: \(error)")
-                        }
-                    }
+    private func loadOccupationFromDatabase() {
+        Task {
+            do {
+                let profile = try await journalViewModel.supabaseService.loadUserProfile()
+                if let profile = profile, let occupation = profile.occupation, !occupation.isEmpty {
+                    occupationText = occupation
+                    isOccupationLocked = true
+                    showOccupationRefreshButton = true
+                    print("✅ Occupation loaded from database: \(occupation)")
+                } else {
+                    print("ℹ️ No occupation found in database")
                 }
-                
-                // MARK: - Birthdate Functions (duplicated from Occupation functions)
-                
-                private func cpBirthdateDoneButtonTapped() {
-                    // Haptic feedback
-                    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                    impactFeedback.impactOccurred()
-                    
-                    // Lock the text field and show refresh button
+            } catch {
+                print("❌ Failed to load occupation: \(error)")
+            }
+        }
+    }
+    
+    // MARK: - Birthdate Functions (duplicated from Occupation functions)
+    
+    private func cpBirthdateDoneButtonTapped() {
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        // Lock the text field and show refresh button
+        isBirthdateLocked = true
+        showBirthdateRefreshButton = true
+        
+        // Save birthdate to database
+        Task {
+            await saveBirthdateToDatabase(birthdateText)
+        }
+        
+        print("✅ Birthdate saved: \(birthdateText)")
+    }
+    
+    private func cpBirthdateRefreshButtonTapped() {
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        // Reset the birthdate entry process
+        birthdateText = ""
+        isBirthdateLocked = false
+        showBirthdateRefreshButton = false
+        
+        print("CP Refresh button clicked - Birthdate entry reset")
+    }
+    
+    private func saveBirthdateToDatabase(_ birthdate: String) async {
+        guard !birthdate.isEmpty else { return }
+        
+        do {
+            // Load current profile to preserve existing firstName, lastName, gender, and occupation
+            let currentProfile = try await journalViewModel.supabaseService.loadUserProfile()
+            
+            try await journalViewModel.supabaseService.updateUserProfile(
+                firstName: currentProfile?.firstName, // Preserve existing firstName
+                lastName: currentProfile?.lastName, // Preserve existing lastName
+                gender: currentProfile?.gender, // Preserve existing gender
+                occupation: currentProfile?.occupation, // Preserve existing occupation
+                birthdate: birthdate, // New birthdate value
+                notificationFrequency: nil,
+                streakEndingNotification: nil
+            )
+            print("✅ Birthdate saved successfully: \(birthdate)")
+        } catch {
+            print("❌ Failed to save birthdate: \(error)")
+        }
+    }
+    
+    private func loadBirthdateFromDatabase() {
+        Task {
+            do {
+                let profile = try await journalViewModel.supabaseService.loadUserProfile()
+                if let profile = profile, let birthdate = profile.birthdate, !birthdate.isEmpty {
+                    birthdateText = birthdate
                     isBirthdateLocked = true
                     showBirthdateRefreshButton = true
-                    
-                    // Save birthdate to database
-                    Task {
-                        await saveBirthdateToDatabase(birthdateText)
-                    }
-                    
-                    print("✅ Birthdate saved: \(birthdateText)")
+                    print("✅ Birthdate loaded from database: \(birthdate)")
+                } else {
+                    print("ℹ️ No birthdate found in database")
                 }
-                
-                private func cpBirthdateRefreshButtonTapped() {
-                    // Haptic feedback
-                    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                    impactFeedback.impactOccurred()
-                    
-                    // Reset the birthdate entry process
-                    birthdateText = ""
-                    isBirthdateLocked = false
-                    showBirthdateRefreshButton = false
-                    
-                    print("CP Refresh button clicked - Birthdate entry reset")
-                }
-                
-                private func saveBirthdateToDatabase(_ birthdate: String) async {
-                    guard !birthdate.isEmpty else { return }
-                    
-                    do {
-                        // Load current profile to preserve existing firstName, lastName, gender, and occupation
-                        let currentProfile = try await journalViewModel.supabaseService.loadUserProfile()
-                        
-                        try await journalViewModel.supabaseService.updateUserProfile(
-                            firstName: currentProfile?.firstName, // Preserve existing firstName
-                            lastName: currentProfile?.lastName, // Preserve existing lastName
-                            gender: currentProfile?.gender, // Preserve existing gender
-                            occupation: currentProfile?.occupation, // Preserve existing occupation
-                            birthdate: birthdate, // New birthdate value
-                            notificationFrequency: nil,
-                            streakEndingNotification: nil
-                        )
-                        print("✅ Birthdate saved successfully: \(birthdate)")
-                    } catch {
-                        print("❌ Failed to save birthdate: \(error)")
-                    }
-                }
-                
-                private func loadBirthdateFromDatabase() {
-                    Task {
-                        do {
-                            let profile = try await journalViewModel.supabaseService.loadUserProfile()
-                            if let profile = profile, let birthdate = profile.birthdate, !birthdate.isEmpty {
-                                birthdateText = birthdate
-                                isBirthdateLocked = true
-                                showBirthdateRefreshButton = true
-                                print("✅ Birthdate loaded from database: \(birthdate)")
-                            } else {
-                                print("ℹ️ No birthdate found in database")
-                            }
-                        } catch {
-                            print("❌ Failed to load birthdate: \(error)")
-                        }
-                    }
-                }
+            } catch {
+                print("❌ Failed to load birthdate: \(error)")
+            }
+        }
+    }
 }
 
 #Preview {

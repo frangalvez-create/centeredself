@@ -384,7 +384,7 @@ struct ContentView: View {
                                     Image(getButtonImageName())
                                         .resizable()
                                         .scaledToFit()
-                                        .frame(width: 24, height: 24)
+                                        .frame(width: showCenteredButton ? 34 : 24, height: showCenteredButton ? 34 : 24)
                                         .opacity(0.8)
                                         .scaleEffect(showCenteredButton ? 1.3 : 1.0)
                                 }
@@ -656,7 +656,7 @@ struct ContentView: View {
                                         Image(getOpenButtonImageName())
                                             .resizable()
                                             .scaledToFit()
-                                            .frame(width: 24, height: 24)
+                                            .frame(width: openShowCenteredButton ? 34 : 24, height: openShowCenteredButton ? 34 : 24)
                                             .opacity(0.8)
                                             .scaleEffect(openShowCenteredButton ? 1.3 : 1.0)
                                     }
@@ -1729,7 +1729,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
                 
                 // Fourth text chunk with overlay icon
                 ZStack {
-                    (Text("AI Insights").font(.system(size: 15, weight: .bold)) + Text(" - Our app elevates your journaling experience with personalized, AI-powered guidance that is supportive, inspiring, and goal-oriented. After each journal entry, tap the \"AI\" button to unlock tailored insights. You can even set a behavioral goal, and the app will customize its guidance to help you achieve it.").font(.system(size: 15)))
+                    (Text("AI Insights").font(.system(size: 15, weight: .bold)) + Text(" - Our app elevates your journaling experience with personalized, AI-powered guidance that is supportive, inspiring, and goal-oriented. After each journal entry, tap the \"Insights\" button to unlock tailored insights. You can even set a behavioral goal, and the app will customize its guidance to help you achieve it.").font(.system(size: 15)))
                         .foregroundColor(Color(hex: "3F5E82"))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 20)
@@ -2108,7 +2108,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
                     .font(.system(size: 15))
                     .foregroundColor(Color(hex: "545555"))
                 
-                Text("• After completing your entries, there is an option to tap the AI button to receive customized insights.")
+                Text("• After completing your entries, you have an option to tap the \"Insight\" button to receive customized insights.")
                     .font(.system(size: 15))
                     .foregroundColor(Color(hex: "545555"))
                 
@@ -2117,6 +2117,10 @@ Capabilities and Reminders: You have access to the web search tools, published r
                     .foregroundColor(Color(hex: "545555"))
                 
                 Text("The more detail you share, the more helpful and accurate the AI insights will be.")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                Text("If you add your information (gender, occupation and birthdate) in the Profiles > Settings page, the AI Insight will include this in its analysis and insights")
                     .font(.system(size: 15))
                     .foregroundColor(Color(hex: "545555"))
                 

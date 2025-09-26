@@ -69,15 +69,6 @@ struct ContactView: View {
             }
             .frame(maxWidth: .infinity) // Expand NavigationView to full width
             
-            // Swipe Down Text - positioned at bottom of screen
-            VStack {
-                Spacer()
-                Text("Swipe Down")
-                    .font(.system(size: 14))
-                    .foregroundColor(Color(hex: "545555"))
-                    .opacity(0.7) // 70% opacity
-                    .padding(.bottom, 30) // 30pt from bottom
-            }
         }
     }
 }
