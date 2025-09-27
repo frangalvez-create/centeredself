@@ -6,6 +6,7 @@ struct ProfileView: View {
     @State private var showingContact = false
     @State private var showingInfo = false
     @State private var showingFAQ = false
+    @Binding var showSettingsFromPopup: Bool
     
     var body: some View {
         VStack(spacing: 0) {
@@ -54,7 +55,7 @@ struct ProfileView: View {
                             .frame(width: 26, height: 26)
                             .padding(.leading, 10) // 10pt from left edge
                         
-                        Text("Settings")
+                        Text("User Settings")
                             .font(.system(size: 16))
                             .foregroundColor(Color(hex: "3F5E82"))
                             .padding(.leading, 10) // 10pt to the right of icon
@@ -202,11 +203,17 @@ struct ProfileView: View {
                 await journalViewModel.loadOpenQuestionJournalEntries()
             }
         }
+        .onChange(of: showSettingsFromPopup) { newValue in
+            if newValue {
+                showingSettings = true
+                showSettingsFromPopup = false // Reset the binding
+            }
+        }
     }
 }
 
 
 #Preview {
-    ProfileView()
+    ProfileView(showSettingsFromPopup: .constant(false))
         .environmentObject(JournalViewModel())
 }

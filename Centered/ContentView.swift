@@ -46,6 +46,9 @@ struct ContentView: View {
     @State private var showInfoPopup: Bool = false
     @State private var showGoalInfoPopup: Bool = false
     
+    // Profile Settings Navigation
+    @State private var showSettingsFromPopup: Bool = false
+    
     // Authentication State
     @State private var email: String = ""
     @State private var otpCode: String = ""
@@ -65,11 +68,11 @@ struct ContentView: View {
                         case 0:
                             mainJournalView
                         case 1:
-                            centeredPageView
-                        case 2:
                             favoritesPageView
+                        case 2:
+                            centeredPageView
                         case 3:
-                            ProfileView()
+                            ProfileView(showSettingsFromPopup: $showSettingsFromPopup)
                         default:
                             mainJournalView
                         }
@@ -389,7 +392,7 @@ struct ContentView: View {
                                         .scaleEffect(showCenteredButton ? 1.3 : 1.0)
                                 }
                                 .frame(width: 44, height: 44) // Keep 44x44 touch target
-                                .padding(.trailing, 5)
+                                .padding(.trailing, showCenteredButton ? 15 : 5)
                                 .padding(.bottom, 5)
                             }
                         }
@@ -661,7 +664,7 @@ struct ContentView: View {
                                             .scaleEffect(openShowCenteredButton ? 1.3 : 1.0)
                                     }
                                     .frame(width: 44, height: 44) // Keep 44x44 touch target
-                                    .padding(.trailing, 5)
+                                    .padding(.trailing, openShowCenteredButton ? 15 : 5)
                                     .padding(.bottom, 5)
                                 }
                             }
@@ -885,8 +888,8 @@ struct ContentView: View {
             VStack {
                 HStack {
                     Text(formatCurrentDate())
-                        .font(.system(size: 13))
-                        .foregroundColor(Color(hex: "545555").opacity(0.8))
+                        .font(.system(size: 14))
+                        .foregroundColor(Color(hex: "545555").opacity(1.0))
                         .padding(.top, 50)
                         .padding(.leading, 35)
                     Spacer()
@@ -901,8 +904,8 @@ struct ContentView: View {
                 HStack {
                     Spacer()
                     Text("Log Streak: \(journalViewModel.calculateEntryStreak())")
-                        .font(.system(size: 13))
-                        .foregroundColor(Color(hex: "545555").opacity(0.8))
+                        .font(.system(size: 14))
+                        .foregroundColor(Color(hex: "545555").opacity(1.0))
                         .padding(.top, 50)
                         .padding(.trailing, 30)
                 }
@@ -1747,7 +1750,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
                 
                 // Fourth text chunk with overlay icon
                 ZStack {
-                    (Text("AI Insights").font(.system(size: 15, weight: .bold)) + Text(" - Our app elevates your journaling experience with personalized, AI-powered guidance that is supportive, inspiring, and goal-oriented. After each journal entry, tap the \"Insights\" button to unlock tailored insights. You can even set a behavioral goal, and the app will customize its guidance to help you achieve it.").font(.system(size: 15)))
+                    (Text("AI Insights").font(.system(size: 15, weight: .bold)) + Text(" - Our app elevates your journaling experience with personalized, AI-powered guidance that is supportive, inspiring, and goal-oriented. After each journal entry, tap the \"Insights\" button to unlock tailored insights. You can further customize the insights by setting a behavioral goal and providing your personal information (occupation, age, gender etc) in the user settings page.").font(.system(size: 15)))
                         .foregroundColor(Color(hex: "3F5E82"))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 20)
@@ -1962,9 +1965,9 @@ Capabilities and Reminders: You have access to the web search tools, published r
             }
             .frame(maxWidth: .infinity)
             
-            // Centered Tab
+            // Centered Tab (now using Favorite Tab icons)
             Button(action: { selectedTab = 1 }) {
-                Image(selectedTab == 1 ? "Centered Tab click" : "Centered Tab")
+                Image(selectedTab == 1 ? "Fav Tab click" : "Fav Tab")
                     .renderingMode(.original)
                     .resizable()
                     .scaledToFit()
@@ -1972,9 +1975,9 @@ Capabilities and Reminders: You have access to the web search tools, published r
             }
             .frame(maxWidth: .infinity)
             
-            // Favorites Tab
+            // Favorites Tab (now using Centered Tab icons)
             Button(action: { selectedTab = 2 }) {
-                Image(selectedTab == 2 ? "Fav Tab click" : "Fav Tab")
+                Image(selectedTab == 2 ? "Centered Tab click" : "Centered Tab")
                     .renderingMode(.original)
                     .resizable()
                     .scaledToFit()
@@ -2114,7 +2117,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
             
             // Simple popup content
             VStack(alignment: .leading, spacing: 8) {
-                Text("How Journaling Works")
+                Text("Journal Questions")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(Color(hex: "545555"))
                 
@@ -2138,9 +2141,14 @@ Capabilities and Reminders: You have access to the web search tools, published r
                     .font(.system(size: 15))
                     .foregroundColor(Color(hex: "545555"))
                 
-                Text("If you add your information (gender, occupation and birthdate) in the Profiles > Settings page, the AI Insight will include this in its analysis and insights")
+                Text("If you add your information (gender, occupation and birthdate) in the User Settings page (Here), the AI Insight will include this in its analysis and insights")
                     .font(.system(size: 15))
                     .foregroundColor(Color(hex: "545555"))
+                    .onTapGesture {
+                        showInfoPopup = false
+                        selectedTab = 3 // Navigate to Profile tab
+                        showSettingsFromPopup = true // Trigger settings sheet
+                    }
                 
                 Text("New questions are available each morning. Swipe down to refresh")
                     .font(.system(size: 15))
