@@ -64,19 +64,34 @@ class SupabaseService: ObservableObject {
             let authResponse = try await supabase.auth.verifyOTP(email: email, token: token, type: .email)
             let user = authResponse.user
             
-            // For OTP auth, we create a simple UserProfile from auth.users data
-            // No separate user_profiles table needed
-            let userProfile = UserProfile(
-                id: user.id,
-                email: user.email ?? email,
-                displayName: user.userMetadata["full_name"]?.stringValue ?? "User"
-            )
-            
-            print("✅ OTP verified successfully for \(email)")
-            return userProfile
+            // After successful OTP verification, load the full user profile from user_profiles table
+            do {
+                let fullProfile = try await loadUserProfile()
+                if let profile = fullProfile {
+                    print("✅ OTP verified and full profile loaded for \(email)")
+                    return profile
+                } else {
+                    // If no profile exists, create a basic one
+                    let userProfile = UserProfile(
+                        id: user.id,
+                        email: user.email ?? email,
+                        displayName: user.userMetadata["full_name"]?.stringValue ?? "User"
+                    )
+                    print("✅ OTP verified for \(email) - no profile found, created basic profile")
+                    return userProfile
+                }
+            } catch {
+                // Fallback to basic profile if loading fails
+                let userProfile = UserProfile(
+                    id: user.id,
+                    email: user.email ?? email,
+                    displayName: user.userMetadata["full_name"]?.stringValue ?? "User"
+                )
+                print("⚠️ OTP verified for \(email) - profile loading failed, using basic profile")
+                return userProfile
+            }
         }
-    }
-    
+    }    
     func signOut() async throws {
         if useMockData {
             // Mock implementation

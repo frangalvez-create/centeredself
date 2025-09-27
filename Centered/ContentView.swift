@@ -384,7 +384,7 @@ struct ContentView: View {
                                     Image(getButtonImageName())
                                         .resizable()
                                         .scaledToFit()
-                                        .frame(width: showCenteredButton ? 34 : 24, height: showCenteredButton ? 34 : 24)
+                                        .frame(width: showCenteredButton ? 37 : 24, height: showCenteredButton ? 37 : 24)
                                         .opacity(0.8)
                                         .scaleEffect(showCenteredButton ? 1.3 : 1.0)
                                 }
@@ -656,7 +656,7 @@ struct ContentView: View {
                                         Image(getOpenButtonImageName())
                                             .resizable()
                                             .scaledToFit()
-                                            .frame(width: openShowCenteredButton ? 34 : 24, height: openShowCenteredButton ? 34 : 24)
+                                            .frame(width: openShowCenteredButton ? 37 : 24, height: openShowCenteredButton ? 37 : 24)
                                             .opacity(0.8)
                                             .scaleEffect(openShowCenteredButton ? 1.3 : 1.0)
                                     }
@@ -1166,11 +1166,15 @@ struct ContentView: View {
     private func generateAndSaveAIPrompt() async {
         // Ensure user profile is loaded before generating AI prompt
         do {
-            let _ = try await journalViewModel.supabaseService.loadUserProfile()
+            let loadedProfile = try await journalViewModel.supabaseService.loadUserProfile()
+            if let profile = loadedProfile {
+                journalViewModel.currentUser = profile
+                print("✅ User profile loaded and updated in currentUser")
+            }
         } catch {
             print("⚠️ Warning: Could not load user profile: \(error)")
         }
-                // Get the most recent goal from the loaded goals
+        // Get the most recent goal from the loaded goals
         let mostRecentGoal = journalViewModel.goals.first?.goals ?? ""
         
         // Create the AI prompt text with replacements
@@ -1210,14 +1214,9 @@ struct ContentView: View {
     private func createAIPromptText(content: String, goal: String, questionText: String) -> String {
         let aiPromptTemplate = """
 Role: You are an AI Behavioral Therapist/Scientist tasked with acknowledging daily journal logs and providing constructive suggestions or helpful tips.
-Task: Given search terms related to behavioral science and therapy topics, perform an inquiry in Chat GPT to retrieve information from current behavioral science and therapy sources, and produce a concise summary of the key points. The client ({gender}, {occupation}, born {birthdate}) was asked {question_text}. Client response is the search terms/input below.
+Task: Given search terms related to behavioral science and therapy topics, perform an inquiry in Chat GPT to retrieve information from current behavioral science and therapy sources, and produce a concise summary of the key points. The client ({gender}, occupation: {occupation}, born {birthdate}) was asked {question_text}. Client response is the search terms/input below.
 Input: {content}
-        // Debug: Print user profile data
-        print("🔍 Debug - User Profile Data:")
-        print("   Gender: \(journalViewModel.currentUser?.gender ?? "nil")")
-        print("   Occupation: \(journalViewModel.currentUser?.occupation ?? "nil")")
-        print("   Birthdate: \(journalViewModel.currentUser?.birthdate ?? "nil")")
-        Output: Provide only a succinct, information-dense summary capturing the essence of recent behavioral science and therapy modalities relevant to the search terms. The summary must be concise, in 2 short paragraphs. The first paragraph must empathetically acknowledge and summarize the search term concerns. The second paragraph must provide achievable actions the users can implement to address the concern and the goal to be {goal}. Limit the bulleted actions to no more than 3.
+Output: Provide only a succinct, information-dense summary capturing the essence of recent behavioral science and therapy modalities relevant to the search terms. The summary must be concise, in 2 short paragraphs. The first paragraph must empathetically acknowledge and summarize the search term concerns. The second paragraph must provide achievable actions the users can implement to address the concern and the goal to be {goal}. Limit the bulleted actions to no more than 3.
 Constraints: Focus on capturing the main points succinctly: complete sentences and in a conversational empathetic and analytical tone. Ignore fluff, background information. Do not include your own analysis or opinion. Do not reiterate the input. Ignore dangerous and abusive talk in input.
 Capabilities and Reminders: You have access to the web search tools, published research papers/studies and gain knowledge to find and retrieve behavioral science and therapy related data. Do not label paragraph 1 and 2 in the reply and do not mention the word limits in the reply. Limit the entire response to 150 words.
 """
