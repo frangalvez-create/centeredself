@@ -15,7 +15,7 @@ struct ProfileView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(height: 80)
-                .padding(.top, 58) // 58pt from top of screen
+                .padding(.top, 60) // 60pt from top of screen
             
             
             // User Email

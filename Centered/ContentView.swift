@@ -136,12 +136,29 @@ struct ContentView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(spacing: 0) {
+            // Date and Log Streak - positioned at top, scrolls with content
+            HStack {
+                Text(formatCurrentDate())
+                    .font(.system(size: 14))
+                    .foregroundColor(Color(hex: "545555").opacity(1.0))
+                    .padding(.top, 45)
+                    .padding(.leading, 35)
+                
+                Spacer()
+                
+                Text("Log Streak: \(journalViewModel.calculateEntryStreak())")
+                    .font(.system(size: 14))
+                    .foregroundColor(Color(hex: "545555").opacity(1.0))
+                    .padding(.top, 45)
+                    .padding(.trailing, 30)
+            }
+            
             // Top Logo (CS Logo.png)
             Image("CS Logo")
                 .resizable()
                 .scaledToFit()
                 .frame(height: 80)
-                .padding(.top, 60)
+                .padding(.top, -2)
             
             // Daily Journal Title (DJ.png) - Reduced to 2/3 size
             Image("DJ")
@@ -883,36 +900,6 @@ struct ContentView: View {
             // Global timer handles 2AM reset - no cleanup needed here
             print("🕐 View disappeared - global timer continues running")
         }
-        .overlay(
-            // Date display - positioned at top left
-            VStack {
-                HStack {
-                    Text(formatCurrentDate())
-                        .font(.system(size: 14))
-                        .foregroundColor(Color(hex: "545555").opacity(1.0))
-                        .padding(.top, 50)
-                        .padding(.leading, 35)
-                    Spacer()
-                }
-                Spacer()
-            },
-            alignment: .topLeading
-        )
-        .overlay(
-            // Entries Streak display - positioned at top right
-            VStack {
-                HStack {
-                    Spacer()
-                    Text("Log Streak: \(journalViewModel.calculateEntryStreak())")
-                        .font(.system(size: 14))
-                        .foregroundColor(Color(hex: "545555").opacity(1.0))
-                        .padding(.top, 50)
-                        .padding(.trailing, 30)
-                }
-                Spacer()
-            },
-            alignment: .topTrailing
-        )
     }
     
     // Format current date as "Sept 24th" format
