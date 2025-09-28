@@ -142,7 +142,7 @@ struct ContentView: View {
                     .font(.system(size: 14))
                     .foregroundColor(Color(hex: "545555").opacity(1.0))
                     .padding(.top, 45)
-                    .padding(.leading, 35)
+                    .padding(.leading, 38)
                 
                 Spacer()
                 

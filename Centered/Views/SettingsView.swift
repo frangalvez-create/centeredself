@@ -714,10 +714,18 @@ struct SettingsView: View {
                     showBirthdateRefreshButton = true
                     print("✅ Birthdate loaded from database: \(birthdate)")
                 } else {
-                    print("ℹ️ No birthdate found in database")
+                    // Ensure text field is empty to show placeholder
+                    birthdateText = ""
+                    isBirthdateLocked = false
+                    showBirthdateRefreshButton = false
+                    print("ℹ️ No birthdate found in database - placeholder will show")
                 }
             } catch {
                 print("❌ Failed to load birthdate: \(error)")
+                // Ensure text field is empty to show placeholder on error
+                birthdateText = ""
+                isBirthdateLocked = false
+                showBirthdateRefreshButton = false
             }
         }
     }

@@ -35,7 +35,7 @@ struct FAQView: View {
                                     .padding(.leading, 10) // 10pt left padding
                                     .padding(.top, 50) // 50pt below FAQ title
                                 
-                                Text("Centered is a journaling and self-reflection app designed to help you explore your thoughts and experiences, build self-awareness, ease stress, manage emotions, celebrate progress and set meaningful goals through guided prompts and AI-powered insights.")
+                                Text("CenteredSelf is a journaling and self-reflection app designed to help you explore your thoughts and experiences, build self-awareness, ease stress, manage emotions, celebrate progress and set meaningful goals through guided prompts and AI-powered insights.")
                                     .font(.system(size: 14))
                                     .foregroundColor(Color(hex: "545555"))
                                     .frame(maxWidth: .infinity, alignment: .leading)
