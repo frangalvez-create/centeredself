@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		052F45442E64F2AA00C958F5 /* OpenAIKit in Frameworks */ = {isa = PBXBuildFile; productRef = 052F45432E64F2AA00C958F5 /* OpenAIKit */; };
 		052F45542E663D0E00C958F5 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 052F45532E663D0E00C958F5 /* Supabase */; };
+		05883C6A2E8998CE00AE0A5D /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 05883C692E8998CE00AE0A5D /* RevenueCat */; };
+		05883C6C2E8998CE00AE0A5D /* RevenueCatUI in Frameworks */ = {isa = PBXBuildFile; productRef = 05883C6B2E8998CE00AE0A5D /* RevenueCatUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,8 +59,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				05883C6C2E8998CE00AE0A5D /* RevenueCatUI in Frameworks */,
 				052F45542E663D0E00C958F5 /* Supabase in Frameworks */,
 				052F45442E64F2AA00C958F5 /* OpenAIKit in Frameworks */,
+				05883C6A2E8998CE00AE0A5D /* RevenueCat in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -129,6 +133,8 @@
 			packageProductDependencies = (
 				052F45432E64F2AA00C958F5 /* OpenAIKit */,
 				052F45532E663D0E00C958F5 /* Supabase */,
+				05883C692E8998CE00AE0A5D /* RevenueCat */,
+				05883C6B2E8998CE00AE0A5D /* RevenueCatUI */,
 			);
 			productName = Centered;
 			productReference = 052F45092E64CA0B00C958F5 /* Centered.app */;
@@ -215,6 +221,7 @@
 			packageReferences = (
 				052F45422E64F2AA00C958F5 /* XCRemoteSwiftPackageReference "openai-kit" */,
 				052F45452E64F4AE00C958F5 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				05883C682E8998CE00AE0A5D /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 052F450A2E64CA0B00C958F5 /* Products */;
@@ -624,6 +631,14 @@
 				minimumVersion = 2.5.1;
 			};
 		};
+		05883C682E8998CE00AE0A5D /* XCRemoteSwiftPackageReference "purchases-ios-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/RevenueCat/purchases-ios-spm.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.40.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -636,6 +651,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 052F45452E64F4AE00C958F5 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
+		};
+		05883C692E8998CE00AE0A5D /* RevenueCat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 05883C682E8998CE00AE0A5D /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			productName = RevenueCat;
+		};
+		05883C6B2E8998CE00AE0A5D /* RevenueCatUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 05883C682E8998CE00AE0A5D /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			productName = RevenueCatUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

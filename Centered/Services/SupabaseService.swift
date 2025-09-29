@@ -730,4 +730,62 @@ class SupabaseService: ObservableObject {
             }
         }
     }
+    
+    // MARK: - Subscription Management
+    
+    func updateSubscriptionStatus(isPremium: Bool, subscriptionStatus: String, subscriptionExpiresAt: Date? = nil, revenuecatUserId: String? = nil) async throws {
+        if useMockData {
+            print("Mock: Updated subscription status - Premium: \(isPremium), Status: \(subscriptionStatus)")
+        } else {
+            guard let userId = supabase.auth.currentUser?.id else {
+                throw NSError(domain: "AuthError", code: 0, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            }
+            
+            // Update subscription status in user_profiles table
+            let _ = try await supabase
+                .from("user_profiles")
+                .update([
+                    "is_premium": String(isPremium),
+                    "subscription_status": subscriptionStatus,
+                    "subscription_expires_at": subscriptionExpiresAt != nil ? ISO8601DateFormatter().string(from: subscriptionExpiresAt!) : nil,
+                    "revenuecat_user_id": revenuecatUserId,
+                    "subscription_updated_at": ISO8601DateFormatter().string(from: Date())
+                ])
+                .eq("user_id", value: userId.uuidString)
+                .execute()
+            
+            print("✅ Subscription status updated for user \(userId.uuidString)")
+        }
+    }
+    
+    func cleanupOldJournalEntries() async throws {
+        if useMockData {
+            print("Mock: Cleaned up old journal entries")
+        } else {
+            guard let userId = supabase.auth.currentUser?.id else {
+                throw NSError(domain: "AuthError", code: 0, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            }
+            
+            // Check if user is premium
+            let profile = try await loadUserProfile()
+            if profile?.isPremium == true {
+                print("✅ Premium user - no journal cleanup needed")
+                return
+            }
+            
+            // Calculate date 30 days ago
+            let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date())!
+            let dateString = ISO8601DateFormatter().string(from: thirtyDaysAgo)
+            
+            // Delete journal entries older than 30 days
+            let _ = try await supabase
+                .from("journal_entries")
+                .delete()
+                .eq("user_id", value: userId.uuidString)
+                .lt("created_at", value: dateString)
+                .execute()
+            
+            print("✅ Cleaned up journal entries older than 30 days for free user")
+        }
+    }
 }

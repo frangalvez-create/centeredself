@@ -1202,14 +1202,29 @@ struct ContentView: View {
     }
     
     private func createAIPromptText(content: String, goal: String, questionText: String) -> String {
-        let aiPromptTemplate = """
-Role: You are an AI Behavioral Therapist/Scientist tasked with acknowledging daily journal logs and providing constructive suggestions or helpful tips.
+        // Check if user is premium
+        let isPremium = journalViewModel.currentUser?.isPremium ?? false
+        
+        let aiPromptTemplate: String
+        if isPremium {
+            // CS+ Version - Enhanced AI Template
+            aiPromptTemplate = """
 Task: Given search terms related to behavioral science and therapy topics, perform an inquiry in Chat GPT to retrieve information from current behavioral science and therapy sources, and produce a concise summary of the key points. The client ({gender}, occupation: {occupation}, born {birthdate}) was asked {question_text}. Client response is the search terms/input below.
 Input: {content}
-Output: Provide only a succinct, information-dense summary capturing the essence of recent behavioral science and therapy modalities relevant to the search terms. The summary must be concise, in 2 short paragraphs. The first paragraph must empathetically acknowledge and summarize the search term concerns. The second paragraph must provide achievable actions the users can implement to address the concern and the goal to be {goal}. Limit the bulleted actions to no more than 3.
+Output: Provide only a succinct, information-dense summary capturing the essence of recent behavioral science and therapy modalities relevant to the search terms. The summary must be concise, in 2 short paragraphs. The first paragraph must empathetically acknowledge and summarize the search term concerns and provide fact-based analysis. The second paragraph must provide achievable actions the users can implement to address the concern and the goal to be {goal}. Limit the bulleted actions to no more than 3. End with related, "quote" from well known figures OR inspirational "affirmation".
 Constraints: Focus on capturing the main points succinctly: complete sentences and in a conversational empathetic and analytical tone. Ignore fluff, background information. Do not include your own analysis or opinion. Do not reiterate the input. Ignore dangerous and abusive talk in input.
-Capabilities and Reminders: You have access to the web search tools, published research papers/studies and gain knowledge to find and retrieve behavioral science and therapy related data. Do not label paragraph 1 and 2 in the reply and do not mention the word limits in the reply. Limit the entire response to 150 words.
+Capabilities and Reminders: You have access to the web search tools, published research papers/studies and gain knowledge to find and retrieve behavioral science and therapy related data. Do not mention the following in the output: label paragraph 1 and 2 and word limits. Limit the entire response to 230 words.
 """
+        } else {
+            // Free Version - Basic AI Template
+            aiPromptTemplate = """
+Task: Given search terms related to behavioral science and therapy topics, perform an inquiry in Chat GPT to retrieve information from current behavioral science and therapy sources, and produce a concise summary of the key points. The client ({gender}, occupation: {occupation}, born {birthdate}) was asked {question_text}. Client response is the search terms/input below.
+Input: {content}
+Output: Provide only a succinct, information-dense summary capturing the essence of recent behavioral science and therapy modalities relevant to the search terms. The summary must be concise, in 2 short paragraphs. The first paragraph must empathetically acknowledge and summarize the search term concerns and provide fact-based analysis. The second paragraph must provide achievable actions the users can implement to address the concern and the goal to be {goal}. Limit the bulleted actions to no more than 2.
+Constraints: Focus on capturing the main points succinctly: complete sentences and in a conversational empathetic and analytical tone. Ignore fluff, background information. Do not include your own analysis or opinion. Do not reiterate the input. Ignore dangerous and abusive talk in input.
+Capabilities and Reminders: You have access to the web search tools, published research papers/studies and gain knowledge to find and retrieve behavioral science and therapy related data. Do not mention the following in the output: label paragraph 1 and 2 and word limits. Limit the entire response to 120 words.
+"""
+        }
         
         // Get user profile data for placeholders
         let gender = journalViewModel.currentUser?.gender ?? "null"
