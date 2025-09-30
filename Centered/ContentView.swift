@@ -1205,9 +1205,9 @@ struct ContentView: View {
         let aiPromptTemplate = """
 Task: Given search terms related to behavioral science and therapy topics, perform an inquiry in Chat GPT to retrieve information from current behavioral science and therapy sources, and produce a concise summary of the key points. The client ({gender}, occupation: {occupation}, born {birthdate}) was asked {question_text}. Client response is the search terms/input below.
 Input: {content}
-Output: Provide only a succinct, information-dense summary capturing the essence of recent behavioral science and therapy modalities relevant to the search terms. The summary must be concise, in 2 short paragraphs. The first paragraph must empathetically acknowledge and summarize the search term concerns and provide fact-based analysis. The second paragraph must provide achievable actions the users can implement to address the concern and the goal to be {goal}. Limit the bulleted actions to no more than 3. End with related, "quote" from well known figures OR inspirational "affirmation".
-Constraints: Focus on capturing the main points succinctly: complete sentences and in a conversational empathetic and analytical tone. Ignore fluff, background information. Do not include your own analysis or opinion. Do not reiterate the input. Ignore dangerous and abusive talk in input.
-Capabilities and Reminders: You have access to the web search tools, published research papers/studies and gain knowledge to find and retrieve behavioral science and therapy related data. Do not mention the following in the output: label paragraph 1 and 2 and word limits. Limit the entire response to 230 words.
+Output: Provide only a succinct, information-dense summary capturing the essence of recent behavioral science and therapy modalities relevant to the search terms. The summary must be concise, in 2 short paragraphs. The first paragraph must empathetically acknowledge/summarize the search term concerns, then provide fact-based analysis. The second paragraph must provide achievable actions the users can implement to address the concern and the goal to be {goal}. Limit the bulleted actions to no more than 3. End with related, "quote" from well known figures OR inspirational "affirmation".
+Constraints: Focus on capturing the main points succinctly: complete sentences and in a conversational empathetic and analytical tone. Ignore fluff, background information. Do not include your own analysis or opinion. Do not reiterate the input. Ignore client input and goal if text is dangerous and abusive.
+Capabilities and Reminders: You have access to the web search tools, published research papers/studies and your gained knowledge to find and retrieve behavioral science and therapy related data. Do not mention the following in the output: label paragraph 1 and 2 and word limits. Limit the entire response to 230 words.
 """
         
         // Get user profile data for placeholders
@@ -1565,7 +1565,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
         let mostRecentGoal = journalViewModel.goals.first?.goals ?? ""
         
         // Create the AI prompt text with replacements
-        let aiPromptText = createAIPromptText(content: openJournalResponse, goal: mostRecentGoal, questionText: "Share anything... fears, goals, confusions, delights, etc")
+        let aiPromptText = createAIPromptText(content: openJournalResponse, goal: mostRecentGoal, questionText: "Looking at today or yesterday, share moments or thoughts that stood out")
         
         // Update the current open question journal entry with the AI prompt
         await journalViewModel.updateCurrentOpenQuestionJournalEntryWithAIPrompt(aiPrompt: aiPromptText)
