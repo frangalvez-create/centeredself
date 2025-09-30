@@ -134,16 +134,16 @@ struct FAQView: View {
                                     .padding(.top, 10) // 10pt below question
                             }
                             
-                            // Question 5
+                            // Question 5 - Why am I not getting a response?
                             VStack(alignment: .leading, spacing: 10) {
-                                Text("Can I export my journal entries?")
+                                Text("Why am I not getting a response after clicking the Insights button?")
                                     .font(.system(size: 18, weight: .bold))
                                     .foregroundColor(Color(hex: "3F5E82"))
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.leading, 10) // 10pt left padding
                                     .padding(.top, 20) // 20pt below previous answer
                                 
-                                Text("Currently, you can view and edit your entries within the app. Export functionality is planned for future updates. Your data remains accessible to you at all times.")
+                                Text("There are many reasons why you are not receiving an AI-Insight. The common two are 1) the Open AI service is temporarily down or 2) the Open AI Safety Policy has been violated, this includes harmful, illegal, unethical, or promotes hate speech. Open AI will refuse to provide a response.")
                                     .font(.system(size: 14))
                                     .foregroundColor(Color(hex: "545555"))
                                     .frame(maxWidth: .infinity, alignment: .leading)
