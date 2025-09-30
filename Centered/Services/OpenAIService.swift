@@ -24,6 +24,10 @@ class OpenAIService: ObservableObject {
             "model": "gpt-5-mini",
             "messages": [
                 [
+                    "role": "system",
+                    "content": "You are an AI Behavioral Therapist/Scientist tasked with acknowledging daily journal logs and providing constructive suggestions or helpful tips."
+                ],
+                [
                     "role": "user",
                     "content": prompt
                 ]
