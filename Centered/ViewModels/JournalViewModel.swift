@@ -271,6 +271,11 @@ class JournalViewModel: ObservableObject {
         guard let user = currentUser else { return }
         
         do {
+            // Clean up old entries for free users before loading
+            if !(user.isPremium) {
+                try await supabaseService.cleanupOldJournalEntries()
+            }
+            
             journalEntries = try await supabaseService.fetchJournalEntries(userId: user.id)
         } catch {
             // Handle cancelled requests gracefully
