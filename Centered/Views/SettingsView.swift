@@ -28,7 +28,7 @@ struct SettingsView: View {
     @State private var birthdateText: String = ""
     @State private var isBirthdateLocked: Bool = false
     @State private var showBirthdateRefreshButton: Bool = false
-                
+    
     var body: some View {
         ZStack {
             Color(hex: "E3E0C9")
@@ -223,10 +223,10 @@ struct SettingsView: View {
                     
                     // Occupation section - directly below Gender
                     VStack(spacing: 4) {
-                        HStack {
+                                HStack {
                             Text("Occupation*")
-                                .font(.system(size: 16))
-                                .foregroundColor(Color(hex: "3F5E82"))
+                                        .font(.system(size: 16))
+                                        .foregroundColor(Color(hex: "3F5E82"))
                             
                             Spacer()
                             
@@ -662,7 +662,7 @@ struct SettingsView: View {
         showBirthdateRefreshButton = true
         
         // Save birthdate to database
-        Task {
+            Task {
             await saveBirthdateToDatabase(birthdateText)
         }
         

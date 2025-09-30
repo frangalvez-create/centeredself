@@ -1,11 +1,8 @@
 import SwiftUI
-import RevenueCat
-import RevenueCatUI
 
 struct ProfileView: View {
     @EnvironmentObject var journalViewModel: JournalViewModel
     @State private var showingSettings = false
-    @State private var showingSubscription = false
     @State private var showingContact = false
     @State private var showingInfo = false
     @State private var showingFAQ = false
@@ -19,6 +16,7 @@ struct ProfileView: View {
                 .scaledToFit()
                 .frame(height: 80)
                 .padding(.top, 60) // 60pt from top of screen
+            
             
             // User Email
             Text(journalViewModel.currentUser?.email ?? "user@example.com")
@@ -43,7 +41,6 @@ struct ProfileView: View {
                     .padding(.trailing, 30) // 30pt from right edge
             }
             .padding(.top, 20) // 20pt below email
-            .padding(.bottom, -10) // Pull menu items up by 10pt
             
             // Interactive Menu Sections
             VStack(spacing: 0) {
@@ -76,35 +73,6 @@ struct ProfileView: View {
                 }
                 .buttonStyle(PlainButtonStyle())
                 
-                // Subscription Section
-                Button(action: {
-                    showingSubscription = true
-                }) {
-                    HStack {
-                        Image(systemName: "plus")
-                            .font(.system(size: 23))
-                            .foregroundColor(Color(hex: "3F5E82"))
-                            .padding(.leading, 10) // 10pt from left edge
-                        
-                        Text("Upgrade to CenteredSelf PLUS")
-                            .font(.system(size: 16))
-                            .foregroundColor(Color(hex: "3F5E82"))
-                            .padding(.leading, 10) // 10pt to the right of icon
-                        
-                        Spacer()
-                        
-                        Image("contact forward")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 26, height: 26)
-                            .padding(.trailing, 20) // 20pt from right edge
-                    }
-                    .padding(.vertical, 15)
-                    .background(Color.clear)
-                }
-                .buttonStyle(PlainButtonStyle())
-                .padding(.top, 18) // 18pt below Settings section
-                
                 // Contact Section
                 Button(action: {
                     showingContact = true
@@ -133,7 +101,7 @@ struct ProfileView: View {
                     .background(Color.clear)
                 }
                 .buttonStyle(PlainButtonStyle())
-                .padding(.top, 18) // 18pt below PLUS section
+                .padding(.top, 25) // 25pt below Settings section
                 
                 // Info Section
                 Button(action: {
@@ -163,7 +131,7 @@ struct ProfileView: View {
                     .background(Color.clear)
                 }
                 .buttonStyle(PlainButtonStyle())
-                .padding(.top, 18) // 18pt below Contact section
+                .padding(.top, 25) // 25pt below Contact section
                 
                 // FAQ Section
                 Button(action: {
@@ -193,10 +161,9 @@ struct ProfileView: View {
                     .background(Color.clear)
                 }
                 .buttonStyle(PlainButtonStyle())
-                .padding(.top, 18) // 18pt below Info section
+                .padding(.top, 25) // 25pt below Info section
             }
             .padding(.top, 80) // 80pt below statistics section
-            .padding(.bottom, -28) // Offset the 28pt reduction in menu spacing
             .padding(.leading, 10) // 10pt more left padding
             
             Spacer()
@@ -211,7 +178,7 @@ struct ProfileView: View {
                     .font(.system(size: 16))
                     .foregroundColor(Color(hex: "3F5E82"))
             }
-            .padding(.bottom, 33) // 33pt from bottom (7pt closer to edge)
+            .padding(.bottom, 40) // 40pt from bottom
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(hex: "E3E0C9"))
@@ -219,9 +186,6 @@ struct ProfileView: View {
         .sheet(isPresented: $showingSettings) {
             SettingsView()
                 .environmentObject(journalViewModel)
-        }
-        .sheet(isPresented: $showingSubscription) {
-            PaywallView()
         }
         .sheet(isPresented: $showingContact) {
             ContactView()

@@ -18,8 +18,6 @@ ORDER BY created_at DESC;
 SELECT 
     id, 
     email, 
-    subscription_tier, 
-    subscription_status,
     created_at
 FROM user_profiles 
 ORDER BY created_at DESC;
