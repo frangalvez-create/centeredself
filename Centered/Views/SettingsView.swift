@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 struct SettingsView: View {
     @EnvironmentObject var journalViewModel: JournalViewModel
@@ -29,6 +30,14 @@ struct SettingsView: View {
     @State private var isBirthdateLocked: Bool = false
     @State private var showBirthdateRefreshButton: Bool = false
     
+    // State variables for Daily Notification Reminders
+    @State private var morningReminder: Bool = false
+    @State private var workAMBreakReminder: Bool = false
+    @State private var lunchReminder: Bool = false
+    @State private var workPMBreakReminder: Bool = false
+    @State private var eveningReminder: Bool = false
+    @State private var beforeBedReminder: Bool = false
+    
     var body: some View {
         ZStack {
             Color(hex: "E3E0C9")
@@ -50,7 +59,7 @@ struct SettingsView: View {
                         .foregroundColor(Color(hex: "3F5E82"))
                         .padding(.top, 25) // 25pt below logo
                     
-                    // User Profile section - 70pt below Settings text
+                    // User Profile section - 30pt below Settings text
                     VStack(spacing: 4) {
                         HStack {
                             Text("User Profile")
@@ -63,7 +72,7 @@ struct SettingsView: View {
                         .padding(.horizontal, 40) // Overall horizontal padding
                         .padding(.leading, 0) // 0pt horizontal position
                     }
-                    .padding(.top, 70) // 70pt below Settings text
+                    .padding(.top, 30) // 30pt below Settings text
                     
                     // First Name section - 10pt below User Profile
                     VStack(spacing: 4) {
@@ -368,7 +377,7 @@ struct SettingsView: View {
                     // Daily Notification Reminder section - directly below Notification
                     VStack(spacing: 4) {
                         HStack {
-                            Text("Daily Notification Reminder")
+                            Text("Daily Journal Reminder")
                                 .font(.system(size: 16))
                                 .foregroundColor(Color(hex: "3F5E82"))
                             
@@ -378,6 +387,124 @@ struct SettingsView: View {
                         .padding(.horizontal, 40) // Overall horizontal padding
                     }
                     .padding(.top, 10) // 10pt below Notification section
+                    
+                    // Daily Notification Reminder Options
+                    VStack(spacing: 10) {
+                        // 7:00 AM - Morning
+                        HStack {
+                            Text("7:00 am - Morning")
+                                .font(.system(size: 15))
+                                .foregroundColor(Color(hex: "545555"))
+                                .padding(.leading, 70)
+                            
+                            Spacer()
+                            
+                            Toggle("", isOn: $morningReminder)
+                                .toggleStyle(SwitchToggleStyle())
+                                .frame(width: 45, height: 20)
+                                .scaleEffect(0.8)
+                                .onChange(of: morningReminder) { isOn in
+                                    handleNotificationToggle(isOn: isOn, hour: 7, minute: 0, identifier: "morning_reminder")
+                                }
+                                .padding(.trailing, 30)
+                        }
+                        
+                        // 9:30 AM - Work AM Break
+                        HStack {
+                            Text("9:30 am - Work AM Break")
+                                .font(.system(size: 15))
+                                .foregroundColor(Color(hex: "545555"))
+                                .padding(.leading, 70)
+                            
+                            Spacer()
+                            
+                            Toggle("", isOn: $workAMBreakReminder)
+                                .toggleStyle(SwitchToggleStyle())
+                                .frame(width: 45, height: 20)
+                                .scaleEffect(0.8)
+                                .onChange(of: workAMBreakReminder) { isOn in
+                                    handleNotificationToggle(isOn: isOn, hour: 9, minute: 30, identifier: "work_am_break_reminder")
+                                }
+                                .padding(.trailing, 30)
+                        }
+                        
+                        // 12:00 PM - Lunch
+                        HStack {
+                            Text("12:00 pm - Lunch")
+                                .font(.system(size: 15))
+                                .foregroundColor(Color(hex: "545555"))
+                                .padding(.leading, 70)
+                            
+                            Spacer()
+                            
+                            Toggle("", isOn: $lunchReminder)
+                                .toggleStyle(SwitchToggleStyle())
+                                .frame(width: 45, height: 20)
+                                .scaleEffect(0.8)
+                                .onChange(of: lunchReminder) { isOn in
+                                    handleNotificationToggle(isOn: isOn, hour: 12, minute: 0, identifier: "lunch_reminder")
+                                }
+                                .padding(.trailing, 30)
+                        }
+                        
+                        // 3:00 PM - Work PM Break
+                        HStack {
+                            Text("3:00 pm - Work PM Break")
+                                .font(.system(size: 15))
+                                .foregroundColor(Color(hex: "545555"))
+                                .padding(.leading, 70)
+                            
+                            Spacer()
+                            
+                            Toggle("", isOn: $workPMBreakReminder)
+                                .toggleStyle(SwitchToggleStyle())
+                                .frame(width: 45, height: 20)
+                                .scaleEffect(0.8)
+                                .onChange(of: workPMBreakReminder) { isOn in
+                                    handleNotificationToggle(isOn: isOn, hour: 15, minute: 0, identifier: "work_pm_break_reminder")
+                                }
+                                .padding(.trailing, 30)
+                        }
+                        
+                        // 6:00 PM - Evening
+                        HStack {
+                            Text("6:00 pm - Evening")
+                                .font(.system(size: 15))
+                                .foregroundColor(Color(hex: "545555"))
+                                .padding(.leading, 70)
+                            
+                            Spacer()
+                            
+                            Toggle("", isOn: $eveningReminder)
+                                .toggleStyle(SwitchToggleStyle())
+                                .frame(width: 45, height: 20)
+                                .scaleEffect(0.8)
+                                .onChange(of: eveningReminder) { isOn in
+                                    handleNotificationToggle(isOn: isOn, hour: 18, minute: 0, identifier: "evening_reminder")
+                                }
+                                .padding(.trailing, 30)
+                        }
+                        
+                        // 9:30 PM - Before Bed
+                        HStack {
+                            Text("9:30 pm - Before Bed")
+                                .font(.system(size: 15))
+                                .foregroundColor(Color(hex: "545555"))
+                                .padding(.leading, 70)
+                            
+                            Spacer()
+                            
+                            Toggle("", isOn: $beforeBedReminder)
+                                .toggleStyle(SwitchToggleStyle())
+                                .frame(width: 45, height: 20)
+                                .scaleEffect(0.8)
+                                .onChange(of: beforeBedReminder) { isOn in
+                                    handleNotificationToggle(isOn: isOn, hour: 21, minute: 30, identifier: "before_bed_reminder")
+                                }
+                                .padding(.trailing, 30)
+                        }
+                    }
+                    .padding(.top, 15) // 15pt below Daily Notification Reminder text
                     
                     // AI Enhancement Note - 250pt below Daily Notification Reminder section
                     Text("* these elements will be used to further enhance the AI insights response")
@@ -403,6 +530,7 @@ struct SettingsView: View {
             loadGenderFromDatabase()
             loadOccupationFromDatabase()
             loadBirthdateFromDatabase()
+            loadNotificationStates()
         }
     }
     
@@ -770,6 +898,74 @@ struct SettingsView: View {
                 birthdateText = ""
                 isBirthdateLocked = false
                 showBirthdateRefreshButton = false
+            }
+        }
+    }
+    
+    // MARK: - Notification Management Functions
+    
+    private func requestNotificationAuthorization() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if granted {
+                print("✅ Notification permission granted")
+            } else if let error = error {
+                print("❌ Notification permission error: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    private func handleNotificationToggle(isOn: Bool, hour: Int, minute: Int, identifier: String) {
+        if isOn {
+            scheduleNotification(hour: hour, minute: minute, identifier: identifier)
+        } else {
+            cancelNotification(identifier: identifier)
+        }
+    }
+    
+    private func scheduleNotification(hour: Int, minute: Int, identifier: String) {
+        // Request permission first
+        requestNotificationAuthorization()
+        
+        let content = UNMutableNotificationContent()
+        content.title = "Daily Journal Reminder"
+        content.body = "Have you journaled today?"
+        content.sound = .default
+        
+        var dateComponents = DateComponents()
+        dateComponents.hour = hour
+        dateComponents.minute = minute
+        
+        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("❌ Error scheduling notification: \(error.localizedDescription)")
+            } else {
+                print("✅ Notification scheduled for \(hour):\(String(format: "%02d", minute)) with identifier: \(identifier)")
+            }
+        }
+    }
+    
+    private func cancelNotification(identifier: String) {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
+        print("✅ Notification cancelled for identifier: \(identifier)")
+    }
+    
+    private func loadNotificationStates() {
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            DispatchQueue.main.async {
+                // Check which notifications are currently scheduled
+                let identifiers = requests.map { $0.identifier }
+                
+                morningReminder = identifiers.contains("morning_reminder")
+                workAMBreakReminder = identifiers.contains("work_am_break_reminder")
+                lunchReminder = identifiers.contains("lunch_reminder")
+                workPMBreakReminder = identifiers.contains("work_pm_break_reminder")
+                eveningReminder = identifiers.contains("evening_reminder")
+                beforeBedReminder = identifiers.contains("before_bed_reminder")
+                
+                print("✅ Loaded notification states: Morning: \(morningReminder), AM Break: \(workAMBreakReminder), Lunch: \(lunchReminder), PM Break: \(workPMBreakReminder), Evening: \(eveningReminder), Before Bed: \(beforeBedReminder)")
             }
         }
     }
