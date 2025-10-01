@@ -50,7 +50,22 @@ struct SettingsView: View {
                         .foregroundColor(Color(hex: "3F5E82"))
                         .padding(.top, 25) // 25pt below logo
                     
-                    // First Name section - 70pt below Settings text
+                    // User Profile section - 70pt below Settings text
+                    VStack(spacing: 4) {
+                        HStack {
+                            Text("User Profile")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(Color(hex: "3F5E82"))
+                            
+                            Spacer()
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 40) // Overall horizontal padding
+                        .padding(.leading, 0) // 0pt horizontal position
+                    }
+                    .padding(.top, 70) // 70pt below Settings text
+                    
+                    // First Name section - 10pt below User Profile
                     VStack(spacing: 4) {
                         HStack {
                             Text("First Name")
@@ -105,7 +120,7 @@ struct SettingsView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 40) // Overall horizontal padding
                     }
-                    .padding(.top, 70) // 70pt below Settings text
+                    .padding(.top, 10) // 10pt below User Profile section
                     
                     // Last Name section - directly below First Name
                     VStack(spacing: 4) {
@@ -335,14 +350,43 @@ struct SettingsView: View {
                     }
                     .padding(.top, 10) // 10pt below Occupation section
                     
-                    // AI Enhancement Note - 250pt below Birthdate section
+                    // Notification section - 20pt below Birthdate section
+                    VStack(spacing: 4) {
+                        HStack {
+                            Text("Notification")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(Color(hex: "3F5E82"))
+                            
+                            Spacer()
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 40) // Overall horizontal padding
+                        .padding(.leading, 0) // 0pt horizontal position
+                    }
+                    .padding(.top, 40) // 40pt below Birthdate section
+                    
+                    // Daily Notification Reminder section - directly below Notification
+                    VStack(spacing: 4) {
+                        HStack {
+                            Text("Daily Notification Reminder")
+                                .font(.system(size: 16))
+                                .foregroundColor(Color(hex: "3F5E82"))
+                            
+                            Spacer()
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 40) // Overall horizontal padding
+                    }
+                    .padding(.top, 10) // 10pt below Notification section
+                    
+                    // AI Enhancement Note - 250pt below Daily Notification Reminder section
                     Text("* these elements will be used to further enhance the AI insights response")
                         .font(.system(size: 12))
                         .foregroundColor(Color(hex: "545555"))
                         .opacity(0.8)
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.horizontal, 40)
-                        .padding(.top, 250) // 250pt below Birthdate section
+                        .padding(.top, 250) // 250pt below Daily Notification Reminder section
                     }
                 }
                 .frame(maxWidth: .infinity)
