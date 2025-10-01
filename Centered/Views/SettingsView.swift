@@ -513,7 +513,7 @@ struct SettingsView: View {
                         .opacity(0.8)
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.horizontal, 40)
-                        .padding(.top, 250) // 250pt below Daily Notification Reminder section
+                        .padding(.top, 25) // 25pt below Daily Notification Reminder section
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -523,15 +523,14 @@ struct SettingsView: View {
             }
             .frame(maxWidth: .infinity)
         }
-        .onAppear {
-            print("🔄 SettingsView onAppear called")
-            loadFirstNameFromDatabase()
-            loadLastNameFromDatabase()
-            loadGenderFromDatabase()
-            loadOccupationFromDatabase()
-            loadBirthdateFromDatabase()
-            loadNotificationStates()
-        }
+            .onAppear {
+                loadFirstNameFromDatabase()
+                loadLastNameFromDatabase()
+                loadGenderFromDatabase()
+                loadOccupationFromDatabase()
+                loadBirthdateFromDatabase()
+                loadNotificationStates()
+            }
     }
     
     // MARK: - Functions (duplicated from goals field)
@@ -543,27 +542,23 @@ struct SettingsView: View {
         
         // Lock the text field and show refresh button
         isFirstNameLocked = true
-        showFirstNameRefreshButton = true
-        
+        showFirstNameRefreshButton = true        
         // Save first name to database
         Task {
             await saveFirstNameToDatabase(firstNameText)
         }
         
-        print("✅ First Name saved: \(firstNameText)")
     }
     
     private func cpFirstNameRefreshButtonTapped() {
         // Haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
-        
+        impactFeedback.impactOccurred()        
         // Reset the first name entry process
         firstNameText = ""
         isFirstNameLocked = false
         showFirstNameRefreshButton = false
         
-        print("CP Refresh button clicked - First Name entry reset")
     }
     
     private func saveFirstNameToDatabase(_ firstName: String) async {
@@ -582,9 +577,7 @@ struct SettingsView: View {
                 notificationFrequency: nil,
                 streakEndingNotification: nil
             )
-            print("✅ First Name saved successfully: \(firstName)")
         } catch {
-            print("❌ Failed to save first name: \(error)")
         }
     }
     
@@ -596,12 +589,9 @@ struct SettingsView: View {
                     firstNameText = firstName
                     isFirstNameLocked = true
                     showFirstNameRefreshButton = true
-                    print("✅ First Name loaded from database: \(firstName)")
                 } else {
-                    print("ℹ️ No first name found in database")
                 }
             } catch {
-                print("❌ Failed to load first name: \(error)")
             }
         }
     }
@@ -615,27 +605,23 @@ struct SettingsView: View {
         
         // Lock the text field and show refresh button
         isLastNameLocked = true
-        showLastNameRefreshButton = true
-        
+        showLastNameRefreshButton = true        
         // Save last name to database
         Task {
             await saveLastNameToDatabase(lastNameText)
         }
         
-        print("✅ Last Name saved: \(lastNameText)")
     }
     
     private func cpLastNameRefreshButtonTapped() {
         // Haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
-        
+        impactFeedback.impactOccurred()        
         // Reset the last name entry process
         lastNameText = ""
         isLastNameLocked = false
         showLastNameRefreshButton = false
         
-        print("CP Refresh button clicked - Last Name entry reset")
     }
     
     private func saveLastNameToDatabase(_ lastName: String) async {
@@ -654,9 +640,7 @@ struct SettingsView: View {
                 notificationFrequency: nil,
                 streakEndingNotification: nil
             )
-            print("✅ Last Name saved successfully: \(lastName)")
         } catch {
-            print("❌ Failed to save last name: \(error)")
         }
     }
     
@@ -668,12 +652,9 @@ struct SettingsView: View {
                     lastNameText = lastName
                     isLastNameLocked = true
                     showLastNameRefreshButton = true
-                    print("✅ Last Name loaded from database: \(lastName)")
                 } else {
-                    print("ℹ️ No last name found in database")
                 }
             } catch {
-                print("❌ Failed to load last name: \(error)")
             }
         }
     }
@@ -687,27 +668,23 @@ struct SettingsView: View {
         
         // Lock the text field and show refresh button
         isGenderLocked = true
-        showGenderRefreshButton = true
-        
+        showGenderRefreshButton = true        
         // Save gender to database
         Task {
             await saveGenderToDatabase(genderText)
         }
         
-        print("✅ Gender saved: \(genderText)")
     }
     
     private func cpGenderRefreshButtonTapped() {
         // Haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
-        
+        impactFeedback.impactOccurred()        
         // Reset the gender entry process
         genderText = ""
         isGenderLocked = false
         showGenderRefreshButton = false
         
-        print("CP Refresh button clicked - Gender entry reset")
     }
     
     private func saveGenderToDatabase(_ gender: String) async {
@@ -726,9 +703,7 @@ struct SettingsView: View {
                 notificationFrequency: nil,
                 streakEndingNotification: nil
             )
-            print("✅ Gender saved successfully: \(gender)")
         } catch {
-            print("❌ Failed to save gender: \(error)")
         }
     }
     
@@ -740,12 +715,9 @@ struct SettingsView: View {
                     genderText = gender
                     isGenderLocked = true
                     showGenderRefreshButton = true
-                    print("✅ Gender loaded from database: \(gender)")
                 } else {
-                    print("ℹ️ No gender found in database")
                 }
             } catch {
-                print("❌ Failed to load gender: \(error)")
             }
         }
     }
@@ -759,27 +731,23 @@ struct SettingsView: View {
         
         // Lock the text field and show refresh button
         isOccupationLocked = true
-        showOccupationRefreshButton = true
-        
+        showOccupationRefreshButton = true        
         // Save occupation to database
         Task {
             await saveOccupationToDatabase(occupationText)
         }
         
-        print("✅ Occupation saved: \(occupationText)")
     }
     
     private func cpOccupationRefreshButtonTapped() {
         // Haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
-        
+        impactFeedback.impactOccurred()        
         // Reset the occupation entry process
         occupationText = ""
         isOccupationLocked = false
         showOccupationRefreshButton = false
         
-        print("CP Refresh button clicked - Occupation entry reset")
     }
     
     private func saveOccupationToDatabase(_ occupation: String) async {
@@ -798,9 +766,7 @@ struct SettingsView: View {
                 notificationFrequency: nil,
                 streakEndingNotification: nil
             )
-            print("✅ Occupation saved successfully: \(occupation)")
         } catch {
-            print("❌ Failed to save occupation: \(error)")
         }
     }
     
@@ -812,12 +778,9 @@ struct SettingsView: View {
                     occupationText = occupation
                     isOccupationLocked = true
                     showOccupationRefreshButton = true
-                    print("✅ Occupation loaded from database: \(occupation)")
                 } else {
-                    print("ℹ️ No occupation found in database")
                 }
             } catch {
-                print("❌ Failed to load occupation: \(error)")
             }
         }
     }
@@ -831,27 +794,23 @@ struct SettingsView: View {
         
         // Lock the text field and show refresh button
         isBirthdateLocked = true
-        showBirthdateRefreshButton = true
-        
+        showBirthdateRefreshButton = true        
         // Save birthdate to database
             Task {
             await saveBirthdateToDatabase(birthdateText)
         }
         
-        print("✅ Birthdate saved: \(birthdateText)")
     }
     
     private func cpBirthdateRefreshButtonTapped() {
         // Haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
-        
+        impactFeedback.impactOccurred()        
         // Reset the birthdate entry process
         birthdateText = ""
         isBirthdateLocked = false
         showBirthdateRefreshButton = false
         
-        print("CP Refresh button clicked - Birthdate entry reset")
     }
     
     private func saveBirthdateToDatabase(_ birthdate: String) async {
@@ -870,9 +829,7 @@ struct SettingsView: View {
                 notificationFrequency: nil,
                 streakEndingNotification: nil
             )
-            print("✅ Birthdate saved successfully: \(birthdate)")
         } catch {
-            print("❌ Failed to save birthdate: \(error)")
         }
     }
     
@@ -884,16 +841,13 @@ struct SettingsView: View {
                     birthdateText = birthdate
                     isBirthdateLocked = true
                     showBirthdateRefreshButton = true
-                    print("✅ Birthdate loaded from database: \(birthdate)")
                 } else {
                     // Ensure text field is empty to show placeholder
                     birthdateText = ""
                     isBirthdateLocked = false
                     showBirthdateRefreshButton = false
-                    print("ℹ️ No birthdate found in database - placeholder will show")
                 }
             } catch {
-                print("❌ Failed to load birthdate: \(error)")
                 // Ensure text field is empty to show placeholder on error
                 birthdateText = ""
                 isBirthdateLocked = false
@@ -906,11 +860,7 @@ struct SettingsView: View {
     
     private func requestNotificationAuthorization() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if granted {
-                print("✅ Notification permission granted")
-            } else if let error = error {
-                print("❌ Notification permission error: \(error.localizedDescription)")
-            }
+            // Handle authorization result
         }
     }
     
@@ -939,36 +889,28 @@ struct SettingsView: View {
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
         
         UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                print("❌ Error scheduling notification: \(error.localizedDescription)")
-            } else {
-                print("✅ Notification scheduled for \(hour):\(String(format: "%02d", minute)) with identifier: \(identifier)")
-            }
+            // Handle scheduling result
         }
     }
     
     private func cancelNotification(identifier: String) {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
-        print("✅ Notification cancelled for identifier: \(identifier)")
     }
     
     private func loadNotificationStates() {
         UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
             DispatchQueue.main.async {
-                // Check which notifications are currently scheduled
                 let identifiers = requests.map { $0.identifier }
-                
                 morningReminder = identifiers.contains("morning_reminder")
                 workAMBreakReminder = identifiers.contains("work_am_break_reminder")
                 lunchReminder = identifiers.contains("lunch_reminder")
                 workPMBreakReminder = identifiers.contains("work_pm_break_reminder")
                 eveningReminder = identifiers.contains("evening_reminder")
                 beforeBedReminder = identifiers.contains("before_bed_reminder")
-                
-                print("✅ Loaded notification states: Morning: \(morningReminder), AM Break: \(workAMBreakReminder), Lunch: \(lunchReminder), PM Break: \(workPMBreakReminder), Evening: \(eveningReminder), Before Bed: \(beforeBedReminder)")
             }
         }
     }
+    
 }
 
 #Preview {
