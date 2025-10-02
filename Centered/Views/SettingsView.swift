@@ -877,8 +877,23 @@ struct SettingsView: View {
         requestNotificationAuthorization()
         
         let content = UNMutableNotificationContent()
-        content.title = "Daily Journal Reminder"
-        content.body = "Have you journaled today?"
+        
+        // Set different titles and bodies based on time
+        switch (hour, minute) {
+        case (7, 0), (9, 30):
+            content.title = "Morning Journal Reminder"
+            content.body = "Quick journal session to start your day?"
+        case (12, 0), (15, 0):
+            content.title = "Daily Journal Reminder"
+            content.body = "Ready to journal?"
+        case (18, 0), (21, 30):
+            content.title = "Evening Journal Reminder"
+            content.body = "How did your day go?"
+        default:
+            content.title = "Daily Journal Reminder"
+            content.body = "Have you journaled today?"
+        }
+        
         content.sound = .default
         
         var dateComponents = DateComponents()
