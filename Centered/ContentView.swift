@@ -814,12 +814,12 @@ struct ContentView: View {
             )
         }
         
-        // Profile Logo - 55pt below Goal text field
+        // Profile Logo - 60pt below Goal text field
         Image("CS Logo")
             .resizable()
             .scaledToFit()
             .frame(height: 80)
-            .padding(.top, 55)
+            .padding(.top, 60)
         
         // Emergency Support Reminder - 100pt below profile logo
         VStack(spacing: 8) {
@@ -840,7 +840,7 @@ struct ContentView: View {
         .padding(.top, 100)
         
         // Add bottom padding for future navigation tabs
-        Spacer(minLength: 10) // Extra space at bottom for navigation tabs
+        Spacer(minLength: 5) // Extra space at bottom for navigation tabs
             }
             .padding(.bottom, 50) // Additional padding for navigation tabs
             }
