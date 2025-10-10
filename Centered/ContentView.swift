@@ -2144,7 +2144,15 @@ Capabilities and Reminders: You have access to the web search tools, published r
                     .font(.system(size: 15))
                     .foregroundColor(Color(hex: "545555"))
                 
-                Text("Tip:")
+                Text("Journal Reminder")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                Text("Whether you like to journal early in the morning or right before bed, you can set your own reminder times in the Notifications section of the User Settings page.")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                Text("Tips")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(Color(hex: "545555"))
                 
