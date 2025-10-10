@@ -168,7 +168,17 @@ struct ProfileView: View {
             
             Spacer()
             
-            // Log Out Button (separate from menu container)
+            // Version text - positioned above logout button, 20pt from right edge
+            HStack {
+                Spacer()
+                Text("v 1.0")
+                    .font(.system(size: 11))
+                    .foregroundColor(Color(hex: "545555"))
+                    .opacity(0.7)
+                    .padding(.trailing, 20) // 20pt from right edge
+            }
+            
+            // Log Out Button (separate from menu container) - centered
             Button(action: {
                 Task {
                     await journalViewModel.signOut()
