@@ -748,7 +748,6 @@ class SupabaseService: ObservableObject {
                 .delete()
                 .eq("user_id", value: userId)
                 .execute()
-            print("✅ Deleted journal entries for user: \(userId)")
             
             // Delete goals for this user
             try await supabase
@@ -756,7 +755,6 @@ class SupabaseService: ObservableObject {
                 .delete()
                 .eq("user_id", value: userId)
                 .execute()
-            print("✅ Deleted goals for user: \(userId)")
             
             // Delete user profile for this user
             try await supabase
@@ -764,20 +762,14 @@ class SupabaseService: ObservableObject {
                 .delete()
                 .eq("user_id", value: userId)
                 .execute()
-            print("✅ Deleted user profile for user: \(userId)")
             
             // Sign out the user instead of deleting auth record (admin API not available)
             try await supabase.auth.signOut()
-            print("✅ Signed out user: \(userId)")
             
-            print("✅ Successfully deleted all data for user: \(userId)")
             return true
             
         } catch {
-            print("❌ Error deleting user account: \(error)")
-            print("❌ Error details: \(error.localizedDescription)")
             if error.localizedDescription.contains("No current user") {
-                print("No authenticated user found")
                 return false
             }
             throw error
