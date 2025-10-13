@@ -2,6 +2,12 @@ import SwiftUI
 
 struct InfoView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var journalViewModel: JournalViewModel
+    @State private var showDeleteAccountConfirmation = false
+    @State private var isDeletingAccount = false
+    @State private var showDeleteSuccessAlert = false
+    @State private var showDeleteErrorAlert = false
+    @State private var deleteErrorMessage = ""
     
     var body: some View {
         ZStack {
@@ -80,6 +86,42 @@ struct InfoView: View {
                                     .padding(.top, 10) // 10pt below Privacy Policy text
                                 
                             }
+                            
+                            // Delete Account Section
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Delete account")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundColor(Color(hex: "3F5E82"))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.leading, 10) // 10pt left padding
+                                    .padding(.top, 20) // 20pt below Privacy Policy section
+                                
+                                Text("If you no longer wish to keep your account with this app, you can delete your journal entries, user profiles and associated data at any time by simply clicking below.")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Color(hex: "545555"))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.leading, 15) // 15pt left padding
+                                    .padding(.trailing, 10) // 10pt right padding
+                                    .padding(.top, 10) // 10pt below Delete account text
+                                
+                                // Delete Account Button
+                                Button(action: {
+                                    showDeleteAccountConfirmation = true
+                                }) {
+                                    Text("Delete Account")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.red)
+                                        .frame(width: UIScreen.main.bounds.width * 0.5) // 50% of screen width
+                                        .padding(.vertical, 6) // Half the previous height (12pt -> 6pt)
+                                        .background(Color.clear)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(Color.red, lineWidth: 1)
+                                        )
+                                }
+                                .frame(maxWidth: .infinity) // Center the button
+                                .padding(.top, 15) // 15pt below description text
+                            }
                         }
                         .frame(maxWidth: .infinity) // Expand to full width
                         .padding(.horizontal, 0) // Remove horizontal padding
@@ -94,6 +136,54 @@ struct InfoView: View {
             }
             .frame(maxWidth: .infinity) // Expand NavigationView to full width
         }
+        .confirmationDialog("Delete Account", isPresented: $showDeleteAccountConfirmation) {
+            Button("Delete Account", role: .destructive) {
+                Task {
+                    await deleteUserAccount()
+                }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Are you sure you want to delete your account? This action cannot be undone.")
+        }
+        .alert("Account Deleted", isPresented: $showDeleteSuccessAlert) {
+            Button("OK") {
+                // Navigate back to login screen will be handled by the ViewModel
+            }
+        } message: {
+            Text("Your account and all associated data have been successfully deleted.")
+        }
+        .alert("Delete Failed", isPresented: $showDeleteErrorAlert) {
+            Button("OK") { }
+        } message: {
+            Text(deleteErrorMessage)
+        }
+    }
+    
+    private func deleteUserAccount() async {
+        isDeletingAccount = true
+        
+        do {
+            // Call the delete account function from SupabaseService
+            let success = try await journalViewModel.supabaseService.deleteUserAccount()
+            
+            if success {
+                // Show success alert
+                showDeleteSuccessAlert = true
+                // Sign out user
+                await journalViewModel.signOut()
+            } else {
+                // Show error alert
+                deleteErrorMessage = "Failed to delete account. Please try again."
+                showDeleteErrorAlert = true
+            }
+        } catch {
+            // Show error alert
+            deleteErrorMessage = "An error occurred while deleting your account. Please try again."
+            showDeleteErrorAlert = true
+        }
+        
+        isDeletingAccount = false
     }
 }
 

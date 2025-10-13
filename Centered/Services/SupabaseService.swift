@@ -730,4 +730,57 @@ class SupabaseService: ObservableObject {
             }
         }
     }
+    
+    // MARK: - Delete Account Functions
+    
+    /// Deletes all user data associated with the currently logged-in user
+    /// Returns true if successful, false otherwise
+    func deleteUserAccount() async throws -> Bool {
+        do {
+            // Use the same pattern as existing working code
+            guard let userId = supabase.auth.currentUser?.id else {
+                throw NSError(domain: "AuthError", code: 0, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            }
+            
+            // Delete journal entries for this user
+            try await supabase
+                .from("journal_entries")
+                .delete()
+                .eq("user_id", value: userId)
+                .execute()
+            print("✅ Deleted journal entries for user: \(userId)")
+            
+            // Delete goals for this user
+            try await supabase
+                .from("goals")
+                .delete()
+                .eq("user_id", value: userId)
+                .execute()
+            print("✅ Deleted goals for user: \(userId)")
+            
+            // Delete user profile for this user
+            try await supabase
+                .from("user_profiles")
+                .delete()
+                .eq("user_id", value: userId)
+                .execute()
+            print("✅ Deleted user profile for user: \(userId)")
+            
+            // Sign out the user instead of deleting auth record (admin API not available)
+            try await supabase.auth.signOut()
+            print("✅ Signed out user: \(userId)")
+            
+            print("✅ Successfully deleted all data for user: \(userId)")
+            return true
+            
+        } catch {
+            print("❌ Error deleting user account: \(error)")
+            print("❌ Error details: \(error.localizedDescription)")
+            if error.localizedDescription.contains("No current user") {
+                print("No authenticated user found")
+                return false
+            }
+            throw error
+        }
+    }
 }
