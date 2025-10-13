@@ -814,22 +814,15 @@ struct ContentView: View {
             )
         }
         
-        // Profile Logo - 60pt below Goal text field
-        Image("CS Logo")
-            .resizable()
-            .scaledToFit()
-            .frame(height: 80)
-            .padding(.top, 60)
-        
-        // Emergency Support Reminder - 100pt below profile logo
+        // Emergency Support Reminder - 175pt below Goal text field
         VStack(spacing: 8) {
             Text("Emergency Support Reminder")
-                .font(.system(size: 12, weight: .bold))
+                .font(.system(size: 11, weight: .bold))
                 .foregroundColor(Color(hex: "545555"))
                 .opacity(0.8)
                 .multilineTextAlignment(.center)
             
-            Text("If you are experiencing a crisis or thinking about harming yourself, please do not rely on this App. Call 988 in the U.S. to connect with the Suicide & Crisis Lifeline, or reach out to your local emergency number.")
+            Text("If you are experiencing a crisis or thinking about harming yourself, do not rely on this App. Call 988 in the U.S. or your local emergency number.")
                 .font(.system(size: 10))
                 .foregroundColor(Color(hex: "545555"))
                 .opacity(0.8)
@@ -837,7 +830,7 @@ struct ContentView: View {
                 .lineLimit(nil)
         }
         .padding(.horizontal, 20)
-        .padding(.top, 100)
+        .padding(.top, 175)
         
         // Add bottom padding for future navigation tabs
         Spacer(minLength: 5) // Extra space at bottom for navigation tabs
