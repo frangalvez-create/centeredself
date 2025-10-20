@@ -424,8 +424,8 @@ class JournalViewModel: ObservableObject {
             
             print("🤖 Generating AI response for prompt: \(aiPrompt.prefix(100))...")
             
-            // Generate AI response using OpenAI
-            let aiResponse = try await openAIService.generateAIResponse(for: aiPrompt)
+            // Generate AI response using OpenAI with retry logic
+            let aiResponse = try await generateAIResponseWithRetry(for: aiPrompt)
             
             // Create updated entry with AI response
             let updatedEntry = JournalEntry(
@@ -454,6 +454,42 @@ class JournalViewModel: ObservableObject {
         }
         
         isLoading = false
+    }
+    
+    /// Generates AI response with retry logic (up to 3 attempts)
+    private func generateAIResponseWithRetry(for prompt: String, maxRetries: Int = 3) async throws -> String {
+        var lastError: Error?
+        
+        for attempt in 1...maxRetries {
+            do {
+                print("🔄 AI generation attempt \(attempt)/\(maxRetries)")
+                let response = try await openAIService.generateAIResponse(for: prompt)
+                print("✅ AI response successful on attempt \(attempt)")
+                return response
+            } catch {
+                lastError = error
+                print("❌ AI generation attempt \(attempt) failed: \(error.localizedDescription)")
+                
+                // Don't retry on certain errors
+                if let openAIError = error as? OpenAIError {
+                    switch openAIError {
+                    case .invalidAPIKey, .quotaExceeded:
+                        throw error // Don't retry these errors
+                    default:
+                        break // Retry other errors
+                    }
+                }
+                
+                // Wait before retrying (exponential backoff)
+                if attempt < maxRetries {
+                    let delay = Double(attempt * attempt) // 1s, 4s, 9s
+                    print("⏳ Waiting \(delay) seconds before retry...")
+                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                }
+            }
+        }
+        
+        throw lastError ?? AIError.generationFailed
     }
     
     func deleteJournalEntry(_ entry: JournalEntry) async {
@@ -616,8 +652,8 @@ class JournalViewModel: ObservableObject {
             
             print("🤖 Generating Open Question AI response for prompt: \(aiPrompt.prefix(100))...")
             
-            // Generate AI response using OpenAI
-            let aiResponse = try await openAIService.generateAIResponse(for: aiPrompt)
+            // Generate AI response using OpenAI with retry logic
+            let aiResponse = try await generateAIResponseWithRetry(for: aiPrompt)
             
             // Create updated entry with AI response
             let updatedEntry = JournalEntry(
@@ -994,4 +1030,23 @@ class JournalViewModel: ObservableObject {
     }
 }
 
-// OpenAI integration will be added later when requested
+// MARK: - AI Error Types
+enum AIError: Error, LocalizedError {
+    case userNotAuthenticated
+    case noJournalEntry
+    case noAIPrompt
+    case generationFailed
+    
+    var errorDescription: String? {
+        switch self {
+        case .userNotAuthenticated:
+            return "User not authenticated"
+        case .noJournalEntry:
+            return "No journal entry found to generate AI response"
+        case .noAIPrompt:
+            return "No AI prompt found in journal entry"
+        case .generationFailed:
+            return "AI generation failed after multiple attempts"
+        }
+    }
+}

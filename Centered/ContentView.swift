@@ -18,6 +18,8 @@ struct ContentView: View {
     @State private var currentAIResponse: String = ""
     @State private var showFavoriteButton: Bool = false
     @State private var isFavoriteClicked: Bool = false
+    @State private var isGeneratingAI: Bool = false
+    @State private var isLoadingGenerating: Bool = false // Track if we're generating AI vs saving
     
     // OPEN QUESTION SECTION STATE (Duplicate all state variables)
     @State private var openJournalResponse: String = ""
@@ -29,6 +31,8 @@ struct ContentView: View {
     @State private var openCurrentAIResponse: String = ""
     @State private var openShowFavoriteButton: Bool = false
     @State private var openIsFavoriteClicked: Bool = false
+    @State private var openIsGeneratingAI: Bool = false
+    @State private var openIsLoadingGenerating: Bool = false // Track if we're generating AI vs saving
     
     // Navigation Tab Selection
     @State private var selectedTab: Int = 0
@@ -395,18 +399,24 @@ struct ContentView: View {
                             HStack {
                                 Spacer()
                                 Button(action: {
-                                    if showCenteredButton {
+                                    if showCenteredButton && !isGeneratingAI {
                                         centeredButtonTapped()
-                                    } else {
+                                    } else if !isGeneratingAI {
                                         doneButtonTapped()
                                     }
                                 }) {
-                                    Image(getButtonImageName())
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: showCenteredButton ? 37 : 24, height: showCenteredButton ? 37 : 24)
-                                        .opacity(0.8)
-                                        .scaleEffect(showCenteredButton ? 1.3 : 1.0)
+                                    if isGeneratingAI {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: "3F5E82")))
+                                            .frame(width: 37, height: 37)
+                                    } else {
+                                        Image(getButtonImageName())
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: showCenteredButton ? 37 : 24, height: showCenteredButton ? 37 : 24)
+                                            .opacity(0.8)
+                                            .scaleEffect(showCenteredButton ? 1.3 : 1.0)
+                                        }
                                 }
                                 .frame(width: 44, height: 44) // Keep 44x44 touch target
                                 .padding(.trailing, showCenteredButton ? 15 : 5)
@@ -667,18 +677,24 @@ struct ContentView: View {
                                 HStack {
                                     Spacer()
                                     Button(action: {
-                                        if openShowCenteredButton {
+                                        if openShowCenteredButton && !openIsGeneratingAI {
                                             openCenteredButtonTapped()
-                                        } else {
+                                        } else if !openIsGeneratingAI {
                                             openDoneButtonTapped()
                                         }
                                     }) {
-                                        Image(getOpenButtonImageName())
-                                            .resizable()
-                                            .scaledToFit()
-                                            .frame(width: openShowCenteredButton ? 37 : 24, height: openShowCenteredButton ? 37 : 24)
-                                            .opacity(0.8)
-                                            .scaleEffect(openShowCenteredButton ? 1.3 : 1.0)
+                                        if openIsGeneratingAI {
+                                            ProgressView()
+                                                .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: "3F5E82")))
+                                                .frame(width: 37, height: 37)
+                                        } else {
+                                            Image(getOpenButtonImageName())
+                                                .resizable()
+                                                .scaledToFit()
+                                                .frame(width: openShowCenteredButton ? 37 : 24, height: openShowCenteredButton ? 37 : 24)
+                                                .opacity(0.8)
+                                                .scaleEffect(openShowCenteredButton ? 1.3 : 1.0)
+                                        }
                                     }
                                     .frame(width: 44, height: 44) // Keep 44x44 touch target
                                     .padding(.trailing, openShowCenteredButton ? 15 : 5)
@@ -845,15 +861,15 @@ struct ContentView: View {
             Group {
                 if journalViewModel.isLoading {
                     ZStack {
-                        Color.black.opacity(0.3)
+                        Color(hex: "4E4C4C").opacity(0.5)
                             .ignoresSafeArea()
                         
         VStack {
                             ProgressView()
                                 .scaleEffect(1.2)
-                            Text("Saving...")
+                            Text(isLoadingGenerating || openIsLoadingGenerating ? "Generating..." : "Saving...")
                                 .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(.white)
+                                .foregroundColor(Color(hex: "F5F4EB"))
                                 .padding(.top, 10)
                         }
                         .padding(20)
@@ -1140,6 +1156,7 @@ struct ContentView: View {
         // Change to Centered Button and lock text (no animation on Done button)
         showCenteredButton = true
         isTextLocked = true
+        isLoadingGenerating = false // This is saving, not generating
         
         // Perform haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
@@ -1156,8 +1173,16 @@ struct ContentView: View {
     }
     
     private func centeredButtonTapped() {
+        // Prevent multiple clicks during AI generation
+        guard !isGeneratingAI else { 
+            print("⚠️ AI generation already in progress, ignoring click")
+            return 
+        }
+        
         // Change to Centered Button Click state
         showCenteredButtonClick = true
+        isGeneratingAI = true
+        isLoadingGenerating = true // This is generating AI, not saving
         
         // Perform haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
@@ -1165,13 +1190,28 @@ struct ContentView: View {
         
         // Generate AI prompt and update journal entry
         Task {
-            await generateAndSaveAIPrompt()
+            do {
+                try await generateAndSaveAIPrompt()
+                // Reset loading state on success
+                await MainActor.run {
+                    self.isGeneratingAI = false
+                    self.isLoadingGenerating = false
+                }
+            } catch {
+                // Reset button state on error
+                await MainActor.run {
+                    self.showCenteredButtonClick = false
+                    self.isGeneratingAI = false
+                    self.isLoadingGenerating = false
+                }
+                print("❌ AI generation failed: \(error)")
+            }
         }
         
         print("Centered button tapped - Generating AI prompt for: \(journalResponse)")
     }
     
-    private func generateAndSaveAIPrompt() async {
+    private func generateAndSaveAIPrompt() async throws {
         // Ensure user profile is loaded before generating AI prompt
         do {
             let loadedProfile = try await journalViewModel.supabaseService.loadUserProfile()
@@ -1181,7 +1221,9 @@ struct ContentView: View {
             }
         } catch {
             print("⚠️ Warning: Could not load user profile: \(error)")
+            // Continue execution even if profile loading fails
         }
+        
         // Get the most recent goal from the loaded goals
         let mostRecentGoal = journalViewModel.goals.first?.goals ?? ""
         
@@ -1196,8 +1238,10 @@ struct ContentView: View {
         print("🎯 Goal: \(mostRecentGoal)")
         print("🤖 AI Prompt: \(aiPromptText)")
         
-        // Generate AI response using OpenAI API
-        await journalViewModel.generateAndSaveAIResponse()
+        // Generate AI response using OpenAI API with timeout
+        try await withTimeout(seconds: 30) {
+            await journalViewModel.generateAndSaveAIResponse()
+        }
         
         // Update the AI response in the UI
         await updateAIResponseDisplay()
@@ -1548,6 +1592,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
         // Change to Centered Button and lock text (no animation on Done button)
         openShowCenteredButton = true
         openIsTextLocked = true
+        openIsLoadingGenerating = false // This is saving, not generating
         
         // Perform haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
@@ -1563,8 +1608,16 @@ Capabilities and Reminders: You have access to the web search tools, published r
     }
     
     private func openCenteredButtonTapped() {
+        // Prevent multiple clicks during AI generation
+        guard !openIsGeneratingAI else { 
+            print("⚠️ Open AI generation already in progress, ignoring click")
+            return 
+        }
+        
         // Change to Centered Button Click state
         openShowCenteredButtonClick = true
+        openIsGeneratingAI = true
+        openIsLoadingGenerating = true // This is generating AI, not saving
         
         // Perform haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
@@ -1572,13 +1625,28 @@ Capabilities and Reminders: You have access to the web search tools, published r
         
         // Generate AI prompt and update journal entry
         Task {
-            await generateAndSaveOpenAIPrompt()
+            do {
+                try await generateAndSaveOpenAIPrompt()
+                // Reset loading state on success
+                await MainActor.run {
+                    self.openIsGeneratingAI = false
+                    self.openIsLoadingGenerating = false
+                }
+            } catch {
+                // Reset button state on error
+                await MainActor.run {
+                    self.openShowCenteredButtonClick = false
+                    self.openIsGeneratingAI = false
+                    self.openIsLoadingGenerating = false
+                }
+                print("❌ Open AI generation failed: \(error)")
+            }
         }
         
         print("Open Centered button tapped - Generating AI prompt for: \(openJournalResponse)")
     }
     
-    private func generateAndSaveOpenAIPrompt() async {
+    private func generateAndSaveOpenAIPrompt() async throws {
         // Get the most recent goal from the loaded goals
         let mostRecentGoal = journalViewModel.goals.first?.goals ?? ""
         
@@ -1593,8 +1661,10 @@ Capabilities and Reminders: You have access to the web search tools, published r
         print("🎯 Goal: \(mostRecentGoal)")
         print("🤖 AI Prompt: \(aiPromptText)")
         
-        // Generate AI response using OpenAI API
-        await journalViewModel.generateAndSaveOpenQuestionAIResponse()
+        // Generate AI response using OpenAI API with timeout
+        try await withTimeout(seconds: 30) {
+            await journalViewModel.generateAndSaveOpenQuestionAIResponse()
+        }
         
         // Update the AI response in the UI
         await updateOpenAIResponseDisplay()
@@ -2243,6 +2313,33 @@ extension Color {
             blue:  Double(b) / 255,
             opacity: Double(a) / 255
         )
+    }
+}
+
+// MARK: - Timeout Helper Function
+func withTimeout<T>(seconds: TimeInterval, operation: @escaping () async throws -> T) async throws -> T {
+    return try await withThrowingTaskGroup(of: T.self) { group in
+        group.addTask {
+            return try await operation()
+        }
+        
+        group.addTask {
+            try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            throw TimeoutError()
+        }
+        
+        guard let result = try await group.next() else {
+            throw TimeoutError()
+        }
+        
+        group.cancelAll()
+        return result
+    }
+}
+
+struct TimeoutError: Error {
+    var localizedDescription: String {
+        return "Operation timed out after 30 seconds"
     }
 }
 
