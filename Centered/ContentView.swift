@@ -215,19 +215,6 @@ struct ContentView: View {
             }
             .padding(.horizontal, 40)
             .padding(.bottom, 10)
-            .overlay(
-                // Q3 Icon as overlay - positioned 335pt to the right and 12pt down
-                Button(action: {
-                    showQ3InfoPopup = true
-                }) {
-                    Image("Q")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 27, height: 27)
-                }
-                .offset(x: 342, y: 15), // 342pt to the right and 15pt down
-                alignment: .topLeading
-            )
             
             // Text Input Field with Done Button - Dynamic height with proper sizing
             VStack {
@@ -236,6 +223,27 @@ struct ContentView: View {
                     RoundedRectangle(cornerRadius: 20)
                         .fill(Color.textFieldBackground)
                         .frame(height: (isTextLocked && !currentAIResponse.isEmpty) ? 400 : max(150, min(300, textEditorHeight)))
+                    
+                    // Q3 Icon inside text field - only show when text is not locked and no AI response
+                    if !isTextLocked && currentAIResponse.isEmpty {
+                        VStack {
+                            HStack {
+                                Spacer()
+                                    Button(action: {
+                                        showQ3InfoPopup = true
+                                    }) {
+                                        Image("Q")
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 27, height: 27)
+                                            .opacity(0.7)
+                                    }
+                                .padding(.trailing, 4) // 4pt from right edge
+                            }
+                            Spacer()
+                        }
+                        .padding(.top, 4) // 4pt from top edge
+                    }
                     
                     // Text Editor and AI Response Display
                     if isTextLocked && !currentAIResponse.isEmpty {
@@ -433,8 +441,8 @@ struct ContentView: View {
                                             .resizable()
                                             .scaledToFit()
                                             .frame(width: showCenteredButton ? 37 : 24, height: showCenteredButton ? 37 : 24)
-                                            .opacity(0.8)
-                                            .scaleEffect(showCenteredButton ? 1.3 : 1.0)
+                                            .opacity(showCenteredButton ? 0.9 : 0.8)
+                                            .scaleEffect(showCenteredButton ? 1.4 : 1.0)
                                         }
                                 }
                                 .frame(width: 44, height: 44) // Keep 44x44 touch target
@@ -467,7 +475,7 @@ struct ContentView: View {
                 }
                 .frame(height: (isTextLocked && !currentAIResponse.isEmpty) ? 400 : max(150, min(300, textEditorHeight)))
             }
-            .padding(.horizontal, 30)
+            .padding(.horizontal, 40)
             
             // OPEN QUESTION SECTION (25pt spacing below Guided Question)
             VStack(spacing: 0) {
@@ -490,19 +498,6 @@ struct ContentView: View {
                     // }
                     // .disabled(journalViewModel.isLoading)
                 }
-                .overlay(
-                    // Q Icon as overlay - positioned 10pt down and 10pt to the right
-                    Button(action: {
-                        showInfoPopup = true
-                    }) {
-                        Image("Q")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 27, height: 27)
-                    }
-                    .offset(x: 42, y: 8), // 42pt to the right and 8pt down
-                    alignment: .trailing
-                )
                 .padding(.horizontal, 40)
                 .padding(.bottom, 10)
                 .padding(.top, 25) // 25pt spacing below Guided Question
@@ -514,6 +509,27 @@ struct ContentView: View {
                         RoundedRectangle(cornerRadius: 20)
                             .fill(Color.textFieldBackground)
                             .frame(height: (openIsTextLocked && !openCurrentAIResponse.isEmpty) ? 400 : max(150, min(300, openTextEditorHeight)))
+                        
+                        // Q Icon inside text field - only show when text is not locked and no AI response
+                        if !openIsTextLocked && openCurrentAIResponse.isEmpty {
+                            VStack {
+                                HStack {
+                                    Spacer()
+                                    Button(action: {
+                                        showInfoPopup = true
+                                    }) {
+                                        Image("Q")
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 27, height: 27)
+                                            .opacity(0.7)
+                                    }
+                                    .padding(.trailing, 4) // 4pt from right edge
+                                }
+                                Spacer()
+                            }
+                            .padding(.top, 4) // 4pt from top edge
+                        }
                         
                         // Text Editor and AI Response Display
                         if openIsTextLocked && !openCurrentAIResponse.isEmpty {
@@ -711,8 +727,8 @@ struct ContentView: View {
                                                 .resizable()
                                                 .scaledToFit()
                                                 .frame(width: openShowCenteredButton ? 37 : 24, height: openShowCenteredButton ? 37 : 24)
-                                                .opacity(0.8)
-                                                .scaleEffect(openShowCenteredButton ? 1.3 : 1.0)
+                                                .opacity(openShowCenteredButton ? 0.9 : 0.8)
+                                                .scaleEffect(openShowCenteredButton ? 1.4 : 1.0)
                                         }
                                     }
                                     .frame(width: 44, height: 44) // Keep 44x44 touch target
@@ -745,7 +761,7 @@ struct ContentView: View {
                     }
                     .frame(height: (openIsTextLocked && !openCurrentAIResponse.isEmpty) ? 400 : max(150, min(300, openTextEditorHeight)))
             }
-            .padding(.horizontal, 30)
+            .padding(.horizontal, 40)
             
             // Embossed gray line - 20pt below open question text box
             ZStack {
@@ -844,7 +860,7 @@ struct ContentView: View {
                         .scaledToFit()
                         .frame(width: 27, height: 27)
                 }
-                .offset(x: 330, y: 8), // 330pt to the right, 8pt down
+                .offset(x: 330, y: 10), // 330pt to the right, 10pt down
                 alignment: .topLeading
             )
         }

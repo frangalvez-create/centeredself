@@ -38,6 +38,9 @@ struct SettingsView: View {
     @State private var eveningReminder: Bool = false
     @State private var beforeBedReminder: Bool = false
     
+    // State variable for Weekly Notification Reminder
+    @State private var weeklyReminder: Bool = true // Pre-enabled as requested
+    
     var body: some View {
         ZStack {
             Color(hex: "E3E0C9")
@@ -506,7 +509,44 @@ struct SettingsView: View {
                     }
                     .padding(.top, 15) // 15pt below Daily Notification Reminder text
                     
-                    // AI Enhancement Note - 250pt below Daily Notification Reminder section
+                    // Weekly Journal Reminder section - 20pt below Daily Journal Reminder Options
+                    VStack(spacing: 4) {
+                        HStack {
+                            Text("Weekly Journal Reminder")
+                                .font(.system(size: 16))
+                                .foregroundColor(Color(hex: "3F5E82"))
+                            
+                            Spacer()
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 40) // Overall horizontal padding
+                    }
+                    .padding(.top, 20) // 20pt below Daily Journal Reminder Options
+                    
+                    // Weekly Journal Reminder Option
+                    VStack(spacing: 10) {
+                        // Sunday 8:00 PM - End of Week
+                        HStack {
+                            Text("Sunday 8:00 pm - End of Week")
+                                .font(.system(size: 15))
+                                .foregroundColor(Color(hex: "545555"))
+                                .padding(.leading, 70)
+                            
+                            Spacer()
+                            
+                            Toggle("", isOn: $weeklyReminder)
+                                .toggleStyle(SwitchToggleStyle())
+                                .frame(width: 45, height: 20)
+                                .scaleEffect(0.8)
+                                .onChange(of: weeklyReminder) { isOn in
+                                    handleWeeklyNotificationToggle(isOn: isOn)
+                                }
+                                .padding(.trailing, 30)
+                        }
+                    }
+                    .padding(.top, 15) // 15pt below Weekly Journal Reminder text
+                    
+                    // AI Enhancement Note - 25pt below Weekly Journal Reminder section
                     Text("* these elements will be used to further enhance the AI insights response")
                         .font(.system(size: 12))
                         .foregroundColor(Color(hex: "545555"))
@@ -530,6 +570,11 @@ struct SettingsView: View {
                 loadOccupationFromDatabase()
                 loadBirthdateFromDatabase()
                 loadNotificationStates()
+                
+                // Schedule weekly reminder if it's enabled (pre-enabled by default)
+                if weeklyReminder {
+                    scheduleWeeklyNotification()
+                }
             }
     }
     
@@ -922,7 +967,48 @@ struct SettingsView: View {
                 workPMBreakReminder = identifiers.contains("work_pm_break_reminder")
                 eveningReminder = identifiers.contains("evening_reminder")
                 beforeBedReminder = identifiers.contains("before_bed_reminder")
+                
+                // Only load weekly reminder state if it's already been set by user interaction
+                // Otherwise keep the default pre-enabled state
+                if identifiers.contains("weekly_reminder") {
+                    weeklyReminder = true
+                } else if identifiers.isEmpty || !identifiers.contains("weekly_reminder") {
+                    // If no notifications exist or weekly reminder doesn't exist, keep default state
+                    // Don't override the pre-enabled state
+                }
             }
+        }
+    }
+    
+    // MARK: - Weekly Notification Management Functions
+    
+    private func handleWeeklyNotificationToggle(isOn: Bool) {
+        if isOn {
+            scheduleWeeklyNotification()
+        } else {
+            cancelNotification(identifier: "weekly_reminder")
+        }
+    }
+    
+    private func scheduleWeeklyNotification() {
+        // Request permission first
+        requestNotificationAuthorization()
+        
+        let content = UNMutableNotificationContent()
+        content.title = "End of Week Journal Reminder"
+        content.body = "How did your week go? Want to journal about it?"
+        content.sound = .default
+        
+        var dateComponents = DateComponents()
+        dateComponents.weekday = 1 // Sunday (1 = Sunday, 2 = Monday, etc.)
+        dateComponents.hour = 20 // 8:00 PM
+        dateComponents.minute = 0
+        
+        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+        let request = UNNotificationRequest(identifier: "weekly_reminder", content: content, trigger: trigger)
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            // Handle scheduling result
         }
     }
     
