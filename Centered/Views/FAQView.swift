@@ -53,7 +53,7 @@ struct FAQView: View {
                                     .padding(.leading, 10) // 10pt left padding
                                     .padding(.top, 20) // 20pt below previous answer
                                 
-                                Text("You can add one journal entry per day in the guided question section and/or write freely in the lower section. After submitting, you'll have the option to receive AI insights by clicking the centered button. Journal entries refresh overnight, and new opportunities to journal become available the next day.")
+                                Text("You can add one journal entry per day in the guided question section and/or write freely in the lower section. After submitting, you'll have the option to receive AI insights by clicking the Insights button. Journal entries refresh overnight, and new opportunities to journal become available the next day.")
                                     .font(.system(size: 14))
                                     .foregroundColor(Color(hex: "545555"))
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -143,7 +143,7 @@ struct FAQView: View {
                                     .padding(.leading, 10) // 10pt left padding
                                     .padding(.top, 20) // 20pt below previous answer
                                 
-                                Text("There are many reasons why you are not receiving an AI-Insight. The common two are 1) the Open AI service is temporarily down or 2) the Open AI Safety Policy has been violated, this includes harmful, illegal, unethical, or promotes hate speech. Open AI will refuse to provide a response.")
+                                Text("There are many reasons why you are not receiving an AI-Insight. The common two are 1) the Open AI connection failed or timed out (due to internet connection).. simply try again OR 2) the Open AI Safety Policy has been violated, this includes harmful, abusive, illegal, unethical, or promotes hate speech. Open AI will refuse to provide a response.")
                                     .font(.system(size: 14))
                                     .foregroundColor(Color(hex: "545555"))
                                     .frame(maxWidth: .infinity, alignment: .leading)

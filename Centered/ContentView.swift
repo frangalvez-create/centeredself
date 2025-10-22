@@ -53,6 +53,9 @@ struct ContentView: View {
     // Profile Settings Navigation
     @State private var showSettingsFromPopup: Bool = false
     
+    // Q3 Popup for Guided Questions
+    @State private var showQ3InfoPopup: Bool = false
+    
     // Authentication State
     @State private var email: String = ""
     @State private var otpCode: String = ""
@@ -96,6 +99,9 @@ struct ContentView: View {
                         }
                         if showGoalInfoPopup {
                             goalInfoPopupView
+                        }
+                        if showQ3InfoPopup {
+                            q3InfoPopupView
                         }
                     }
                 )
@@ -209,6 +215,19 @@ struct ContentView: View {
             }
             .padding(.horizontal, 40)
             .padding(.bottom, 10)
+            .overlay(
+                // Q3 Icon as overlay - positioned 335pt to the right and 12pt down
+                Button(action: {
+                    showQ3InfoPopup = true
+                }) {
+                    Image("Q")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 27, height: 27)
+                }
+                .offset(x: 342, y: 15), // 342pt to the right and 15pt down
+                alignment: .topLeading
+            )
             
             // Text Input Field with Done Button - Dynamic height with proper sizing
             VStack {
@@ -481,7 +500,7 @@ struct ContentView: View {
                             .scaledToFit()
                             .frame(width: 27, height: 27)
                     }
-                    .offset(x: 30, y: 8), // 30pt to the right and 8pt down
+                    .offset(x: 42, y: 8), // 42pt to the right and 8pt down
                     alignment: .trailing
                 )
                 .padding(.horizontal, 40)
@@ -2191,19 +2210,15 @@ Capabilities and Reminders: You have access to the web search tools, published r
             
             // Simple popup content
             VStack(alignment: .leading, spacing: 8) {
-                Text("Journal Questions")
+                Text("Free write Question")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(Color(hex: "545555"))
                 
-                Text("• The top question change daily. The topics include gratitude, mindset, mental and physical health and other similar topics.")
+                Text("• Share anything on your mind.")
                     .font(.system(size: 15))
                     .foregroundColor(Color(hex: "545555"))
                 
-                Text("• The second question stays the same—a free-write about your day.")
-                    .font(.system(size: 15))
-                    .foregroundColor(Color(hex: "545555"))
-                
-                Text("• After completing your entries, you have an option to tap the \"Insight\" button to receive customized insights.")
+                Text("• After completing your entry, you can tap the \"Insight\" button to receive customized insights.")
                     .font(.system(size: 15))
                     .foregroundColor(Color(hex: "545555"))
                 
@@ -2232,7 +2247,67 @@ Capabilities and Reminders: You have access to the web search tools, published r
                         showSettingsFromPopup = true // Trigger settings sheet
                     }
                 
-                Text("New questions are available each morning. Swipe down to refresh")
+                Text("New entries are available each morning. Swipe down to refresh")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "545555"))
+                
+            }
+            .padding(16)
+            .background(Color(hex: "E3E0C9"))
+            .cornerRadius(16)
+            .shadow(radius: 10)
+            .padding(.horizontal, 20)
+        }
+    }
+    
+    private var q3InfoPopupView: some View {
+        ZStack {
+            // Background overlay
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    showQ3InfoPopup = false
+                }
+            
+            // Simple popup content
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Guided Questions")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                Text("• The guided question changes daily. The topics include gratitude, mindset, mental and physical health and other similar topics.")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                Text("• These questions are designed to help you reflect on specific aspects of your life and well-being.")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                Text("• After completing your entry, you have an option to tap the \"Insight\" button to receive customized AI insights.")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                Text("• New questions are automatically refreshed at 2 AM every morning.")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                Text("Tips")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                Text("The more detail you share, the more helpful and accurate the AI insights will be.")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                Text("If yesterday's question/entry still appear, you can refresh by swiping down.")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                Text("Journal Reminder")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                Text("Whether you like to journal early in the morning or right before bed, you can set your own reminder times in the Notifications section of the User Settings page.")
                     .font(.system(size: 15))
                     .foregroundColor(Color(hex: "545555"))
                 
