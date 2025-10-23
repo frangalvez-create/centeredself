@@ -240,6 +240,132 @@ class SupabaseService: ObservableObject {
         return todaysQuestion
     }
     
+    // MARK: - Follow-Up Question Logic
+    
+    /// Determines if today is a follow-up question day (every 3rd day)
+    func isFollowUpQuestionDay() -> Bool {
+        let calendar = Calendar.current
+        let today = Date()
+        
+        // Calculate days since January 1, 2024 (same reference as guided questions)
+        let referenceDate = calendar.date(from: DateComponents(year: 2024, month: 1, day: 1))!
+        let daysSinceReference = calendar.dateComponents([.day], from: referenceDate, to: today).day ?? 0
+        
+        // Every 3rd day (days 0, 3, 6, 9, etc.)
+        return daysSinceReference % 3 == 0
+    }
+    
+    /// Selects a past journal entry for follow-up question generation
+    func selectPastJournalEntryForFollowUp(userId: UUID) async throws -> JournalEntry? {
+        let calendar = Calendar.current
+        let today = Date()
+        
+        // Calculate date range: 5 to 15 days ago
+        let fifteenDaysAgo = calendar.date(byAdding: .day, value: -15, to: today)!
+        let fiveDaysAgo = calendar.date(byAdding: .day, value: -5, to: today)!
+        
+        if useMockData {
+            // Mock implementation - return a mock entry if available
+            let mockEntries = mockJournalEntries.filter { entry in
+                entry.userId == userId && 
+                entry.createdAt >= fifteenDaysAgo && 
+                entry.createdAt <= fiveDaysAgo
+            }
+            return mockEntries.first
+        } else {
+            // Real implementation - query database
+            
+            // Priority 1: is_favorite = TRUE entries
+            let favoriteEntries: [JournalEntry] = try await supabase
+                .from("journal_entries")
+                .select()
+                .eq("user_id", value: userId)
+                .eq("is_favorite", value: true)
+                .gte("created_at", value: fifteenDaysAgo.ISO8601Format())
+                .lte("created_at", value: fiveDaysAgo.ISO8601Format())
+                .order("created_at", ascending: true) // Oldest first
+                .limit(1)
+                .execute()
+                .value
+            
+            if let favoriteEntry = favoriteEntries.first {
+                print("✅ Selected favorite entry for follow-up: \(favoriteEntry.content.prefix(50))...")
+                return favoriteEntry
+            }
+            
+            // Priority 2: tags = "open_question" entries
+            let openQuestionEntries: [JournalEntry] = try await supabase
+                .from("journal_entries")
+                .select()
+                .eq("user_id", value: userId)
+                .contains("tags", value: ["open_question"])
+                .gte("created_at", value: fifteenDaysAgo.ISO8601Format())
+                .lte("created_at", value: fiveDaysAgo.ISO8601Format())
+                .order("created_at", ascending: true) // Oldest first
+                .limit(1)
+                .execute()
+                .value
+            
+            if let openQuestionEntry = openQuestionEntries.first {
+                print("✅ Selected open question entry for follow-up: \(openQuestionEntry.content.prefix(50))...")
+                return openQuestionEntry
+            }
+            
+            // Priority 3: Most recent entry older than current day
+            let recentEntries: [JournalEntry] = try await supabase
+                .from("journal_entries")
+                .select()
+                .eq("user_id", value: userId)
+                .lt("created_at", value: today.ISO8601Format())
+                .order("created_at", ascending: false) // Most recent first
+                .limit(1)
+                .execute()
+                .value
+            
+            if let recentEntry = recentEntries.first {
+                print("✅ Selected most recent entry for follow-up: \(recentEntry.content.prefix(50))...")
+                return recentEntry
+            }
+            
+            print("⚠️ No eligible entries found for follow-up question")
+            return nil
+        }
+    }
+    
+    /// Generates a follow-up question AI prompt template
+    func generateFollowUpQuestionPrompt(pastEntry: JournalEntry) -> String {
+        let content = pastEntry.content
+        let aiResponse = pastEntry.aiResponse ?? ""
+        
+        return """
+        Client: \(content)
+        Therapist: \(aiResponse)
+        Create a "follow up" style question (25 word limit) from the above conversation previously had. Question structure: "You previously mentioned… Summarize client "content", then ask about the progress of one action item mentioned in the AI Response 2nd paragraph?"
+        """
+    }
+    
+    /// Creates a follow-up question journal entry
+    func createFollowUpQuestionEntry(userId: UUID, fuqAiPrompt: String, fuqAiResponse: String) async throws -> JournalEntry {
+        let followUpEntry = JournalEntry(
+            id: UUID(),
+            userId: userId,
+            guidedQuestionId: nil,
+            content: "", // Empty initially, user will fill this
+            aiPrompt: nil, // Will be filled when user generates AI response
+            aiResponse: nil, // Will be filled when user generates AI response
+            tags: ["follow_up"],
+            isFavorite: false,
+            entryType: "follow_up",
+            createdAt: Date(),
+            updatedAt: Date(),
+            fuqAiPrompt: fuqAiPrompt,
+            fuqAiResponse: fuqAiResponse,
+            isFollowUpDay: true
+        )
+        
+        return try await createJournalEntry(followUpEntry)
+    }
+    
     // MARK: - Journal Entries
     func createJournalEntry(_ entry: JournalEntry) async throws -> JournalEntry {
         print("🔘🔘🔘 SUPABASE CREATE JOURNAL ENTRY CALLED - Content: \(entry.content)")

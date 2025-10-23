@@ -13,6 +13,8 @@ class JournalViewModel: ObservableObject {
     @Published var favoriteJournalEntries: [JournalEntry] = []
     @Published var goals: [Goal] = []
     @Published var shouldClearUIState = false
+    @Published var followUpQuestionEntries: [JournalEntry] = []
+    @Published var currentFollowUpQuestion: String = ""
     
     // Callback to clear UI state directly
     var clearUIStateCallback: (() -> Void)?
@@ -1012,6 +1014,256 @@ class JournalViewModel: ObservableObject {
         } catch {
             errorMessage = "Failed to update user profile: \(error.localizedDescription)"
             print("❌ Failed to update user profile: \(error.localizedDescription)")
+        }
+    }
+    
+    // MARK: - Follow-Up Question Management
+    
+    /// Loads follow-up question entries for the current user
+    func loadFollowUpQuestionEntries() async {
+        guard let user = currentUser else { return }
+        
+        do {
+            let allEntries = try await supabaseService.fetchJournalEntries(userId: user.id)
+            followUpQuestionEntries = allEntries.filter { $0.entryType == "follow_up" }
+            print("✅ Follow-up question entries loaded: \(followUpQuestionEntries.count) entries")
+        } catch {
+            errorMessage = "Failed to load follow-up question entries: \(error.localizedDescription)"
+            print("❌ Failed to load follow-up question entries: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Checks if today is a follow-up question day and loads/generates the question
+    func checkAndLoadFollowUpQuestion() async {
+        guard let user = currentUser else { return }
+        
+        // Check if today is a follow-up question day
+        guard supabaseService.isFollowUpQuestionDay() else {
+            print("📅 Today is not a follow-up question day")
+            return
+        }
+        
+        // Load existing follow-up question entries for today
+        await loadFollowUpQuestionEntries()
+        
+        // Check if we already have a follow-up question for today
+        let calendar = Calendar.current
+        let todaysFollowUpEntry = followUpQuestionEntries.first { entry in
+            calendar.isDateInToday(entry.createdAt)
+        }
+        
+        if let existingEntry = todaysFollowUpEntry {
+            // Use existing follow-up question
+            currentFollowUpQuestion = existingEntry.fuqAiResponse ?? ""
+            print("✅ Using existing follow-up question: \(currentFollowUpQuestion)")
+        } else {
+            // Generate new follow-up question
+            await generateFollowUpQuestion()
+        }
+    }
+    
+    /// Generates a new follow-up question based on past journal entries
+    private func generateFollowUpQuestion() async {
+        guard let user = currentUser else { return }
+        
+        do {
+            // Select a past journal entry for follow-up
+            guard let pastEntry = try await supabaseService.selectPastJournalEntryForFollowUp(userId: user.id) else {
+                print("⚠️ No eligible past entry found for follow-up question")
+                return
+            }
+            
+            // Generate the follow-up question prompt
+            let fuqAiPrompt = supabaseService.generateFollowUpQuestionPrompt(pastEntry: pastEntry)
+            
+            // Generate the follow-up question using OpenAI
+            let fuqAiResponse = try await openAIService.generateAIResponse(for: fuqAiPrompt)
+            
+            // Create the follow-up question entry
+            let followUpEntry = try await supabaseService.createFollowUpQuestionEntry(
+                userId: user.id,
+                fuqAiPrompt: fuqAiPrompt,
+                fuqAiResponse: fuqAiResponse
+            )
+            
+            // Update the current follow-up question
+            currentFollowUpQuestion = fuqAiResponse
+            
+            print("✅ Generated new follow-up question: \(fuqAiResponse)")
+            
+        } catch {
+            errorMessage = "Failed to generate follow-up question: \(error.localizedDescription)"
+            print("❌ Failed to generate follow-up question: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Creates a follow-up question journal entry
+    func createFollowUpQuestionJournalEntry(content: String) async {
+        guard let user = currentUser else { return }
+        
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            // Create journal entry with follow-up question type
+            let entry = JournalEntry(
+                userId: user.id,
+                guidedQuestionId: nil,
+                content: content,
+                tags: ["follow_up"],
+                entryType: "follow_up",
+                fuqAiPrompt: nil,
+                fuqAiResponse: currentFollowUpQuestion,
+                isFollowUpDay: true
+            )
+            
+            _ = try await supabaseService.createJournalEntry(entry)
+            await loadFollowUpQuestionEntries()
+            print("✅ Follow-up question journal entry created")
+            
+        } catch {
+            errorMessage = "Failed to create follow-up question journal entry: \(error.localizedDescription)"
+            print("❌ Failed to create follow-up question journal entry: \(error.localizedDescription)")
+        }
+        
+        isLoading = false
+    }
+    
+    /// Updates a follow-up question journal entry with AI prompt
+    func updateCurrentFollowUpQuestionJournalEntryWithAIPrompt(aiPrompt: String) async {
+        guard let user = currentUser else { return }
+        
+        // Load current entries to find the most recent one
+        await loadFollowUpQuestionEntries()
+        
+        guard let mostRecentEntry = followUpQuestionEntries.first else {
+            errorMessage = "No follow-up question journal entry found to update."
+            return
+        }
+        
+        // Create updated entry with AI prompt
+        let updatedEntry = JournalEntry(
+            id: mostRecentEntry.id,
+            userId: mostRecentEntry.userId,
+            guidedQuestionId: mostRecentEntry.guidedQuestionId,
+            content: mostRecentEntry.content,
+            aiPrompt: aiPrompt, // Add the AI prompt
+            aiResponse: mostRecentEntry.aiResponse,
+            tags: mostRecentEntry.tags,
+            isFavorite: mostRecentEntry.isFavorite,
+            entryType: mostRecentEntry.entryType,
+            createdAt: mostRecentEntry.createdAt,
+            updatedAt: Date(), // Update timestamp
+            fuqAiPrompt: mostRecentEntry.fuqAiPrompt,
+            fuqAiResponse: mostRecentEntry.fuqAiResponse,
+            isFollowUpDay: mostRecentEntry.isFollowUpDay
+        )
+        
+        do {
+            _ = try await supabaseService.updateJournalEntry(updatedEntry)
+            await loadFollowUpQuestionEntries() // Refresh entries
+            print("✅ Follow-up question journal entry updated with AI prompt")
+        } catch {
+            errorMessage = "Failed to update follow-up question journal entry with AI prompt: \(error.localizedDescription)"
+            print("❌ Failed to update follow-up question journal entry: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Generates AI response using OpenAI and updates the follow-up question journal entry
+    func generateAndSaveFollowUpQuestionAIResponse() async {
+        guard let currentUser = currentUser else {
+            errorMessage = "User not authenticated."
+            return
+        }
+        
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            // Load current entries to find the most recent one
+            await loadFollowUpQuestionEntries()
+            
+            guard let mostRecentEntry = followUpQuestionEntries.first,
+                  let aiPrompt = mostRecentEntry.aiPrompt else {
+                errorMessage = "No follow-up question journal entry or AI prompt found."
+                isLoading = false
+                return
+            }
+            
+            // Generate AI response using OpenAI with retry logic
+            let aiResponse = try await generateAIResponseWithRetry(for: aiPrompt)
+            
+            // Create updated entry with AI response
+            let updatedEntry = JournalEntry(
+                id: mostRecentEntry.id,
+                userId: mostRecentEntry.userId,
+                guidedQuestionId: mostRecentEntry.guidedQuestionId,
+                content: mostRecentEntry.content,
+                aiPrompt: mostRecentEntry.aiPrompt,
+                aiResponse: aiResponse, // Add the AI response
+                tags: mostRecentEntry.tags,
+                isFavorite: mostRecentEntry.isFavorite,
+                entryType: mostRecentEntry.entryType,
+                createdAt: mostRecentEntry.createdAt,
+                updatedAt: Date(), // Update timestamp
+                fuqAiPrompt: mostRecentEntry.fuqAiPrompt,
+                fuqAiResponse: mostRecentEntry.fuqAiResponse,
+                isFollowUpDay: mostRecentEntry.isFollowUpDay
+            )
+            
+            _ = try await supabaseService.updateJournalEntry(updatedEntry)
+            await loadFollowUpQuestionEntries() // Refresh entries
+            
+            print("✅ Follow-up question AI response generated and saved")
+            
+        } catch {
+            errorMessage = "Failed to generate follow-up question AI response: \(error.localizedDescription)"
+            print("❌ Failed to generate follow-up question AI response: \(error.localizedDescription)")
+        }
+        
+        isLoading = false
+    }
+    
+    /// Updates the favorite status of the current follow-up question journal entry
+    func updateCurrentFollowUpQuestionJournalEntryFavoriteStatus(isFavorite: Bool) async {
+        guard let user = currentUser else {
+            errorMessage = "User not authenticated."
+            return
+        }
+        
+        // Load current entries to find the most recent one
+        await loadFollowUpQuestionEntries()
+        
+        guard let mostRecentEntry = followUpQuestionEntries.first else {
+            errorMessage = "No follow-up question journal entry found to update favorite status."
+            return
+        }
+        
+        // Create updated entry with the new favorite status
+        let updatedEntry = JournalEntry(
+            id: mostRecentEntry.id, // Use existing ID
+            userId: mostRecentEntry.userId,
+            guidedQuestionId: mostRecentEntry.guidedQuestionId,
+            content: mostRecentEntry.content,
+            aiPrompt: mostRecentEntry.aiPrompt,
+            aiResponse: mostRecentEntry.aiResponse,
+            tags: mostRecentEntry.tags,
+            isFavorite: isFavorite, // Update favorite status
+            entryType: mostRecentEntry.entryType, // Preserve entry type
+            createdAt: mostRecentEntry.createdAt,
+            updatedAt: Date(), // Update timestamp
+            fuqAiPrompt: mostRecentEntry.fuqAiPrompt,
+            fuqAiResponse: mostRecentEntry.fuqAiResponse,
+            isFollowUpDay: mostRecentEntry.isFollowUpDay
+        )
+        
+        do {
+            _ = try await supabaseService.updateJournalEntry(updatedEntry)
+            await loadFollowUpQuestionEntries() // Reload to reflect changes
+            print("✅ Follow-up question journal entry favorite status updated to: \(isFavorite)")
+        } catch {
+            errorMessage = "Failed to update follow-up question journal entry favorite status: \(error.localizedDescription)"
+            print("❌ Failed to update follow-up question journal entry favorite status: \(error.localizedDescription)")
         }
     }
     

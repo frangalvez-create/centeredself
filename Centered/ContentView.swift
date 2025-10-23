@@ -34,6 +34,20 @@ struct ContentView: View {
     @State private var openIsGeneratingAI: Bool = false
     @State private var openIsLoadingGenerating: Bool = false // Track if we're generating AI vs saving
     
+    // Follow-Up Question State
+    @State private var followUpJournalResponse: String = ""
+    @State private var followUpIsTextLocked: Bool = false
+    @State private var followUpShowCenteredButton: Bool = false
+    @State private var followUpShowCenteredButtonClick: Bool = false
+    @State private var followUpCurrentAIResponse: String = ""
+    @State private var followUpShowFavoriteButton: Bool = false
+    @State private var followUpIsFavoriteClicked: Bool = false
+    @State private var followUpIsGeneratingAI: Bool = false
+    @State private var followUpIsLoadingGenerating: Bool = false
+    @State private var followUpTextEditorHeight: CGFloat = 150
+    @State private var followUpShowTextEditDropdown: Bool = false
+    @State private var isFollowUpQuestionDay: Bool = false
+    
     // Navigation Tab Selection
     @State private var selectedTab: Int = 0
     
@@ -122,6 +136,14 @@ struct ContentView: View {
                 await journalViewModel.checkAuthenticationStatus()
                 // Ensure Journal tab is selected after authentication
                 selectedTab = 0
+                
+                // Check if today is a follow-up question day
+                isFollowUpQuestionDay = journalViewModel.supabaseService.isFollowUpQuestionDay()
+                
+                // Load follow-up question if it's a follow-up day
+                if isFollowUpQuestionDay {
+                    await journalViewModel.checkAndLoadFollowUpQuestion()
+                }
             }
         }
         .onChange(of: journalViewModel.isAuthenticated) { isAuthenticated in
@@ -479,14 +501,25 @@ struct ContentView: View {
             
             // OPEN QUESTION SECTION (25pt spacing below Guided Question)
             VStack(spacing: 0) {
-                // Static Open Question Text with Refresh Button
+                // Dynamic Question Text - Follow-Up or Open Question
                 HStack(spacing: 8) {
-                    Text("Looking at today or yesterday, share moments or thoughts that stood out.")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(Color.textBlue)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(nil)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if isFollowUpQuestionDay && !journalViewModel.currentFollowUpQuestion.isEmpty {
+                        // Follow-Up Question (color #5F4083)
+                        Text(journalViewModel.currentFollowUpQuestion)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(Color(hex: "5F4083"))
+                            .multilineTextAlignment(.center)
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        // Regular Open Question
+                        Text("Looking at today or yesterday, share moments or thoughts that stood out.")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(Color.textBlue)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     
                     // Open Question Refresh Button (HIDDEN - Logic preserved for 2AM auto-click)
                     // Button(action: {
@@ -508,10 +541,10 @@ struct ContentView: View {
                         // Background for the text editor
                         RoundedRectangle(cornerRadius: 20)
                             .fill(Color.textFieldBackground)
-                            .frame(height: (openIsTextLocked && !openCurrentAIResponse.isEmpty) ? 400 : max(150, min(300, openTextEditorHeight)))
+                            .frame(height: ((isFollowUpQuestionDay ? followUpIsTextLocked : openIsTextLocked) && !(isFollowUpQuestionDay ? followUpCurrentAIResponse : openCurrentAIResponse).isEmpty) ? 400 : max(150, min(300, isFollowUpQuestionDay ? followUpTextEditorHeight : openTextEditorHeight)))
                         
                         // Q Icon inside text field - only show when text is not locked and no AI response
-                        if !openIsTextLocked && openCurrentAIResponse.isEmpty {
+                        if !(isFollowUpQuestionDay ? followUpIsTextLocked : openIsTextLocked) && (isFollowUpQuestionDay ? followUpCurrentAIResponse : openCurrentAIResponse).isEmpty {
                             VStack {
                                 HStack {
                                     Spacer()
@@ -532,20 +565,20 @@ struct ContentView: View {
                         }
                         
                         // Text Editor and AI Response Display
-                        if openIsTextLocked && !openCurrentAIResponse.isEmpty {
+                        if (isFollowUpQuestionDay ? followUpIsTextLocked : openIsTextLocked) && !(isFollowUpQuestionDay ? followUpCurrentAIResponse : openCurrentAIResponse).isEmpty {
                             // Show both journal text and AI response when locked and response is available
                             ScrollViewReader { proxy in
                                 ScrollView {
                                     VStack(alignment: .leading, spacing: 8) {
                                         // Journal text
-                                        Text(openJournalResponse)
+                                        Text(isFollowUpQuestionDay ? followUpJournalResponse : openJournalResponse)
                                             .font(.system(size: 16))
                                             .foregroundColor(Color.textGrey)
                                             .multilineTextAlignment(.leading)
                                             .id("openJournalTextStart") // Identifier for scrolling to top
                                         
                                         // AI Response
-                                        Text(openCurrentAIResponse)
+                                        Text(isFollowUpQuestionDay ? followUpCurrentAIResponse : openCurrentAIResponse)
                                             .font(.system(size: 15))
                                             .foregroundColor(Color(red: 63/255, green: 94/255, blue: 130/255)) // Blue #3F5E82
                                             .multilineTextAlignment(.leading)
@@ -565,7 +598,11 @@ struct ContentView: View {
                                     }
                                     // Show favorite button after a delay to ensure scroll is complete
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                        openShowFavoriteButton = true
+                                        if isFollowUpQuestionDay {
+                                            followUpShowFavoriteButton = true
+                                        } else {
+                                            openShowFavoriteButton = true
+                                        }
                                     }
                                 }
                             }
@@ -598,7 +635,7 @@ struct ContentView: View {
                             )
                         } else {
                             // Normal TextEditor when not locked or no AI response
-                            TextEditor(text: $openJournalResponse)
+                            TextEditor(text: isFollowUpQuestionDay ? $followUpJournalResponse : $openJournalResponse)
                                 .font(.system(size: 16))
                                 .foregroundColor(Color.textGrey)
                                 .padding(.top, 5)
@@ -607,13 +644,13 @@ struct ContentView: View {
                                 .padding(.bottom, 30) // Extra bottom padding to avoid Done button
                                 .background(Color.clear)
                                 .scrollContentBackground(.hidden)
-                                .frame(height: max(150, min(300, openTextEditorHeight)))
-                                .disabled(openIsTextLocked) // Lock text when Done is pressed
+                                .frame(height: max(150, min(300, isFollowUpQuestionDay ? followUpTextEditorHeight : openTextEditorHeight)))
+                                .disabled(isFollowUpQuestionDay ? followUpIsTextLocked : openIsTextLocked) // Lock text when Done is pressed
                                 .overlay(
                                     // Bottom fade mask to prevent text overlap with Done button
                                     // Only show when AI response is not yet generated (before Centered button click)
                                     Group {
-                                        if !openIsTextLocked && openCurrentAIResponse.isEmpty {
+                                        if !(isFollowUpQuestionDay ? followUpIsTextLocked : openIsTextLocked) && (isFollowUpQuestionDay ? followUpCurrentAIResponse : openCurrentAIResponse).isEmpty {
                                             VStack {
                                                 Spacer()
                                                 // Gradient mask with proper rounded bottom corners
@@ -639,13 +676,17 @@ struct ContentView: View {
                                         }
                                     }
                                 )
-                                .onChange(of: openJournalResponse) { _ in
-                                    updateOpenTextEditorHeight()
+                                .onChange(of: isFollowUpQuestionDay ? followUpJournalResponse : openJournalResponse) { _ in
+                                    if isFollowUpQuestionDay {
+                                        updateFollowUpTextEditorHeight()
+                                    } else {
+                                        updateOpenTextEditorHeight()
+                                    }
                                 }
                         }
                         
                         // Text Edit Button Centered (only show when text is locked but no AI response)
-                        if openIsTextLocked && openCurrentAIResponse.isEmpty {
+                        if (isFollowUpQuestionDay ? followUpIsTextLocked : openIsTextLocked) && (isFollowUpQuestionDay ? followUpCurrentAIResponse : openCurrentAIResponse).isEmpty {
                             VStack {
                                 Spacer()
                                 
@@ -706,48 +747,66 @@ struct ContentView: View {
                         }
                         
                         // Done/Centered Button - Bottom Right (hidden when AI response is present or text is empty)
-                        if openCurrentAIResponse.isEmpty && !openJournalResponse.isEmpty {
+                        if (isFollowUpQuestionDay ? followUpCurrentAIResponse : openCurrentAIResponse).isEmpty && !(isFollowUpQuestionDay ? followUpJournalResponse : openJournalResponse).isEmpty {
                             VStack {
                                 Spacer()
                                 HStack {
                                     Spacer()
                                     Button(action: {
-                                        if openShowCenteredButton && !openIsGeneratingAI {
-                                            openCenteredButtonTapped()
-                                        } else if !openIsGeneratingAI {
-                                            openDoneButtonTapped()
+                                        if isFollowUpQuestionDay {
+                                            // Follow-up question button actions
+                                            if followUpShowCenteredButton && !followUpIsGeneratingAI {
+                                                followUpCenteredButtonTapped()
+                                            } else if !followUpIsGeneratingAI {
+                                                followUpDoneButtonTapped()
+                                            }
+                                        } else {
+                                            // Open question button actions
+                                            if openShowCenteredButton && !openIsGeneratingAI {
+                                                openCenteredButtonTapped()
+                                            } else if !openIsGeneratingAI {
+                                                openDoneButtonTapped()
+                                            }
                                         }
                                     }) {
-                                        if openIsGeneratingAI {
+                                        if (isFollowUpQuestionDay ? followUpIsGeneratingAI : openIsGeneratingAI) {
                                             ProgressView()
                                                 .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: "3F5E82")))
                                                 .frame(width: 37, height: 37)
                                         } else {
-                                            Image(getOpenButtonImageName())
+                                            let buttonImageName = isFollowUpQuestionDay ? getFollowUpButtonImageName() : getOpenButtonImageName()
+                                            let showCenteredButton = isFollowUpQuestionDay ? followUpShowCenteredButton : openShowCenteredButton
+                                            
+                                            Image(buttonImageName)
                                                 .resizable()
                                                 .scaledToFit()
-                                                .frame(width: openShowCenteredButton ? 37 : 24, height: openShowCenteredButton ? 37 : 24)
-                                                .opacity(openShowCenteredButton ? 0.9 : 0.8)
-                                                .scaleEffect(openShowCenteredButton ? 1.4 : 1.0)
+                                                .frame(width: showCenteredButton ? 37 : 24, height: showCenteredButton ? 37 : 24)
+                                                .opacity(showCenteredButton ? 0.9 : 0.8)
+                                                .scaleEffect(showCenteredButton ? 1.4 : 1.0)
                                         }
                                     }
                                     .frame(width: 44, height: 44) // Keep 44x44 touch target
-                                    .padding(.trailing, openShowCenteredButton ? 15 : 5)
+                                    .padding(.trailing, (isFollowUpQuestionDay ? followUpShowCenteredButton : openShowCenteredButton) ? 15 : 5)
                                     .padding(.bottom, 5)
                                 }
                             }
                         }
                         
                         // Favorite Button (only when AI response is present and scrolled to bottom)
-                        if !openCurrentAIResponse.isEmpty && openShowFavoriteButton {
+                        if !(isFollowUpQuestionDay ? followUpCurrentAIResponse : openCurrentAIResponse).isEmpty && (isFollowUpQuestionDay ? followUpShowFavoriteButton : openShowFavoriteButton) {
                             VStack {
                                 Spacer()
                                 HStack {
                                     Spacer()
                                     Button(action: {
-                                        openFavoriteButtonTapped()
+                                        if isFollowUpQuestionDay {
+                                            followUpFavoriteButtonTapped()
+                                        } else {
+                                            openFavoriteButtonTapped()
+                                        }
                                     }) {
-                                        Image(openIsFavoriteClicked ? "Fav Button Click" : "Fav Button")
+                                        let isFavoriteClicked = isFollowUpQuestionDay ? followUpIsFavoriteClicked : openIsFavoriteClicked
+                                        Image(isFavoriteClicked ? "Fav Button Click" : "Fav Button")
                                             .resizable()
                                             .scaledToFit()
                                             .frame(width: 28, height: 28)
@@ -759,7 +818,7 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .frame(height: (openIsTextLocked && !openCurrentAIResponse.isEmpty) ? 400 : max(150, min(300, openTextEditorHeight)))
+                    .frame(height: ((isFollowUpQuestionDay ? followUpIsTextLocked : openIsTextLocked) && !(isFollowUpQuestionDay ? followUpCurrentAIResponse : openCurrentAIResponse).isEmpty) ? 400 : max(150, min(300, isFollowUpQuestionDay ? followUpTextEditorHeight : openTextEditorHeight)))
             }
             .padding(.horizontal, 40)
             
@@ -1322,6 +1381,21 @@ Capabilities and Reminders: You have access to the web search tools, published r
             .replacingOccurrences(of: "{birthdate}", with: birthdate)
     }
     
+    private func createFollowUpAIPromptText(content: String, fuqAiResponse: String) -> String {
+        let followUpAIPromptTemplate = """
+        Therapist: {fuq_ai_response}
+        Client: {content}
+        Output: Provide only a succinct response to the above therapist/client conversation. First be encouraging, supportive, with a pleasant tone to their progress. Then provide additional insight on the action item mentioned by the therapist. Based on behavioral science and therapy modalities. End with related, "quote" from well known figures
+        Constraints: Focus on capturing the main points succinctly: complete sentences and in an encouraging, supportive, pleasant tone. Ignore fluff, background information. Do not include your own analysis or opinion. Do not reiterate the input.
+        Capabilities and Reminders: You have access to the web search tools, published research papers/studies and your gained knowledge to find and retrieve behavioral science and therapy related data. Limit the entire response to 100 words.
+        """
+        
+        // Replace placeholders
+        return followUpAIPromptTemplate
+            .replacingOccurrences(of: "{content}", with: content)
+            .replacingOccurrences(of: "{fuq_ai_response}", with: fuqAiResponse)
+    }
+    
     private func editLogSelected() {
         // Close dropdown
         showTextEditDropdown = false
@@ -1583,6 +1657,42 @@ Capabilities and Reminders: You have access to the web search tools, published r
         openTextEditorHeight = max(150, min(250, validatedHeight))
     }
     
+    private func updateFollowUpTextEditorHeight() {
+        // If we have AI response, always use max height for scrolling
+        if followUpIsTextLocked && !followUpCurrentAIResponse.isEmpty {
+            followUpTextEditorHeight = 250
+            return
+        }
+        
+        // Return early if text is empty to avoid NaN calculations
+        guard !followUpJournalResponse.isEmpty else {
+            followUpTextEditorHeight = 150
+            return
+        }
+        
+        let font = UIFont.systemFont(ofSize: 16)
+        let maxWidth = UIScreen.main.bounds.width - 100 // Account for padding
+        
+        // Ensure maxWidth is valid
+        guard maxWidth > 0 else {
+            followUpTextEditorHeight = 150
+            return
+        }
+        
+        let boundingRect = followUpJournalResponse.boundingRect(
+            with: CGSize(width: maxWidth, height: .greatestFiniteMagnitude),
+            options: .usesLineFragmentOrigin,
+            attributes: [.font: font],
+            context: nil
+        )
+        
+        // Validate the calculated height to prevent NaN
+        let calculatedHeight = boundingRect.height + 60 // Extra padding for comfort
+        let validatedHeight = calculatedHeight.isNaN || calculatedHeight.isInfinite ? 150 : calculatedHeight
+        
+        followUpTextEditorHeight = max(150, min(250, validatedHeight))
+    }
+    
     private func updateGoalTextHeight() {
         // Return early if text is empty to avoid NaN calculations
         guard !goalText.isEmpty else {
@@ -1784,6 +1894,180 @@ Capabilities and Reminders: You have access to the web search tools, published r
         }
         
         print("Open Favorite button clicked - Journal entry marked as favorite")
+    }
+    
+    // MARK: - Follow-Up Question Button Actions
+    
+    private func getFollowUpButtonImageName() -> String {
+        if followUpShowCenteredButtonClick {
+            return "Centered Button Click"
+        } else if followUpShowCenteredButton {
+            return "Centered Button"
+        } else {
+            return "Done Button"
+        }
+    }
+    
+    private func followUpDoneButtonTapped() {
+        // Change to Centered Button and lock text (no animation on Done button)
+        followUpShowCenteredButton = true
+        followUpIsTextLocked = true
+        followUpIsLoadingGenerating = false // This is saving, not generating
+        
+        // Perform haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        // Save journal entry to Supabase with follow-up question
+        Task {
+            await journalViewModel.createFollowUpQuestionJournalEntry(content: followUpJournalResponse)
+        }
+        
+        print("Follow-Up Done button tapped - Journal entry saved to Supabase: \(followUpJournalResponse)")
+        print("Follow-Up Text locked and button changed to Centered Button")
+    }
+    
+    private func followUpCenteredButtonTapped() {
+        // Prevent multiple clicks during AI generation
+        guard !followUpIsGeneratingAI else { 
+            print("⚠️ Follow-Up AI generation already in progress, ignoring click")
+            return 
+        }
+        
+        // Change to Centered Button Click state
+        followUpShowCenteredButtonClick = true
+        followUpIsGeneratingAI = true
+        followUpIsLoadingGenerating = true // This is generating AI, not saving
+        
+        // Perform haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        // Generate AI prompt and update journal entry
+        Task {
+            do {
+                try await generateAndSaveFollowUpAIPrompt()
+                // Reset loading state on success
+                await MainActor.run {
+                    self.followUpIsGeneratingAI = false
+                    self.followUpIsLoadingGenerating = false
+                }
+            } catch {
+                // Reset button state on error
+                await MainActor.run {
+                    self.followUpShowCenteredButtonClick = false
+                    self.followUpIsGeneratingAI = false
+                    self.followUpIsLoadingGenerating = false
+                }
+                print("❌ Follow-Up AI generation failed: \(error)")
+            }
+        }
+        
+        print("Follow-Up Centered button tapped - Generating AI prompt for: \(followUpJournalResponse)")
+    }
+    
+    private func generateAndSaveFollowUpAIPrompt() async throws {
+        // Get the current follow-up question
+        let currentFollowUpQuestion = journalViewModel.currentFollowUpQuestion
+        
+        // Create the AI prompt text with follow-up template
+        let aiPromptText = createFollowUpAIPromptText(content: followUpJournalResponse, fuqAiResponse: currentFollowUpQuestion)
+        
+        // Update the current follow-up question journal entry with the AI prompt
+        await journalViewModel.updateCurrentFollowUpQuestionJournalEntryWithAIPrompt(aiPrompt: aiPromptText)
+        
+        print("✅ Follow-Up AI Prompt generated and saved:")
+        print("📝 Content: \(followUpJournalResponse)")
+        print("🤖 AI Prompt: \(aiPromptText)")
+        
+        // Generate AI response using OpenAI API with timeout
+        try await withTimeout(seconds: 30) {
+            await journalViewModel.generateAndSaveFollowUpQuestionAIResponse()
+        }
+        
+        // Update the AI response in the UI
+        await updateFollowUpAIResponseDisplay()
+    }
+    
+    private func updateFollowUpAIResponseDisplay() async {
+        // Load the latest journal entries to get the AI response
+        await journalViewModel.loadFollowUpQuestionEntries()
+        
+        // Get the most recent follow-up question entry with AI response
+        if let mostRecentEntry = journalViewModel.followUpQuestionEntries.first,
+           let aiResponse = mostRecentEntry.aiResponse, !aiResponse.isEmpty {
+            await MainActor.run {
+                self.followUpCurrentAIResponse = aiResponse
+                // Update height to accommodate AI response
+                self.updateFollowUpTextEditorHeight()
+            }
+            print("✅ Follow-Up AI Response updated in UI: \(aiResponse.prefix(100))...")
+        }
+    }
+    
+    private func followUpEditLogSelected() {
+        // Close dropdown
+        followUpShowTextEditDropdown = false
+        
+        // Revert to editable state
+        followUpIsTextLocked = false
+        followUpShowCenteredButton = false
+        followUpShowCenteredButtonClick = false
+        
+        // Clear AI response when editing
+        followUpCurrentAIResponse = ""
+        followUpShowFavoriteButton = false
+        followUpIsFavoriteClicked = false
+        
+        // Perform haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        print("Follow-Up Edit Log selected - Text unlocked for editing")
+    }
+    
+    private func followUpDeleteLogSelected() {
+        // Close dropdown
+        followUpShowTextEditDropdown = false
+        
+        // Clear text and revert to initial state
+        followUpJournalResponse = ""
+        followUpIsTextLocked = false
+        followUpShowCenteredButton = false
+        followUpShowCenteredButtonClick = false
+        
+        // Clear AI response when deleting
+        followUpCurrentAIResponse = ""
+        followUpShowFavoriteButton = false
+        followUpIsFavoriteClicked = false
+        
+        // Reset text editor height
+        followUpTextEditorHeight = 150
+        
+        // Perform haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        print("Follow-Up Delete Log selected - Text cleared and state reset")
+    }
+    
+    private func followUpFavoriteButtonTapped() {
+        // Only allow one click - if already clicked, do nothing
+        guard !followUpIsFavoriteClicked else { return }
+        
+        // Perform haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        // Update button state to show clicked version
+        followUpIsFavoriteClicked = true
+        
+        // Update the database
+        Task {
+            await journalViewModel.updateCurrentFollowUpQuestionJournalEntryFavoriteStatus(isFavorite: true)
+        }
+        
+        print("Follow-Up Favorite button clicked - Journal entry marked as favorite")
     }
     
     // MARK: - Goal Button Actions
