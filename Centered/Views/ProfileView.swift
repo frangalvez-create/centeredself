@@ -171,7 +171,7 @@ struct ProfileView: View {
             // Version text - positioned above logout button, 20pt from right edge
             HStack {
                 Spacer()
-                Text("v 1.0")
+                        Text("v 2.0")
                     .font(.system(size: 11))
                     .foregroundColor(Color(hex: "545555"))
                     .opacity(0.7)

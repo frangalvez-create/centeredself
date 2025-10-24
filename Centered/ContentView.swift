@@ -155,7 +155,7 @@ struct ContentView: View {
                 checkAndShowWelcomeMessage()
             }
         }
-        .alert("Error", isPresented: .constant(journalViewModel.errorMessage != nil)) {
+        .alert("Oh No!", isPresented: .constant(journalViewModel.errorMessage != nil)) {
             Button("OK") {
                 journalViewModel.errorMessage = nil
             }
@@ -961,7 +961,7 @@ struct ContentView: View {
         VStack {
                             ProgressView()
                                 .scaleEffect(1.2)
-                            Text(isLoadingGenerating || openIsLoadingGenerating ? "Generating..." : "Saving...")
+                            Text(getLoadingText())
                                 .font(.system(size: 16, weight: .medium))
                                 .foregroundColor(Color(hex: "F5F4EB"))
                                 .padding(.top, 10)
@@ -1277,6 +1277,9 @@ struct ContentView: View {
         showCenteredButtonClick = true
         isGeneratingAI = true
         isLoadingGenerating = true // This is generating AI, not saving
+        
+        // Reset retry attempt to 1 for new generation
+        journalViewModel.currentRetryAttempt = 1
         
         // Perform haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
@@ -1765,6 +1768,9 @@ Capabilities and Reminders: You have access to the web search tools, published r
         openIsGeneratingAI = true
         openIsLoadingGenerating = true // This is generating AI, not saving
         
+        // Reset retry attempt to 1 for new generation
+        journalViewModel.currentRetryAttempt = 1
+        
         // Perform haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
         impactFeedback.impactOccurred()
@@ -1939,6 +1945,9 @@ Capabilities and Reminders: You have access to the web search tools, published r
         followUpShowCenteredButtonClick = true
         followUpIsGeneratingAI = true
         followUpIsLoadingGenerating = true // This is generating AI, not saving
+        
+        // Reset retry attempt to 1 for new generation
+        journalViewModel.currentRetryAttempt = 1
         
         // Perform haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
@@ -2661,6 +2670,25 @@ Capabilities and Reminders: You have access to the web search tools, published r
             .padding(.horizontal, 20)
         }
     }
+    
+    // MARK: - Loading Text Helper Function
+    private func getLoadingText() -> String {
+        if isLoadingGenerating || openIsLoadingGenerating {
+            // Check retry attempt status
+            switch journalViewModel.currentRetryAttempt {
+            case 1:
+                return "Generating..."
+            case 2:
+                return "Retrying..."
+            case 3:
+                return "Retrying again..."
+            default:
+                return "Generating..."
+            }
+        } else {
+            return "Saving..."
+        }
+    }
 }
 
 // Color Extensions
@@ -2697,7 +2725,7 @@ extension Color {
 }
 
 // MARK: - Timeout Helper Function
-func withTimeout<T>(seconds: TimeInterval, operation: @escaping () async throws -> T) async throws -> T {
+    func withTimeout<T>(seconds: TimeInterval, operation: @escaping () async throws -> T) async throws -> T {
     return try await withThrowingTaskGroup(of: T.self) { group in
         group.addTask {
             return try await operation()

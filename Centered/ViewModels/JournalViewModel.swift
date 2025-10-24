@@ -15,6 +15,7 @@ class JournalViewModel: ObservableObject {
     @Published var shouldClearUIState = false
     @Published var followUpQuestionEntries: [JournalEntry] = []
     @Published var currentFollowUpQuestion: String = ""
+    @Published var currentRetryAttempt: Int = 1 // Track current retry attempt for UI status
     
     // Callback to clear UI state directly
     var clearUIStateCallback: (() -> Void)?
@@ -451,22 +452,51 @@ class JournalViewModel: ObservableObject {
             print("✅ AI response generated and saved: \(aiResponse.prefix(100))...")
             
         } catch {
-            errorMessage = "Failed to generate AI response: \(error.localizedDescription)"
+            errorMessage = "The AI's taking a short break 😅 please try again shortly."
             print("❌ Failed to generate AI response: \(error.localizedDescription)")
         }
         
         isLoading = false
     }
     
-    /// Generates AI response with retry logic (up to 3 attempts)
+    /// Generates AI response with retry logic (up to 3 attempts with exponential backoff)
     private func generateAIResponseWithRetry(for prompt: String, maxRetries: Int = 3) async throws -> String {
         var lastError: Error?
         
         for attempt in 1...maxRetries {
             do {
                 print("🔄 AI generation attempt \(attempt)/\(maxRetries)")
+                
+                // Update UI to show current attempt status
+                await MainActor.run {
+                    if attempt == 1 {
+                        // First attempt - explicitly set to 1 for "Generating..." status
+                        self.currentRetryAttempt = 1
+                    } else if attempt == 2 {
+                        // Second attempt - show "Retrying..."
+                        self.currentRetryAttempt = 2
+                    } else if attempt == 3 {
+                        // Third attempt - show "Retrying again..."
+                        self.currentRetryAttempt = 3
+                    }
+                }
+                
                 let response = try await openAIService.generateAIResponse(for: prompt)
+                
+                // Check if response is empty or whitespace-only - treat as failure to retry
+                let trimmedResponse = response.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmedResponse.isEmpty {
+                    print("⚠️ AI response is empty or whitespace-only, treating as failure for retry")
+                    throw OpenAIError.invalidResponse("Empty or whitespace-only response received")
+                }
+                
                 print("✅ AI response successful on attempt \(attempt)")
+                
+                // Reset retry attempt on success
+                await MainActor.run {
+                    self.currentRetryAttempt = 1
+                }
+                
                 return response
             } catch {
                 lastError = error
@@ -476,19 +506,28 @@ class JournalViewModel: ObservableObject {
                 if let openAIError = error as? OpenAIError {
                     switch openAIError {
                     case .invalidAPIKey, .quotaExceeded:
+                        // Reset retry attempt on non-retryable errors
+                        await MainActor.run {
+                            self.currentRetryAttempt = 1
+                        }
                         throw error // Don't retry these errors
                     default:
                         break // Retry other errors
                     }
                 }
                 
-                // Wait before retrying (exponential backoff)
+                // Wait before retrying (exponential backoff: 2s, 4s)
                 if attempt < maxRetries {
-                    let delay = Double(attempt * attempt) // 1s, 4s, 9s
+                    let delay: Double = attempt == 1 ? 2.0 : 4.0 // 2s for first retry, 4s for second retry
                     print("⏳ Waiting \(delay) seconds before retry...")
                     try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
                 }
             }
+        }
+        
+        // Reset retry attempt on final failure
+        await MainActor.run {
+            self.currentRetryAttempt = 1
         }
         
         throw lastError ?? AIError.generationFailed
@@ -679,7 +718,7 @@ class JournalViewModel: ObservableObject {
             print("✅ Open Question AI response generated and saved: \(aiResponse.prefix(100))...")
             
         } catch {
-            errorMessage = "Failed to generate open question AI response: \(error.localizedDescription)"
+            errorMessage = "The AI's taking a short break 😅 please try again shortly."
             print("❌ Failed to generate open question AI response: \(error.localizedDescription)")
         }
         
@@ -1096,7 +1135,7 @@ class JournalViewModel: ObservableObject {
             print("✅ Marked past entry as used for follow-up: \(pastEntry.id)")
             
         } catch {
-            errorMessage = "Failed to generate follow-up question: \(error.localizedDescription)"
+            errorMessage = "The AI's taking a short break 😅 please try again shortly."
             print("❌ Failed to generate follow-up question: \(error.localizedDescription)")
         }
     }
@@ -1221,7 +1260,7 @@ class JournalViewModel: ObservableObject {
             print("✅ Follow-up question AI response generated and saved")
             
         } catch {
-            errorMessage = "Failed to generate follow-up question AI response: \(error.localizedDescription)"
+            errorMessage = "The AI's taking a short break 😅 please try again shortly."
             print("❌ Failed to generate follow-up question AI response: \(error.localizedDescription)")
         }
         
