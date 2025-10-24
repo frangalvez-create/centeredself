@@ -1086,10 +1086,14 @@ class JournalViewModel: ObservableObject {
                 fuqAiResponse: fuqAiResponse
             )
             
+            // Mark the selected past entry as used for follow-up
+            try await supabaseService.markEntryAsUsedForFollowUp(entryId: pastEntry.id)
+            
             // Update the current follow-up question
             currentFollowUpQuestion = fuqAiResponse
             
             print("✅ Generated new follow-up question: \(fuqAiResponse)")
+            print("✅ Marked past entry as used for follow-up: \(pastEntry.id)")
             
         } catch {
             errorMessage = "Failed to generate follow-up question: \(error.localizedDescription)"

@@ -275,12 +275,13 @@ class SupabaseService: ObservableObject {
         } else {
             // Real implementation - query database
             
-            // Priority 1: is_favorite = TRUE entries
+            // Priority 1: is_favorite = TRUE entries (not yet used for follow-up)
             let favoriteEntries: [JournalEntry] = try await supabase
                 .from("journal_entries")
                 .select()
                 .eq("user_id", value: userId)
                 .eq("is_favorite", value: true)
+                .neq("used_for_follow_up", value: true) // Exclude already used entries
                 .gte("created_at", value: fifteenDaysAgo.ISO8601Format())
                 .lte("created_at", value: fiveDaysAgo.ISO8601Format())
                 .order("created_at", ascending: true) // Oldest first
@@ -293,12 +294,13 @@ class SupabaseService: ObservableObject {
                 return favoriteEntry
             }
             
-            // Priority 2: tags = "open_question" entries
+            // Priority 2: tags = "open_question" entries (not yet used for follow-up)
             let openQuestionEntries: [JournalEntry] = try await supabase
                 .from("journal_entries")
                 .select()
                 .eq("user_id", value: userId)
                 .contains("tags", value: ["open_question"])
+                .neq("used_for_follow_up", value: true) // Exclude already used entries
                 .gte("created_at", value: fifteenDaysAgo.ISO8601Format())
                 .lte("created_at", value: fiveDaysAgo.ISO8601Format())
                 .order("created_at", ascending: true) // Oldest first
@@ -311,11 +313,12 @@ class SupabaseService: ObservableObject {
                 return openQuestionEntry
             }
             
-            // Priority 3: Most recent entry older than current day
+            // Priority 3: Most recent entry older than current day (not yet used for follow-up)
             let recentEntries: [JournalEntry] = try await supabase
                 .from("journal_entries")
                 .select()
                 .eq("user_id", value: userId)
+                .neq("used_for_follow_up", value: true) // Exclude already used entries
                 .lt("created_at", value: today.ISO8601Format())
                 .order("created_at", ascending: false) // Most recent first
                 .limit(1)
@@ -337,11 +340,15 @@ class SupabaseService: ObservableObject {
         let content = pastEntry.content
         let aiResponse = pastEntry.aiResponse ?? ""
         
-        return """
-        Client: \(content)
-        Therapist: \(aiResponse)
-        Create a "follow up" style question (25 word limit) from the above conversation previously had. Question structure: "You previously mentioned… Summarize client "content", then ask about the progress of one action item mentioned in the AI Response 2nd paragraph?"
+        let promptTemplate = """
+        Client: {content} (from the past journal entry selected above)
+        Therapist: {ai_response} (from the past journal entry selected above)
+        Create a "follow up" style question (25 word limit) from the above conversation previously had. Question structure: "You previously mentioned… Summarize client statements, then ask about the progress of one action item mentioned in the 2nd paragraph, Therapist response?"
         """
+        
+        return promptTemplate
+            .replacingOccurrences(of: "{content}", with: content)
+            .replacingOccurrences(of: "{ai_response}", with: aiResponse)
     }
     
     /// Creates a follow-up question journal entry
@@ -360,10 +367,27 @@ class SupabaseService: ObservableObject {
             updatedAt: Date(),
             fuqAiPrompt: fuqAiPrompt,
             fuqAiResponse: fuqAiResponse,
-            isFollowUpDay: true
+            isFollowUpDay: true,
+            usedForFollowUp: false // New entries start as not used
         )
         
         return try await createJournalEntry(followUpEntry)
+    }
+    
+    /// Marks a journal entry as used for follow-up question generation
+    func markEntryAsUsedForFollowUp(entryId: UUID) async throws {
+        do {
+            try await supabase
+                .from("journal_entries")
+                .update(["used_for_follow_up": true])
+                .eq("id", value: entryId)
+                .execute()
+            
+            print("✅ Marked entry \(entryId) as used for follow-up")
+        } catch {
+            print("❌ Failed to mark entry as used for follow-up: \(error.localizedDescription)")
+            throw error
+        }
     }
     
     // MARK: - Journal Entries

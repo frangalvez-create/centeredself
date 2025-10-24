@@ -246,8 +246,8 @@ struct ContentView: View {
                         .fill(Color.textFieldBackground)
                         .frame(height: (isTextLocked && !currentAIResponse.isEmpty) ? 400 : max(150, min(300, textEditorHeight)))
                     
-                    // Q3 Icon inside text field - only show when text is not locked and no AI response
-                    if !isTextLocked && currentAIResponse.isEmpty {
+                    // Q3 Icon inside text field - only show when no text is entered
+                    if journalResponse.isEmpty {
                         VStack {
                             HStack {
                                 Spacer()
@@ -543,8 +543,8 @@ struct ContentView: View {
                             .fill(Color.textFieldBackground)
                             .frame(height: ((isFollowUpQuestionDay ? followUpIsTextLocked : openIsTextLocked) && !(isFollowUpQuestionDay ? followUpCurrentAIResponse : openCurrentAIResponse).isEmpty) ? 400 : max(150, min(300, isFollowUpQuestionDay ? followUpTextEditorHeight : openTextEditorHeight)))
                         
-                        // Q Icon inside text field - only show when text is not locked and no AI response
-                        if !(isFollowUpQuestionDay ? followUpIsTextLocked : openIsTextLocked) && (isFollowUpQuestionDay ? followUpCurrentAIResponse : openCurrentAIResponse).isEmpty {
+                        // Q Icon inside text field - only show when no text is entered
+                        if (isFollowUpQuestionDay ? followUpJournalResponse : openJournalResponse).isEmpty {
                             VStack {
                                 HStack {
                                     Spacer()
@@ -2510,11 +2510,15 @@ Capabilities and Reminders: You have access to the web search tools, published r
             
             // Simple popup content
             VStack(alignment: .leading, spacing: 8) {
-                Text("Free write Question")
+                Text("Free write and Check In Questions")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(Color(hex: "545555"))
                 
                 Text("• Share anything on your mind.")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "545555"))
+                
+                Text("• Periodically, check in questions will ask about previous journal entries.")
                     .font(.system(size: 15))
                     .foregroundColor(Color(hex: "545555"))
                 

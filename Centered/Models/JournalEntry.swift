@@ -15,6 +15,7 @@ struct JournalEntry: Identifiable, Codable {
     let fuqAiPrompt: String?
     let fuqAiResponse: String?
     let isFollowUpDay: Bool?
+    let usedForFollowUp: Bool?
     
     enum CodingKeys: String, CodingKey {
         case id
@@ -31,9 +32,10 @@ struct JournalEntry: Identifiable, Codable {
         case fuqAiPrompt = "fuq_ai_prompt"
         case fuqAiResponse = "fuq_ai_response"
         case isFollowUpDay = "is_follow_up_day"
+        case usedForFollowUp = "used_for_follow_up"
     }
     
-    init(userId: UUID, guidedQuestionId: UUID?, content: String, aiPrompt: String? = nil, aiResponse: String? = nil, tags: [String] = [], isFavorite: Bool = false, entryType: String = "guided", fuqAiPrompt: String? = nil, fuqAiResponse: String? = nil, isFollowUpDay: Bool? = nil) {
+    init(userId: UUID, guidedQuestionId: UUID?, content: String, aiPrompt: String? = nil, aiResponse: String? = nil, tags: [String] = [], isFavorite: Bool = false, entryType: String = "guided", fuqAiPrompt: String? = nil, fuqAiResponse: String? = nil, isFollowUpDay: Bool? = nil, usedForFollowUp: Bool? = nil) {
         self.id = UUID()
         self.userId = userId
         self.guidedQuestionId = guidedQuestionId
@@ -48,10 +50,11 @@ struct JournalEntry: Identifiable, Codable {
         self.fuqAiPrompt = fuqAiPrompt
         self.fuqAiResponse = fuqAiResponse
         self.isFollowUpDay = isFollowUpDay
+        self.usedForFollowUp = usedForFollowUp
     }
     
     // Full initializer for updates
-    init(id: UUID, userId: UUID, guidedQuestionId: UUID?, content: String, aiPrompt: String? = nil, aiResponse: String? = nil, tags: [String] = [], isFavorite: Bool = false, entryType: String = "guided", createdAt: Date, updatedAt: Date, fuqAiPrompt: String? = nil, fuqAiResponse: String? = nil, isFollowUpDay: Bool? = nil) {
+    init(id: UUID, userId: UUID, guidedQuestionId: UUID?, content: String, aiPrompt: String? = nil, aiResponse: String? = nil, tags: [String] = [], isFavorite: Bool = false, entryType: String = "guided", createdAt: Date, updatedAt: Date, fuqAiPrompt: String? = nil, fuqAiResponse: String? = nil, isFollowUpDay: Bool? = nil, usedForFollowUp: Bool? = nil) {
         self.id = id
         self.userId = userId
         self.guidedQuestionId = guidedQuestionId
@@ -66,5 +69,6 @@ struct JournalEntry: Identifiable, Codable {
         self.fuqAiPrompt = fuqAiPrompt
         self.fuqAiResponse = fuqAiResponse
         self.isFollowUpDay = isFollowUpDay
+        self.usedForFollowUp = usedForFollowUp
     }
 }
