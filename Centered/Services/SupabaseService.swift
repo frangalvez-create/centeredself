@@ -341,9 +341,9 @@ class SupabaseService: ObservableObject {
         let aiResponse = pastEntry.aiResponse ?? ""
         
         let promptTemplate = """
-        Client: {content} (from the past journal entry selected above)
-        Therapist: {ai_response} (from the past journal entry selected above)
-        Create a "follow up" style question (25 word limit) from the above conversation previously had. Question structure: "You previously mentioned… Summarize client statements, then ask about the progress of one action item mentioned in the 2nd paragraph, Therapist response?"
+        Client statements: {content} 
+        Therapist response: {ai_response} 
+        Create a "follow up" style question (25 word limit) from the above conversation previously had. Question structure: "You previously mentioned… Summarize client statements, then ask about the progress of one action item mentioned in the 2nd paragraph of Therapist response"
         """
         
         return promptTemplate
