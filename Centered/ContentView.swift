@@ -511,6 +511,15 @@ struct ContentView: View {
                             .multilineTextAlignment(.center)
                             .lineLimit(nil)
                             .fixedSize(horizontal: false, vertical: true)
+                    } else if isFollowUpQuestionDay && journalViewModel.currentFollowUpQuestion.isEmpty {
+                        // Generating follow-up question (during delay)
+                        Text("Generating a follow up question for you...")
+                            .font(.system(size: 16, weight: .medium))
+                            .italic()
+                            .foregroundColor(Color(hex: "5F4083"))
+                            .multilineTextAlignment(.center)
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
                     } else {
                         // Regular Open Question
                         Text("Looking at today or yesterday, share moments or thoughts that stood out.")
