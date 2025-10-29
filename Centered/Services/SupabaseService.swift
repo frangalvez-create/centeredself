@@ -340,6 +340,14 @@ class SupabaseService: ObservableObject {
         let content = pastEntry.content
         let aiResponse = pastEntry.aiResponse ?? ""
         
+        // Extract first paragraph from ai_response
+        let firstParagraph = aiResponse.components(separatedBy: "\n\n").first ?? aiResponse.components(separatedBy: "\n").first ?? aiResponse
+        
+        print("📝 FUQ Prompt - Using first paragraph of AI response:")
+        print("   Original length: \(aiResponse.count) characters")
+        print("   First paragraph length: \(firstParagraph.count) characters")
+        print("   First paragraph: \(firstParagraph.prefix(100))...")
+        
         let promptTemplate = """
         Past Client statements: {content} 
         Therapist response: {ai_response} 
@@ -348,7 +356,7 @@ class SupabaseService: ObservableObject {
         
         return promptTemplate
             .replacingOccurrences(of: "{content}", with: content)
-            .replacingOccurrences(of: "{ai_response}", with: aiResponse)
+            .replacingOccurrences(of: "{ai_response}", with: firstParagraph)
     }
     
     /// Creates a follow-up question journal entry

@@ -31,15 +31,15 @@ struct SettingsView: View {
     @State private var showBirthdateRefreshButton: Bool = false
     
     // State variables for Daily Notification Reminders
-    @State private var morningReminder: Bool = false
-    @State private var workAMBreakReminder: Bool = false
-    @State private var lunchReminder: Bool = false
-    @State private var workPMBreakReminder: Bool = false
-    @State private var eveningReminder: Bool = false
-    @State private var beforeBedReminder: Bool = false
+    @AppStorage("morning_reminder_enabled") private var morningReminder: Bool = false
+    @AppStorage("work_am_break_reminder_enabled") private var workAMBreakReminder: Bool = false
+    @AppStorage("lunch_reminder_enabled") private var lunchReminder: Bool = false
+    @AppStorage("work_pm_break_reminder_enabled") private var workPMBreakReminder: Bool = false
+    @AppStorage("evening_reminder_enabled") private var eveningReminder: Bool = false
+    @AppStorage("before_bed_reminder_enabled") private var beforeBedReminder: Bool = false
     
     // State variable for Weekly Notification Reminder
-    @State private var weeklyReminder: Bool = true // Pre-enabled as requested
+    @AppStorage("weekly_reminder_enabled") private var weeklyReminder: Bool = true // Pre-enabled as requested
     
     var body: some View {
         ZStack {
@@ -527,7 +527,7 @@ struct SettingsView: View {
                     VStack(spacing: 10) {
                         // Sunday 8:00 PM - End of Week
                         HStack {
-                            Text("Sunday 8:00 pm - End of Week")
+                            Text("End of Week")
                                 .font(.system(size: 15))
                                 .foregroundColor(Color(hex: "545555"))
                                 .padding(.leading, 70)
@@ -570,11 +570,6 @@ struct SettingsView: View {
                 loadOccupationFromDatabase()
                 loadBirthdateFromDatabase()
                 loadNotificationStates()
-                
-                // Schedule weekly reminder if it's enabled (pre-enabled by default)
-                if weeklyReminder {
-                    scheduleWeeklyNotification()
-                }
             }
     }
     
@@ -961,20 +956,31 @@ struct SettingsView: View {
         UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
             DispatchQueue.main.async {
                 let identifiers = requests.map { $0.identifier }
-                morningReminder = identifiers.contains("morning_reminder")
-                workAMBreakReminder = identifiers.contains("work_am_break_reminder")
-                lunchReminder = identifiers.contains("lunch_reminder")
-                workPMBreakReminder = identifiers.contains("work_pm_break_reminder")
-                eveningReminder = identifiers.contains("evening_reminder")
-                beforeBedReminder = identifiers.contains("before_bed_reminder")
                 
-                // Only load weekly reminder state if it's already been set by user interaction
-                // Otherwise keep the default pre-enabled state
-                if identifiers.contains("weekly_reminder") {
-                    weeklyReminder = true
-                } else if identifiers.isEmpty || !identifiers.contains("weekly_reminder") {
-                    // If no notifications exist or weekly reminder doesn't exist, keep default state
-                    // Don't override the pre-enabled state
+                // Reschedule missing notifications if @AppStorage says they should be on
+                // @AppStorage is the source of truth, so we don't overwrite it
+                if morningReminder && !identifiers.contains("morning_reminder") {
+                    scheduleNotification(hour: 7, minute: 0, identifier: "morning_reminder")
+                }
+                if workAMBreakReminder && !identifiers.contains("work_am_break_reminder") {
+                    scheduleNotification(hour: 9, minute: 30, identifier: "work_am_break_reminder")
+                }
+                if lunchReminder && !identifiers.contains("lunch_reminder") {
+                    scheduleNotification(hour: 12, minute: 0, identifier: "lunch_reminder")
+                }
+                if workPMBreakReminder && !identifiers.contains("work_pm_break_reminder") {
+                    scheduleNotification(hour: 15, minute: 0, identifier: "work_pm_break_reminder")
+                }
+                if eveningReminder && !identifiers.contains("evening_reminder") {
+                    scheduleNotification(hour: 18, minute: 0, identifier: "evening_reminder")
+                }
+                if beforeBedReminder && !identifiers.contains("before_bed_reminder") {
+                    scheduleNotification(hour: 21, minute: 30, identifier: "before_bed_reminder")
+                }
+                
+                // Weekly reminder: reschedule if it should be on but is missing
+                if weeklyReminder && !identifiers.contains("weekly_reminder") {
+                    scheduleWeeklyNotification()
                 }
             }
         }
