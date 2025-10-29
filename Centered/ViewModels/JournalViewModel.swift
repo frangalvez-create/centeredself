@@ -222,8 +222,14 @@ class JournalViewModel: ObservableObject {
                 print("📝 Most recent goal: \(firstGoal.goals)")
             }
         } catch {
-            errorMessage = "Failed to load goals: \(error.localizedDescription)"
-            print("❌ Failed to load goals: \(error.localizedDescription)")
+            // Handle cancelled requests gracefully
+            if error.localizedDescription.contains("cancelled") {
+                print("⚠️ loadGoals: Request was cancelled, keeping existing goals")
+                // Don't show error for cancelled requests - keep existing data
+            } else {
+                errorMessage = "Failed to load goals: \(error.localizedDescription)"
+                print("❌ Failed to load goals: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -244,26 +250,22 @@ class JournalViewModel: ObservableObject {
         } catch {
             // Handle specific error types more gracefully
             if error.localizedDescription.contains("cancelled") {
-                print("⚠️ loadTodaysQuestion: Request was cancelled, using fallback question")
-                // Don't show error for cancelled requests - just use fallback
-                currentQuestion = GuidedQuestion(
-                    id: UUID(),
-                    questionText: "What thing, person or moment filled you with gratitude today?",
-                    isActive: true,
-                    orderIndex: 1,
-                    createdAt: Date()
-                )
+                print("⚠️ loadTodaysQuestion: Request was cancelled, keeping existing question")
+                // Don't change currentQuestion if request was cancelled - keep existing question
+                // This prevents resetting to orderIndex=1 during pull-to-refresh cancellations
             } else {
                 errorMessage = "Failed to load today's question: \(error.localizedDescription)"
                 print("❌ loadTodaysQuestion error: \(error.localizedDescription)")
-                // Fallback to default question
-                currentQuestion = GuidedQuestion(
-                    id: UUID(),
-                    questionText: "What thing, person or moment filled you with gratitude today?",
-                    isActive: true,
-                    orderIndex: 1,
-                    createdAt: Date()
-                )
+                // Only use fallback if we don't have a question yet
+                if currentQuestion == nil {
+                    currentQuestion = GuidedQuestion(
+                        id: UUID(),
+                        questionText: "What thing, person or moment filled you with gratitude today?",
+                        isActive: true,
+                        orderIndex: 1,
+                        createdAt: Date()
+                    )
+                }
             }
         }
         
@@ -623,7 +625,14 @@ class JournalViewModel: ObservableObject {
         do {
             openQuestionJournalEntries = try await supabaseService.fetchOpenQuestionJournalEntries(userId: user.id)
         } catch {
-            errorMessage = "Failed to load open question journal entries: \(error.localizedDescription)"
+            // Handle cancelled requests gracefully
+            if error.localizedDescription.contains("cancelled") {
+                print("⚠️ loadOpenQuestionJournalEntries: Request was cancelled, keeping existing entries")
+                // Don't show error for cancelled requests - keep existing data
+            } else {
+                errorMessage = "Failed to load open question journal entries: \(error.localizedDescription)"
+                print("❌ Failed to load open question journal entries: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -1009,6 +1018,9 @@ class JournalViewModel: ObservableObject {
                 print("🕐 It's past 2AM since last entry - resetting UI")
                 lastResetDate = now
                 await resetUIForNewDay()
+                
+                // Pre-generate follow-up question if today is a follow-up day
+                await preGenerateFollowUpQuestionIfNeeded()
             } else {
                 print("🕐 Not yet time for reset - skipping")
             }
@@ -1016,6 +1028,36 @@ class JournalViewModel: ObservableObject {
         } catch {
             print("❌ Failed to check reset status: \(error.localizedDescription)")
         }
+    }
+    
+    /// Pre-generates follow-up question during 2 AM reset if today is a follow-up day
+    private func preGenerateFollowUpQuestionIfNeeded() async {
+        guard let user = currentUser else { return }
+        
+        // Check if today is a follow-up question day
+        guard supabaseService.isFollowUpQuestionDay() else {
+            print("📅 Today is not a follow-up question day - skipping pre-generation")
+            return
+        }
+        
+        // Load existing follow-up question entries
+        await loadFollowUpQuestionEntries()
+        
+        // Check if we already have a follow-up question for today
+        let calendar = Calendar.current
+        let todaysFollowUpEntry = followUpQuestionEntries.first { entry in
+            calendar.isDateInToday(entry.createdAt)
+        }
+        
+        if todaysFollowUpEntry != nil {
+            print("✅ Follow-up question already exists for today - skipping pre-generation")
+            return
+        }
+        
+        // Generate follow-up question in the background
+        print("🔮 Pre-generating follow-up question for today...")
+        await generateFollowUpQuestion()
+        print("✅ Pre-generation complete - follow-up question ready for users")
     }
     
     // MARK: - User Profile Updates
@@ -1092,11 +1134,13 @@ class JournalViewModel: ObservableObject {
         }
         
         if let existingEntry = todaysFollowUpEntry {
-            // Use existing follow-up question
+            // Use existing follow-up question (pre-generated during 2 AM reset)
             currentFollowUpQuestion = existingEntry.fuqAiResponse ?? ""
-            print("✅ Using existing follow-up question: \(currentFollowUpQuestion)")
+            print("✅ Using existing follow-up question (pre-generated): \(currentFollowUpQuestion)")
         } else {
-            // Generate new follow-up question
+            // Fallback: Generate new follow-up question if it wasn't pre-generated
+            // This should rarely happen, but is a safety net
+            print("⚠️ No pre-generated follow-up question found, generating now...")
             await generateFollowUpQuestion()
         }
     }

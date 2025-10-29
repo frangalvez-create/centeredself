@@ -975,8 +975,11 @@ struct ContentView: View {
         )
         .refreshable {
             // Pull to refresh gesture - manual journal text refresh
-            await journalViewModel.checkAndResetIfNeeded()
+            // Load today's question first (date-based selection) to prevent reset issues
             await journalViewModel.loadTodaysQuestion()
+            await journalViewModel.loadJournalEntries()
+            await journalViewModel.loadOpenQuestionJournalEntries()
+            await journalViewModel.loadGoals()
             // Populate UI state from loaded journal entries
             populateUIStateFromJournalEntries()
         }
