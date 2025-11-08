@@ -1106,48 +1106,184 @@ class JournalViewModel: ObservableObject {
         
         do {
             let allEntries = try await supabaseService.fetchJournalEntries(userId: user.id)
+            print("🔍 Fetched \(allEntries.count) total entries")
+            
+            // Filter for follow-up entries
             followUpQuestionEntries = allEntries.filter { $0.entryType == "follow_up" }
+            
             print("✅ Follow-up question entries loaded: \(followUpQuestionEntries.count) entries")
+            
+            // Debug: Print all follow-up entries with their details
+            for (index, entry) in followUpQuestionEntries.enumerated() {
+                let calendar = Calendar.current
+                let isToday = calendar.isDate(entry.createdAt, inSameDayAs: Date())
+                print("   Entry \(index): entryType=\(entry.entryType ?? "nil"), contentLength=\(entry.content.count), fuqAiResponseLength=\(entry.fuqAiResponse?.count ?? 0), isToday=\(isToday)")
+                if let fuqAiResponse = entry.fuqAiResponse {
+                    print("      Question: \(fuqAiResponse.prefix(50))...")
+                }
+            }
         } catch {
-            errorMessage = "Failed to load follow-up question entries: \(error.localizedDescription)"
-            print("❌ Failed to load follow-up question entries: \(error.localizedDescription)")
+            // Handle cancelled requests gracefully
+            if error.localizedDescription.contains("cancelled") {
+                print("⚠️ loadFollowUpQuestionEntries: Request was cancelled, keeping existing entries")
+                // Don't show error for cancelled requests - keep existing data
+            } else {
+                errorMessage = "Failed to load follow-up question entries: \(error.localizedDescription)"
+                print("❌ Failed to load follow-up question entries: \(error.localizedDescription)")
+            }
         }
     }
     
     /// Checks if today is a follow-up question day and loads/generates the question
-    func checkAndLoadFollowUpQuestion() async {
-        guard let user = currentUser else { return }
+    /// - Parameter suppressErrors: If true, errors will be logged but not shown to the user (useful for background operations like pull-to-refresh)
+    func checkAndLoadFollowUpQuestion(suppressErrors: Bool = false) async {
+        guard let user = currentUser else { 
+            print("⚠️ checkAndLoadFollowUpQuestion: User not authenticated")
+            return 
+        }
         
         // Check if today is a follow-up question day
         guard supabaseService.isFollowUpQuestionDay() else {
             print("📅 Today is not a follow-up question day")
+            // Clear follow-up question if it's not a follow-up day
+            currentFollowUpQuestion = ""
             return
         }
         
         // Load existing follow-up question entries for today
-        await loadFollowUpQuestionEntries()
-        
-        // Check if we already have a follow-up question for today
+        // Retry up to 3 times with delays to account for database write delays/race conditions
+        var retryCount = 0
+        let maxRetries = 3
+        var todaysEntries: [JournalEntry] = []
         let calendar = Calendar.current
-        let todaysFollowUpEntry = followUpQuestionEntries.first { entry in
-            calendar.isDateInToday(entry.createdAt)
+        let today = Date()
+        
+        while retryCount < maxRetries {
+            await loadFollowUpQuestionEntries()
+            
+            print("🔍 Searching for today's follow-up question (attempt \(retryCount + 1)/\(maxRetries))... Found \(followUpQuestionEntries.count) total follow-up entries")
+            
+            // Check if we already have a follow-up question for today
+            // First, try to find an entry created today with a non-empty fuqAiResponse
+            // Prioritize entries with empty content (the question entry, not the user response entry)
+            todaysEntries = followUpQuestionEntries.filter { entry in
+                calendar.isDate(entry.createdAt, inSameDayAs: today)
+            }
+            
+            print("📅 Found \(todaysEntries.count) follow-up entries created today")
+            
+            // If we found entries for today, break out of retry loop
+            if !todaysEntries.isEmpty {
+                break
+            }
+            
+            // If no entries found and not last attempt, wait and retry
+            if retryCount < maxRetries - 1 {
+                print("⏳ No entries found, waiting 0.5s before retry...")
+                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 second delay
+            }
+            
+            retryCount += 1
         }
         
-        if let existingEntry = todaysFollowUpEntry {
-            // Use existing follow-up question (pre-generated during 2 AM reset)
-            currentFollowUpQuestion = existingEntry.fuqAiResponse ?? ""
-            print("✅ Using existing follow-up question (pre-generated): \(currentFollowUpQuestion)")
+        // Debug: Print details of today's entries before filtering
+        for (index, entry) in todaysEntries.enumerated() {
+            print("   Today's entry \(index): entryType=\(entry.entryType ?? "nil"), contentLength=\(entry.content.count), fuqAiResponseLength=\(entry.fuqAiResponse?.count ?? 0)")
+            if let fuqAiResponse = entry.fuqAiResponse {
+                print("      Question: \(fuqAiResponse.prefix(50))...")
+            }
+        }
+        
+        // Sort by creation time (oldest first) to get the question entry first
+        let sortedTodaysEntries = todaysEntries.sorted { $0.createdAt < $1.createdAt }
+        
+        // Look for an entry with non-empty fuqAiResponse
+        // Prioritize entries with empty content (the question entry) over entries with content (user response)
+        var todaysFollowUpEntry: JournalEntry?
+        
+        // First, try to find an entry with empty content (the question entry)
+        if let questionEntry = sortedTodaysEntries.first(where: { entry in
+            let hasEmptyContent = entry.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            if let fuqAiResponse = entry.fuqAiResponse, !fuqAiResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if hasEmptyContent {
+                    print("✅ Found follow-up question entry (empty content): \(fuqAiResponse.prefix(50))...")
+                    return true
+                }
+            }
+            return false
+        }) {
+            todaysFollowUpEntry = questionEntry
         } else {
-            // Fallback: Generate new follow-up question if it wasn't pre-generated
-            // This should rarely happen, but is a safety net
-            print("⚠️ No pre-generated follow-up question found, generating now...")
-            await generateFollowUpQuestion()
+            // Fallback: Find any entry with non-empty fuqAiResponse
+            todaysFollowUpEntry = sortedTodaysEntries.first { entry in
+                if let fuqAiResponse = entry.fuqAiResponse, !fuqAiResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    print("✅ Found follow-up question entry (with content): \(fuqAiResponse.prefix(50))...")
+                    return true
+                }
+                return false
+            }
+        }
+        
+        if let existingEntry = todaysFollowUpEntry, let fuqAiResponse = existingEntry.fuqAiResponse, !fuqAiResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            // Use existing follow-up question (pre-generated during 2 AM reset or generated earlier)
+            currentFollowUpQuestion = fuqAiResponse
+            print("✅ Using existing follow-up question: \(currentFollowUpQuestion.prefix(50))...")
+        } else {
+            print("⚠️ No pre-generated follow-up question found for today")
+            print("🔍 DEBUG: Why no entry found?")
+            print("   - Total follow-up entries: \(followUpQuestionEntries.count)")
+            print("   - Today's entries: \(todaysEntries.count)")
+            print("   - Sorted entries: \(sortedTodaysEntries.count)")
+            
+            // Debug: Print why no entry was found
+            if todaysEntries.isEmpty {
+                print("   ❌ NO ENTRIES FOUND FOR TODAY - This is the problem!")
+            } else {
+                print("   ❌ ENTRIES EXIST BUT NOT SELECTED:")
+                for (index, entry) in sortedTodaysEntries.enumerated() {
+                    print("      Entry \(index): contentLength=\(entry.content.count), hasFuqAiResponse=\(entry.fuqAiResponse != nil)")
+                    if let fuqAiResponse = entry.fuqAiResponse {
+                        print("         fuqAiResponse: \(fuqAiResponse.prefix(50))...")
+                    } else {
+                        print("         fuqAiResponse is NIL")
+                    }
+                }
+            }
+            
+            // Only generate if we don't already have a question loaded
+            if currentFollowUpQuestion.isEmpty {
+                print("🔄 Generating new follow-up question...")
+                await generateFollowUpQuestion(suppressErrors: suppressErrors)
+            } else {
+                print("✅ Keeping existing follow-up question in memory: \(currentFollowUpQuestion.prefix(50))...")
+            }
         }
     }
     
     /// Generates a new follow-up question based on past journal entries
-    private func generateFollowUpQuestion() async {
+    /// - Parameter suppressErrors: If true, errors will be logged but not shown to the user (useful for background operations like pull-to-refresh)
+    private func generateFollowUpQuestion(suppressErrors: Bool = false) async {
         guard let user = currentUser else { return }
+        
+        // SAFEGUARD: Double-check that we don't already have a follow-up question for today
+        // This prevents duplicate generation if the initial check somehow missed it
+        await loadFollowUpQuestionEntries()
+        let calendar = Calendar.current
+        let today = Date()
+        let existingTodayEntry = followUpQuestionEntries.first { entry in
+            calendar.isDate(entry.createdAt, inSameDayAs: today) &&
+            entry.fuqAiResponse != nil &&
+            !entry.fuqAiResponse!.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        
+        if let existingEntry = existingTodayEntry, let fuqAiResponse = existingEntry.fuqAiResponse, !fuqAiResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            print("🛡️ SAFEGUARD: Found existing follow-up question for today, skipping generation to prevent duplicate")
+            print("   Existing question: \(fuqAiResponse.prefix(50))...")
+            currentFollowUpQuestion = fuqAiResponse
+            return
+        }
+        
+        print("✅ No existing follow-up question found for today, proceeding with generation")
         
         do {
             // Select a past journal entry for follow-up
@@ -1159,8 +1295,8 @@ class JournalViewModel: ObservableObject {
             // Generate the follow-up question prompt
             let fuqAiPrompt = supabaseService.generateFollowUpQuestionPrompt(pastEntry: pastEntry)
             
-            // Generate the follow-up question using OpenAI
-            let fuqAiResponse = try await openAIService.generateAIResponse(for: fuqAiPrompt)
+            // Generate the follow-up question using OpenAI with retry logic (2s, 4s delays)
+            let fuqAiResponse = try await generateAIResponseWithRetry(for: fuqAiPrompt)
             
             // Create the follow-up question entry
             let followUpEntry = try await supabaseService.createFollowUpQuestionEntry(
@@ -1172,15 +1308,44 @@ class JournalViewModel: ObservableObject {
             // Mark the selected past entry as used for follow-up
             try await supabaseService.markEntryAsUsedForFollowUp(entryId: pastEntry.id)
             
+            // CRITICAL: Wait for database write to complete and verify it was saved
+            // Add a small delay to ensure the database transaction has committed
+            try await Task.sleep(nanoseconds: 500_000_000) // 0.5 second delay
+            
+            // Reload follow-up question entries to ensure we have the latest data
+            await loadFollowUpQuestionEntries()
+            
+            // Verify the entry was actually saved by checking for it
+            let calendar = Calendar.current
+            let today = Date()
+            let savedEntry = followUpQuestionEntries.first { entry in
+                calendar.isDate(entry.createdAt, inSameDayAs: today) &&
+                entry.fuqAiResponse == fuqAiResponse
+            }
+            
+            if savedEntry == nil {
+                print("⚠️ WARNING: Generated follow-up question was not found after save, retrying reload...")
+                // Retry reload once more after a brief delay
+                try await Task.sleep(nanoseconds: 500_000_000) // Another 0.5 second
+                await loadFollowUpQuestionEntries()
+            }
+            
             // Update the current follow-up question
             currentFollowUpQuestion = fuqAiResponse
             
             print("✅ Generated new follow-up question: \(fuqAiResponse)")
             print("✅ Marked past entry as used for follow-up: \(pastEntry.id)")
+            print("✅ Follow-up question entries reloaded: \(followUpQuestionEntries.count) entries")
             
         } catch {
-            errorMessage = "The AI's taking a short break 😅 please try again shortly."
+            // Only show error message if not suppressed (e.g., during pull-to-refresh)
+            if !suppressErrors {
+                errorMessage = "The AI's taking a short break 😅 please try again shortly."
+            }
             print("❌ Failed to generate follow-up question: \(error.localizedDescription)")
+            if suppressErrors {
+                print("⚠️ Error suppressed - not showing alert to user (background operation)")
+            }
         }
     }
     

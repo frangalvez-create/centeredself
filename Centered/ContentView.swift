@@ -79,6 +79,9 @@ struct ContentView: View {
     // Welcome Message State
     @State private var showWelcomeMessage: Bool = false
     
+    // Pull to Refresh Loading State
+    @State private var isRefreshing: Bool = false
+    
     var body: some View {
         Group {
             if journalViewModel.isAuthenticated {
@@ -984,35 +987,65 @@ struct ContentView: View {
         )
         .refreshable {
             // Pull to refresh gesture - manual journal text refresh
-            // Load today's question first (date-based selection) to prevent reset issues
-            await journalViewModel.loadTodaysQuestion()
-            await journalViewModel.loadJournalEntries()
-            await journalViewModel.loadOpenQuestionJournalEntries()
-            await journalViewModel.loadGoals()
-            // Populate UI state from loaded journal entries
-            populateUIStateFromJournalEntries()
+            isRefreshing = true
+            
+            // Track start time for minimum display duration
+            let startTime = Date()
+
+            await reloadJournalDataSequence(suppressErrors: true)
+            
+            // Calculate elapsed time and ensure minimum 2-second display
+            let elapsedTime = Date().timeIntervalSince(startTime)
+            let minimumDisplayTime: TimeInterval = 2.0
+            let remainingTime = max(0, minimumDisplayTime - elapsedTime)
+            
+            // Wait for remaining time to ensure minimum 2-second display
+            if remainingTime > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(remainingTime * 1_000_000_000))
+            }
+            
+            // Verify the question was loaded correctly
+            if journalViewModel.currentQuestion != nil {
+                // Set to false after all operations complete and minimum display time
+                await MainActor.run {
+                    isRefreshing = false
+                }
+            } else {
+                // Retry if question not loaded
+                await journalViewModel.loadTodaysQuestion()
+                await MainActor.run {
+                    isRefreshing = false
+                }
+            }
+        }
+        .overlay {
+            // Loading overlay during refresh
+            if isRefreshing {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                    
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                            .tint(.white)
+                        
+                        Text("Updating daily questions...")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.white)
+                    }
+                    .padding(20)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.black.opacity(0.8))
+                    )
+                }
+                .allowsHitTesting(true) // Block all interactions
+            }
         }
         .onAppear {
             Task {
-                await journalViewModel.loadTodaysQuestion()
-                // Check if we need to reset UI for new day (better than 2AM timer)
-                await journalViewModel.checkAndResetIfNeeded()
-                // Populate UI state from loaded journal entries
-                populateUIStateFromJournalEntries()
-                
-                // Load goals when Journal tab appears to ensure goal text is up to date
-                await journalViewModel.loadGoals()
-                // Update goal text from the most recent goal - ONLY if the user has goals
-                if let mostRecentGoal = journalViewModel.goals.first {
-                    goalText = mostRecentGoal.goals
-                    isGoalLocked = true
-                    showCPRefreshButton = true
-                } else {
-                    // Clear goal text if user has no goals
-                    goalText = ""
-                    isGoalLocked = false
-                    showCPRefreshButton = false
-                }
+                await reloadJournalDataSequence(suppressErrors: false)
             }
             
             // Set up the callbacks for UI state management
@@ -1527,11 +1560,53 @@ Capabilities and Reminders: You have access to the web search tools, published r
     
     // MARK: - UI State Management
     
+    // Clear only journal-related UI state (preserves goals and other state)
+    private func clearJournalUIState() {
+        print("🧹 Clearing journal UI state (yesterday's data)")
+        
+        // Clear guided question UI state
+        journalResponse = ""
+        isTextLocked = false
+        showCenteredButton = false
+        showCenteredButtonClick = false
+        currentAIResponse = ""
+        showFavoriteButton = false
+        isFavoriteClicked = false
+        textEditorHeight = 150
+        
+        // Clear open question UI state
+        openJournalResponse = ""
+        openIsTextLocked = false
+        openShowCenteredButton = false
+        openShowCenteredButtonClick = false
+        openCurrentAIResponse = ""
+        openShowFavoriteButton = false
+        openIsFavoriteClicked = false
+        openTextEditorHeight = 150
+        
+        // Clear follow-up question UI state
+        followUpJournalResponse = ""
+        followUpIsTextLocked = false
+        followUpShowCenteredButton = false
+        followUpShowCenteredButtonClick = false
+        followUpCurrentAIResponse = ""
+        followUpShowFavoriteButton = false
+        followUpIsFavoriteClicked = false
+        followUpIsGeneratingAI = false
+        followUpIsLoadingGenerating = false
+        followUpTextEditorHeight = 150
+        followUpShowTextEditDropdown = false
+        
+        print("✅ Journal UI state cleared - ready for today's data")
+    }
+    
     private func populateUIStateFromJournalEntries() {
         print("🔄 Populating UI state from journal entries")
         
-        // Find today's guided question entry
         let calendar = Calendar.current
+        let today = Date()
+        
+        // Find today's guided question entry
         let todaysGuidedEntry = journalViewModel.journalEntries.first { entry in
             entry.entryType == "guided" && calendar.isDateInToday(entry.createdAt)
         }
@@ -1571,6 +1646,32 @@ Capabilities and Reminders: You have access to the web search tools, published r
             }
         }
         
+        // Find today's follow-up question entry (user's response entry, not the question entry)
+        // The question entry has empty content and fuqAiResponse
+        // The user's response entry has non-empty content and potentially aiResponse
+        let todaysFollowUpEntry = journalViewModel.followUpQuestionEntries.first { entry in
+            entry.entryType == "follow_up" &&
+            calendar.isDate(entry.createdAt, inSameDayAs: today) &&
+            !entry.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        
+        if let followUpEntry = todaysFollowUpEntry {
+            print("📝 Found today's follow-up entry: \(followUpEntry.content.prefix(50))...")
+            followUpJournalResponse = followUpEntry.content
+            followUpCurrentAIResponse = followUpEntry.aiResponse ?? ""
+            
+            // Set UI state based on whether AI response exists
+            if !followUpCurrentAIResponse.isEmpty {
+                followUpIsTextLocked = true
+                followUpShowCenteredButtonClick = true
+                followUpShowFavoriteButton = true
+                followUpIsFavoriteClicked = followUpEntry.isFavorite
+                followUpTextEditorHeight = 300
+            }
+        } else {
+            print("📝 No follow-up entry found for today (user hasn't responded yet)")
+        }
+        
         // Load goal text from the most recent goal
         if let mostRecentGoal = journalViewModel.goals.first {
             print("📝 Found goal: \(mostRecentGoal.goals)")
@@ -1585,6 +1686,55 @@ Capabilities and Reminders: You have access to the web search tools, published r
         }
         
         print("✅ UI state populated from journal entries")
+    }
+    
+    // Unified data refresh sequence used by both onAppear and pull-to-refresh
+    private func reloadJournalDataSequence(suppressErrors: Bool) async {
+        // Clear existing UI state on the main actor
+        await MainActor.run {
+            clearJournalUIState()
+        }
+        
+        // Load the latest guided question and perform daily reset if needed
+        await journalViewModel.loadTodaysQuestion()
+        await journalViewModel.checkAndResetIfNeeded()
+        
+        // Determine follow-up state after potential reset
+        let isFollowUpDay = journalViewModel.supabaseService.isFollowUpQuestionDay()
+        await MainActor.run {
+            isFollowUpQuestionDay = isFollowUpDay
+        }
+        
+        // Load journal data sets
+        await journalViewModel.loadJournalEntries()
+        await journalViewModel.loadOpenQuestionJournalEntries()
+        
+        // Load or clear follow-up question data depending on the day
+        if isFollowUpDay {
+            await journalViewModel.checkAndLoadFollowUpQuestion(suppressErrors: suppressErrors)
+        } else {
+            await MainActor.run {
+                journalViewModel.currentFollowUpQuestion = ""
+            }
+        }
+        
+        // Load goals after journal data
+        await journalViewModel.loadGoals()
+        
+        // Repopulate UI state with the freshly loaded data
+        await MainActor.run {
+            populateUIStateFromJournalEntries()
+            
+            if let mostRecentGoal = journalViewModel.goals.first {
+                goalText = mostRecentGoal.goals
+                isGoalLocked = true
+                showCPRefreshButton = true
+            } else {
+                goalText = ""
+                isGoalLocked = false
+                showCPRefreshButton = false
+            }
+        }
     }
     
     private func clearAllUIState() {
