@@ -780,64 +780,61 @@ class JournalViewModel: ObservableObject {
     // MARK: - Analyzer Stats
     func calculateAnalyzerStats(startDate: Date, endDate: Date) -> AnalyzerStats {
         let calendar = Calendar.current
-        let startOfStart = calendar.startOfDay(for: startDate)
-        guard let endExclusive = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: endDate)) else {
-            return AnalyzerStats(logsCount: 0, streakCount: 0, favoriteLogTime: "—")
-        }
-        
         let allEntries = journalEntries + openQuestionJournalEntries + followUpQuestionEntries
-        let filteredEntries = allEntries.filter { entry in
-            entry.createdAt >= startOfStart && entry.createdAt < endExclusive
+        
+        // Filter entries within date range
+        let entriesInRange = allEntries.filter { entry in
+            entry.createdAt >= startDate && entry.createdAt <= endDate
         }
         
-        let logsCount = filteredEntries.count
+        // Calculate logs count (unique days with entries)
+        let uniqueDays = Set(entriesInRange.map { calendar.startOfDay(for: $0.createdAt) })
+        let logsCount = uniqueDays.count
         
-        let daysWithEntries: Set<Date> = Set(filteredEntries.map { calendar.startOfDay(for: $0.createdAt) })
+        // Calculate streak (consecutive days with entries from endDate backwards)
+        let sortedDays = uniqueDays.sorted(by: >)
+        var streakCount = 0
+        var currentDate = calendar.startOfDay(for: endDate)
         
-        var currentStreak = 0
-        var maxStreak = 0
-        var dayIterator = startOfStart
-        while dayIterator < endExclusive {
-            if daysWithEntries.contains(dayIterator) {
-                currentStreak += 1
-                maxStreak = max(maxStreak, currentStreak)
+        for day in sortedDays {
+            if calendar.isDate(day, inSameDayAs: currentDate) {
+                streakCount += 1
+                if let previousDay = calendar.date(byAdding: .day, value: -1, to: currentDate) {
+                    currentDate = previousDay
+                } else {
+                    break
+                }
             } else {
-                currentStreak = 0
-            }
-            guard let nextDay = calendar.date(byAdding: .day, value: 1, to: dayIterator) else { break }
-            dayIterator = nextDay
-        }
-        
-        var countsByBucket: [String: Int] = [:]
-        for entry in filteredEntries {
-            let components = calendar.dateComponents([.hour, .minute], from: entry.createdAt)
-            let hour = components.hour ?? 0
-            
-            if hour >= 2 && hour < 7 {
-                countsByBucket["Early Morning", default: 0] += 1
-            } else if hour >= 7 && hour < 10 {
-                countsByBucket["Morning", default: 0] += 1
-            } else if hour >= 10 && hour < 14 {
-                countsByBucket["Mid Day", default: 0] += 1
-            } else if hour >= 14 && hour < 17 {
-                countsByBucket["Afternoon", default: 0] += 1
-            } else if hour >= 17 && hour < 21 {
-                countsByBucket["Evening", default: 0] += 1
-            } else {
-                countsByBucket["Late Evening", default: 0] += 1
+                break
             }
         }
         
-        let favoriteLogTime: String
-        if let topBucket = countsByBucket.max(by: { $0.value < $1.value }), topBucket.value > 0 {
-            favoriteLogTime = topBucket.key
-        } else {
-            favoriteLogTime = "—"
+        // Calculate favorite log time (time of day with most entries)
+        let timeCategories: [(String, Range<Int>)] = [
+            ("Early Morning", 2..<7),
+            ("Morning", 7..<10),
+            ("Mid Day", 10..<14),
+            ("Afternoon", 14..<17),
+            ("Evening", 17..<21),
+            ("Late Evening", 21..<26) // 21-23, 0-2 (wraps around)
+        ]
+        
+        var timeCounts: [String: Int] = [:]
+        for entry in entriesInRange {
+            let hour = calendar.component(.hour, from: entry.createdAt)
+            for (category, range) in timeCategories {
+                if range.contains(hour) || (range.lowerBound == 21 && hour < 2) {
+                    timeCounts[category, default: 0] += 1
+                    break
+                }
+            }
         }
+        
+        let favoriteLogTime = timeCounts.max(by: { $0.value < $1.value })?.key ?? "—"
         
         return AnalyzerStats(
             logsCount: logsCount,
-            streakCount: maxStreak,
+            streakCount: streakCount,
             favoriteLogTime: favoriteLogTime
         )
     }
@@ -846,36 +843,16 @@ class JournalViewModel: ObservableObject {
         guard let user = currentUser else { return }
         
         do {
-            analyzerEntries = try await supabaseService.fetchAnalyzerEntries(userId: user.id)
-            print("🧠 Analyzer entries loaded: \(analyzerEntries.count)")
+            analyzerEntries = try await supabaseService.fetchAnalyzerEntries()
+            print("✅ Analyzer entries loaded: \(analyzerEntries.count) entries found")
         } catch {
+            // Handle cancelled requests gracefully
             if error.localizedDescription.contains("cancelled") {
-                print("⚠️ loadAnalyzerEntries: Request was cancelled, keeping existing data")
+                print("⚠️ loadAnalyzerEntries: Request was cancelled, keeping existing entries")
             } else {
                 errorMessage = "Failed to load analyzer entries: \(error.localizedDescription)"
                 print("❌ Failed to load analyzer entries: \(error.localizedDescription)")
             }
-        }
-    }
-    
-    @discardableResult
-    func createAnalyzerEntry(entryType: String, tags: [String] = [], analyzerAiPrompt: String?) async -> AnalyzerEntry? {
-        guard let user = currentUser else { return nil }
-        
-        do {
-            let entry = try await supabaseService.createAnalyzerEntry(
-                userId: user.id,
-                entryType: entryType,
-                tags: tags,
-                analyzerAiPrompt: analyzerAiPrompt
-            )
-            analyzerEntries.insert(entry, at: 0)
-            print("🧠 Created analyzer entry \(entry.id) (\(entryType))")
-            return entry
-        } catch {
-            errorMessage = "Failed to create analyzer entry: \(error.localizedDescription)"
-            print("❌ Failed to create analyzer entry: \(error.localizedDescription)")
-            return nil
         }
     }
     
@@ -1655,6 +1632,157 @@ class JournalViewModel: ObservableObject {
                 callback()
             }
         }
+    }
+    
+    // MARK: - Analyzer Entry Functions
+    
+    /// Determines if analysis should be weekly or monthly based on date
+    func determineAnalysisType(for date: Date = Date()) -> String {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: date)
+        
+        // Check if today is the last Sunday of the month
+        let lastSundayOfMonth = findLastSundayOfMonth(for: today)
+        if let lastSunday = lastSundayOfMonth, calendar.isDate(today, inSameDayAs: lastSunday) {
+            return "monthly"
+        }
+        
+        // Otherwise, use weekly analysis
+        return "weekly"
+    }
+    
+    /// Finds the last Sunday of the month for a given date
+    private func findLastSundayOfMonth(for date: Date) -> Date? {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month], from: date)
+        
+        guard let firstOfMonth = calendar.date(from: components),
+              let range = calendar.range(of: .day, in: .month, for: firstOfMonth) else {
+            return nil
+        }
+        
+        // Find the last Sunday of the month
+        for day in range.reversed() {
+            if let date = calendar.date(byAdding: .day, value: day - 1, to: firstOfMonth) {
+                if calendar.component(.weekday, from: date) == 1 { // Sunday
+                    return date
+                }
+            }
+        }
+        
+        return nil
+    }
+    
+    /// Checks if user has enough entries for analysis
+    func checkAnalyzerEligibility(analysisType: String, startDate: Date, endDate: Date) async throws -> (isEligible: Bool, entryCount: Int, minimumRequired: Int) {
+        let entries = try await supabaseService.fetchJournalEntriesForAnalyzer(startDate: startDate, endDate: endDate)
+        
+        // Count unique days with entries
+        let calendar = Calendar.current
+        let uniqueDays = Set(entries.map { calendar.startOfDay(for: $0.createdAt) })
+        let entryCount = uniqueDays.count
+        
+        // Determine minimum required based on analysis type
+        let minimumRequired = analysisType == "monthly" ? 9 : 2
+        
+        let isEligible = entryCount >= minimumRequired
+        
+        return (isEligible, entryCount, minimumRequired)
+    }
+    
+    /// Creates a new analyzer entry and generates AI response
+    func createAnalyzerEntry(analysisType: String) async throws {
+        guard let user = currentUser else {
+            throw AIError.userNotAuthenticated
+        }
+        
+        isLoading = true
+        errorMessage = nil
+        currentRetryAttempt = 1
+        
+        do {
+            // Determine date range based on analysis type
+            let dateRange: (start: Date, end: Date)
+            if analysisType == "monthly" {
+                dateRange = supabaseService.calculateDateRangeForMonthlyAnalysis()
+            } else {
+                dateRange = supabaseService.calculateDateRangeForWeeklyAnalysis()
+            }
+            
+            // Check eligibility
+            let eligibility = try await checkAnalyzerEligibility(
+                analysisType: analysisType,
+                startDate: dateRange.start,
+                endDate: dateRange.end
+            )
+            
+            if !eligibility.isEligible {
+                let message = analysisType == "monthly"
+                    ? "Sorry, a minimum of \"nine days\" of journal entries is needed to run the monthly analysis."
+                    : "Sorry, a minimum of \"two days\" of journal entries is needed to run the weekly analysis. Try again next week"
+                throw NSError(domain: "AnalyzerError", code: 0, userInfo: [NSLocalizedDescriptionKey: message])
+            }
+            
+            // Fetch journal entries for the date range
+            let entries = try await supabaseService.fetchJournalEntriesForAnalyzer(
+                startDate: dateRange.start,
+                endDate: dateRange.end
+            )
+            
+            // Combine all entry content
+            let content = entries.map { $0.content }.joined(separator: "\n\n")
+            
+            // Generate analyzer prompt
+            let analyzerPrompt: String
+            if analysisType == "monthly" {
+                analyzerPrompt = supabaseService.generateMonthlyAnalyzerPrompt(content: content)
+            } else {
+                analyzerPrompt = supabaseService.generateWeeklyAnalyzerPrompt(content: content)
+            }
+            
+            // Create analyzer entry with prompt (no response yet)
+            let analyzerEntry = AnalyzerEntry(
+                userId: user.id,
+                analyzerAiPrompt: analyzerPrompt,
+                analyzerAiResponse: nil,
+                entryType: analysisType,
+                tags: [],
+                createdAt: Date(),
+                updatedAt: nil
+            )
+            
+            // Save analyzer entry to database
+            let createdEntry = try await supabaseService.createAnalyzerEntry(analyzerEntry)
+            
+            // Generate AI response with retry logic
+            let aiResponse = try await generateAIResponseWithRetry(for: analyzerPrompt)
+            
+            // Update analyzer entry with AI response
+            let updatedEntry = AnalyzerEntry(
+                id: createdEntry.id,
+                userId: createdEntry.userId,
+                analyzerAiPrompt: createdEntry.analyzerAiPrompt,
+                analyzerAiResponse: aiResponse,
+                entryType: createdEntry.entryType,
+                tags: createdEntry.tags,
+                createdAt: createdEntry.createdAt,
+                updatedAt: Date()
+            )
+            
+            _ = try await supabaseService.updateAnalyzerEntry(updatedEntry)
+            
+            // Reload analyzer entries to update UI
+            await loadAnalyzerEntries()
+            
+            print("✅ Analyzer entry created and AI response generated successfully")
+            
+        } catch {
+            errorMessage = "The AI's taking a short break 😅 please try again shortly."
+            print("❌ Failed to create analyzer entry: \(error.localizedDescription)")
+            throw error
+        }
+        
+        isLoading = false
     }
 }
 

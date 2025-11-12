@@ -1041,4 +1041,234 @@ class SupabaseService: ObservableObject {
             throw error
         }
     }
+    
+    // MARK: - Analyzer Entry Functions
+    
+    /// Creates a new analyzer entry in the analyzer_entries table
+    func createAnalyzerEntry(_ entry: AnalyzerEntry) async throws -> AnalyzerEntry {
+        if useMockData {
+            print("Mock: Creating analyzer entry")
+            var newEntry = entry
+            mockAnalyzerEntries.append(newEntry)
+            return newEntry
+        } else {
+            guard let userId = supabase.auth.currentUser?.id else {
+                throw NSError(domain: "AuthError", code: 0, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            }
+            
+            // Use Supabase client's automatic Codable serialization
+            let response: [AnalyzerEntry] = try await supabase
+                .from("analyzer_entries")
+                .insert(entry)
+                .select()
+                .execute()
+                .value
+            
+            guard let savedEntry = response.first else {
+                throw NSError(domain: "DatabaseError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to create analyzer entry"])
+            }
+            
+            return savedEntry
+        }
+    }
+    
+    /// Fetches all analyzer entries for the current user
+    func fetchAnalyzerEntries() async throws -> [AnalyzerEntry] {
+        if useMockData {
+            print("Mock: Fetching analyzer entries")
+            return mockAnalyzerEntries
+        } else {
+            guard let userId = supabase.auth.currentUser?.id else {
+                throw NSError(domain: "AuthError", code: 0, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            }
+            
+            // Use Supabase client's automatic Codable deserialization
+            let response: [AnalyzerEntry] = try await supabase
+                .from("analyzer_entries")
+                .select()
+                .eq("user_id", value: userId)
+                .order("created_at", ascending: false)
+                .execute()
+                .value
+            
+            return response
+        }
+    }
+    
+    /// Updates an existing analyzer entry
+    func updateAnalyzerEntry(_ entry: AnalyzerEntry) async throws -> AnalyzerEntry {
+        if useMockData {
+            print("Mock: Updating analyzer entry")
+            if let index = mockAnalyzerEntries.firstIndex(where: { $0.id == entry.id }) {
+                mockAnalyzerEntries[index] = entry
+                return entry
+            }
+            throw NSError(domain: "DatabaseError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Analyzer entry not found"])
+        } else {
+            guard let userId = supabase.auth.currentUser?.id else {
+                throw NSError(domain: "AuthError", code: 0, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            }
+            
+            // Create updated entry with current timestamp
+            let updatedEntry = AnalyzerEntry(
+                id: entry.id,
+                userId: entry.userId,
+                analyzerAiPrompt: entry.analyzerAiPrompt,
+                analyzerAiResponse: entry.analyzerAiResponse,
+                entryType: entry.entryType,
+                tags: entry.tags,
+                createdAt: entry.createdAt,
+                updatedAt: Date()
+            )
+            
+            // Use Supabase client's automatic Codable serialization
+            let response: [AnalyzerEntry] = try await supabase
+                .from("analyzer_entries")
+                .update(updatedEntry)
+                .eq("id", value: entry.id)
+                .eq("user_id", value: userId)
+                .select()
+                .execute()
+                .value
+            
+            guard let savedEntry = response.first else {
+                throw NSError(domain: "DatabaseError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to update analyzer entry"])
+            }
+            
+            return savedEntry
+        }
+    }
+    
+    /// Parses an analyzer entry from a dictionary
+    private func parseAnalyzerEntry(from dict: [String: Any]) throws -> AnalyzerEntry {
+        guard let idString = dict["id"] as? String,
+              let id = UUID(uuidString: idString),
+              let userIdString = dict["user_id"] as? String,
+              let userId = UUID(uuidString: userIdString),
+              let entryType = dict["entry_type"] as? String,
+              let createdAtString = dict["created_at"] as? String else {
+            throw NSError(domain: "ParseError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid analyzer entry data"])
+        }
+        
+        let formatter = ISO8601DateFormatter()
+        let createdAt = formatter.date(from: createdAtString) ?? Date()
+        
+        let analyzerAiPrompt = dict["analyzer_ai_prompt"] as? String
+        let analyzerAiResponse = dict["analyzer_ai_response"] as? String
+        let tags = dict["tags"] as? [String] ?? []
+        let updatedAtString = dict["updated_at"] as? String
+        let updatedAt = updatedAtString != nil ? formatter.date(from: updatedAtString!) : nil
+        
+        return AnalyzerEntry(
+            id: id,
+            userId: userId,
+            analyzerAiPrompt: analyzerAiPrompt,
+            analyzerAiResponse: analyzerAiResponse,
+            entryType: entryType,
+            tags: tags,
+            createdAt: createdAt,
+            updatedAt: updatedAt
+        )
+    }
+    
+    /// Fetches journal entries within a date range for analyzer
+    func fetchJournalEntriesForAnalyzer(startDate: Date, endDate: Date) async throws -> [JournalEntry] {
+        if useMockData {
+            print("Mock: Fetching journal entries for analyzer")
+            return mockJournalEntries.filter { entry in
+                entry.createdAt >= startDate && entry.createdAt <= endDate
+            }
+        } else {
+            guard let userId = supabase.auth.currentUser?.id else {
+                throw NSError(domain: "AuthError", code: 0, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            }
+            
+            let formatter = ISO8601DateFormatter()
+            let startDateString = formatter.string(from: startDate)
+            let endDateString = formatter.string(from: endDate)
+            
+            // Use Supabase client's automatic deserialization
+            let response: [JournalEntry] = try await supabase
+                .from("journal_entries")
+                .select()
+                .eq("user_id", value: userId)
+                .gte("created_at", value: startDateString)
+                .lte("created_at", value: endDateString)
+                .order("created_at", ascending: false)
+                .execute()
+                .value
+            
+            return response
+        }
+    }
+    
+    /// Generates a weekly analyzer prompt based on journal entries
+    func generateWeeklyAnalyzerPrompt(content: String) -> String {
+        let promptTemplate = """
+Role: Mental health/Behavioral therapist.
+
+Task: Analyze and evaluate all the user's inputs from the last 7 days
+
+User Input: {content}
+
+Output: Create three paragraphs. The first paragraph, list the top three moods / emotions with number (#) of instances found in the user input analysis. Ex. "mood1(#), mood2(#), mood3(#)". Only display moods (#). Second paragraph, first bullet = summary of the inputs, second bullet = action the user can make to address input summary and goal for the next week. Tone = encouraging and supportive. Limit to 200 words. Last paragraph, evaluate the inputs and generate a "centered score" from 60 to 100. (60-70=professional therapy help may be needed, 70-80=normal but needs improvement, 80-90=normal human emotions, 90-100=well balanced mental health). Only display score number.
+"""
+        return promptTemplate.replacingOccurrences(of: "{content}", with: content)
+    }
+    
+    /// Generates a monthly analyzer prompt based on journal entries
+    func generateMonthlyAnalyzerPrompt(content: String) -> String {
+        let promptTemplate = """
+Role: Mental health/Behavioral therapist.
+
+Task: Analyze and evaluate all the user's inputs from the last month
+
+User Input: {content}
+
+Output: Create three paragraphs. The first paragraph, list the top five moods / emotions with number (#) of instances found in the user input analysis. Ex. "mood1(#), mood2(#), mood3(#), mood4(#), mood5(#)". Only display moods (#). Second paragraph, first bullet = summary of the inputs, second bullet = action the user can make to address input summary and goal for the next week. Tone = encouraging and supportive. Limit to 200 words. Last paragraph, evaluate the inputs and generate a "centered score" from 60 to 100. (60-70=professional therapy help may be needed, 70-80=normal but needs improvement, 80-90=normal human emotions, 90-100=well balanced mental health). Only display score number.
+"""
+        return promptTemplate.replacingOccurrences(of: "{content}", with: content)
+    }
+    
+    /// Calculates the date range for weekly analysis (previous Sunday to Saturday)
+    func calculateDateRangeForWeeklyAnalysis(for date: Date = Date()) -> (start: Date, end: Date) {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let weekday = calendar.component(.weekday, from: startOfDay)
+        let daysSinceSunday = (weekday + 6) % 7
+        
+        guard let previousSunday = calendar.date(byAdding: .day, value: -(daysSinceSunday + 7), to: startOfDay),
+              let lastSaturday = calendar.date(byAdding: .day, value: -1, to: calendar.date(byAdding: .weekOfYear, value: 0, to: startOfDay) ?? startOfDay) else {
+            return (startOfDay, startOfDay)
+        }
+        
+        return (calendar.startOfDay(for: previousSunday), calendar.startOfDay(for: lastSaturday))
+    }
+    
+    /// Calculates the date range for monthly analysis (previous last Sunday of month to current last Saturday of month)
+    func calculateDateRangeForMonthlyAnalysis(for date: Date = Date()) -> (start: Date, end: Date) {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        
+        // Find the last Sunday of the previous month
+        let lastMonthCandidates = stride(from: 1, through: calendar.range(of: .day, in: .month, for: startOfDay)?.count ?? 31, by: 1)
+            .compactMap { calendar.date(byAdding: .day, value: -$0, to: startOfDay) }
+        
+        if let lastSunday = lastMonthCandidates.first(where: { calendar.component(.weekday, from: $0) == 1 }),
+           let lastSaturday = lastMonthCandidates.first(where: { calendar.component(.weekday, from: $0) == 7 }) {
+            return (calendar.startOfDay(for: lastSunday), calendar.startOfDay(for: lastSaturday))
+        }
+        
+        // Fallback to weekly range if monthly calculation fails
+        return calculateDateRangeForWeeklyAnalysis(for: date)
+    }
+    
+    /// Checks if analyzer is available (every Sunday at 2 AM)
+    func isAnalyzerAvailable(for date: Date = Date()) -> Bool {
+        let calendar = Calendar.current
+        let weekday = calendar.component(.weekday, from: date)
+        
+        // Analyzer is available on Sundays (weekday == 1)
+        return weekday == 1
+    }
 }

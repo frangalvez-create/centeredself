@@ -2314,14 +2314,14 @@ Capabilities and Reminders: You have access to the web search tools, published r
     
     private var analyzerPageView: some View {
         ScrollView {
-            VStack(spacing: 10) {
+            VStack(spacing: 0) {
                 Image("Anal Logo")
                     .renderingMode(.original)
                     .resizable()
                     .scaledToFit()
                     .frame(width: 80, height: 80)
                     .padding(.top, 60)
-                    .padding(.bottom, 0)
+                    .padding(.bottom, -5)
                 
                 Image("Anal Title")
                     .renderingMode(.original)
@@ -2334,28 +2334,36 @@ Capabilities and Reminders: You have access to the web search tools, published r
                 HStack(alignment: .center, spacing: 12) {
                     Rectangle()
                         .fill(Color(hex: "F5F4EB").opacity(0.6))
-                        .frame(maxWidth: .infinity, maxHeight: 1)
+                        .frame(height: 1)
+                        .layoutPriority(1)
                     
                     Text(analyzerViewModel.dateRangeDisplay)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundColor(Color(hex: "F5F4EB"))
                         .multilineTextAlignment(.center)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                        .minimumScaleFactor(0.3)
+                        .layoutPriority(2)
                     
                     Rectangle()
                         .fill(Color(hex: "F5F4EB").opacity(0.6))
-                        .frame(maxWidth: .infinity, maxHeight: 1)
+                        .frame(height: 1)
+                        .layoutPriority(1)
                 }
-                .padding(.top, 0)
+                .padding(.top, -5)
                 
                 moodTrackerSection
-                    .padding(.top, 20)
+                    .padding(.top, 12)
                 
                 statisticsSection
-                    .padding(.top, 20)
+                    .padding(.top, 14)
                 
-                Spacer(minLength: 40)
+                summarySection
+                    .padding(.top, 14)
+                
+                analyzeButtonSection
+                    .padding(.top, 14)
+                    .padding(.bottom, 40)
             }
             .padding(.horizontal, 24)
             .frame(maxWidth: .infinity)
@@ -2364,6 +2372,45 @@ Capabilities and Reminders: You have access to the web search tools, published r
         .ignoresSafeArea(.all, edges: .top)
         .onAppear {
             recalculateAnalyzerState()
+        }
+        .overlay {
+            // Loading overlay during analyzer AI generation
+            if analyzerViewModel.isAnalyzing {
+                ZStack {
+                    Color.black.opacity(0.4)
+                        .ignoresSafeArea()
+                    
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                            .tint(.white)
+                        
+                        Text(getAnalyzerLoadingText())
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.white)
+                    }
+                    .padding(20)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.black.opacity(0.8))
+                    )
+                }
+                .allowsHitTesting(true) // Block all interactions
+            }
+        }
+        .alert("Oops", isPresented: .constant(journalViewModel.errorMessage != nil && journalViewModel.errorMessage!.contains("AI's taking a short break"))) {
+            Button("OK") {
+                journalViewModel.errorMessage = nil
+            }
+        } message: {
+            Text(journalViewModel.errorMessage ?? "")
+        }
+        .alert("Minimum Entries Required", isPresented: $analyzerViewModel.showMinimumEntriesAlert) {
+            Button("OK") {
+                analyzerViewModel.showMinimumEntriesAlert = false
+            }
+        } message: {
+            Text(analyzerViewModel.minimumEntriesMessage)
         }
     }
     
@@ -2424,7 +2471,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
     }
     
     private var moodTrackerSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 6) {
             Text("Mood Tracker")
                 .font(.system(size: 16, weight: .bold))
                 .foregroundColor(Color(hex: "8BECF8"))
@@ -2452,7 +2499,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
                 )
             } else {
                 moodBarChart()
-                    .padding(16)
+                    .padding(10)
                     .background(
                         RoundedRectangle(cornerRadius: 24)
                             .fill(Color(hex: "F5F4EB"))
@@ -2465,67 +2512,34 @@ Capabilities and Reminders: You have access to the web search tools, published r
     private func moodBarChart() -> some View {
         let counts = analyzerViewModel.moodCounts
         let maxCount = max(counts.map { $0.count }.max() ?? 1, 1)
-        let tickCount = min(maxCount, 5)
-        let tickStep = max(1, maxCount / tickCount)
-        let tickValues: [Int]
-        if maxCount <= 5 {
-            tickValues = Array((1...maxCount).reversed())
-        } else {
-            tickValues = stride(from: maxCount, through: tickStep, by: -tickStep).map { Int($0) }
-        }
-        let chartHeight: CGFloat = 180
+        let chartHeight: CGFloat = 126
         let barSpacing: CGFloat = counts.count > 0 ? 16 : 0
         
         return VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .bottom, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("#")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(Color(hex: "3F5E82"))
-                    ForEach(tickValues, id: \.self) { value in
-                        Text("\(value)")
-                            .font(.system(size: 12, weight: .medium))
+            HStack(alignment: .bottom, spacing: barSpacing) {
+                ForEach(Array(counts.enumerated()), id: \.element.id) { index, mood in
+                    VStack(spacing: 8) {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(analyzerMoodColors[index % analyzerMoodColors.count])
+                            .frame(width: 28,
+                                   height: max(CGFloat(mood.count) / CGFloat(maxCount) * (chartHeight - 25), 10))
+                        
+                        Text(mood.mood)
+                            .font(.system(size: 14, weight: .medium))
                             .foregroundColor(Color(hex: "3F5E82"))
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
                     }
-                    Spacer()
-                }
-                .frame(height: chartHeight)
-                
-                HStack(alignment: .bottom, spacing: barSpacing) {
-                    ForEach(Array(counts.enumerated()), id: \.element.id) { index, mood in
-                        VStack(spacing: 8) {
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(analyzerMoodColors[index % analyzerMoodColors.count])
-                                .frame(width: 28,
-                                       height: max(CGFloat(mood.count) / CGFloat(maxCount) * (chartHeight - 40), 10))
-                            
-                            Text(mood.mood)
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(Color(hex: "3F5E82"))
-                                .multilineTextAlignment(.center)
-                                .lineLimit(2)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                }
-                .frame(height: chartHeight)
-            }
-            
-            HStack(spacing: barSpacing) {
-                Spacer().frame(width: 40)
-                ForEach(counts, id: \.id) { mood in
-                    Text("\(mood.count) entries")
-                        .font(.system(size: 12))
-                        .foregroundColor(Color(hex: "3F5E82").opacity(0.7))
-                        .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity)
                 }
             }
-            .padding(.leading, 40)
+            .frame(height: chartHeight)
+            .frame(maxWidth: .infinity)
         }
     }
     
     private var statisticsSection: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 6) {
             Text("Statistics")
                 .font(.system(size: 16, weight: .bold))
                 .foregroundColor(Color(hex: "8BECF8"))
@@ -2543,13 +2557,16 @@ Capabilities and Reminders: You have access to the web search tools, published r
                     // # Logs - Top Left (y = 0)
                     VStack(spacing: 8) {
                         Text("# Logs")
-                            .font(.system(size: 14))
+                            .font(.system(size: 15))
                             .foregroundColor(Color(hex: "545555"))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.9)
                         Text("\(analyzerViewModel.logsCount)")
-                            .font(.system(size: 17, weight: .bold))
+                            .font(.system(size: 19, weight: .bold))
                             .foregroundColor(Color(hex: "3F8259"))
+                            .lineLimit(1)
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 16)
                     .frame(width: columnWidth, height: topRowHeight)
                     .background(
@@ -2560,14 +2577,17 @@ Capabilities and Reminders: You have access to the web search tools, published r
                     
                     // Log Streak - Top Middle (y = 0)
                     VStack(spacing: 8) {
-                        Text("Log Streak")
-                            .font(.system(size: 14))
+                        Text("Streak")
+                            .font(.system(size: 15))
                             .foregroundColor(Color(hex: "545555"))
-                        Text(analyzerViewModel.streakDuringRange == 0 ? "—" : "\(analyzerViewModel.streakDuringRange) days")
-                            .font(.system(size: 17, weight: .bold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.9)
+                        Text(analyzerViewModel.streakDuringRange == 0 ? "0" : "\(analyzerViewModel.streakDuringRange) days")
+                            .font(.system(size: 19, weight: .bold))
                             .foregroundColor(Color(hex: "3F8259"))
+                            .lineLimit(1)
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 16)
                     .frame(width: columnWidth, height: topRowHeight)
                     .background(
@@ -2582,15 +2602,16 @@ Capabilities and Reminders: You have access to the web search tools, published r
                             .font(.system(size: 16))
                             .foregroundColor(Color(hex: "545555"))
                             .multilineTextAlignment(.center)
-                            .frame(maxWidth: .infinity)
-                        Text(analyzerViewModel.centeredScore.map { "\($0)" } ?? "—")
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.8)
+                        Text(analyzerViewModel.centeredScore.map { "\($0)" } ?? "0")
                             .font(.system(size: 32, weight: .bold))
                             .foregroundColor(Color(hex: "823F47"))
                             .multilineTextAlignment(.center)
                             .frame(maxWidth: .infinity)
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 16)
                     .frame(width: columnWidth, height: centeredScoreHeight)
                     .background(
@@ -2602,13 +2623,16 @@ Capabilities and Reminders: You have access to the web search tools, published r
                     // Fav Log Time - Bottom Left/Middle (starts at y = 86pt, ends at y = 156pt)
                     VStack(spacing: 8) {
                         Text("Fav Log Time")
-                            .font(.system(size: 14))
+                            .font(.system(size: 15))
                             .foregroundColor(Color(hex: "545555"))
-                        Text(analyzerViewModel.favoriteLogTime)
-                            .font(.system(size: 17, weight: .bold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.9)
+                        Text(analyzerViewModel.favoriteLogTime == "—" ? "0" : analyzerViewModel.favoriteLogTime)
+                            .font(.system(size: 19, weight: .bold))
                             .foregroundColor(Color(hex: "583F82"))
+                            .lineLimit(1)
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 16)
                     .frame(width: columnWidth * 2 + spacing, height: favLogTimeHeight)
                     .background(
@@ -2655,6 +2679,138 @@ Capabilities and Reminders: You have access to the web search tools, published r
         )
     }
     
+    private var summarySection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Summary")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(Color(hex: "8BECF8"))
+                .frame(maxWidth: .infinity, alignment: .center)
+            
+            if let summaryText = analyzerViewModel.summaryText, !summaryText.isEmpty {
+                Text(formatSummaryText(summaryText))
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "3F5E82"))
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 24)
+                            .fill(Color(hex: "F5F4EB"))
+                    )
+            } else {
+                VStack(spacing: 12) {
+                    Image(systemName: "text.alignleft")
+                        .font(.system(size: 28))
+                        .foregroundColor(Color(hex: "3F5E82").opacity(0.4))
+                    Text("No summary available yet.")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color(hex: "3F5E82"))
+                        .multilineTextAlignment(.center)
+                    Text("Run Analyze to see your weekly or monthly summary.")
+                        .font(.system(size: 13))
+                        .foregroundColor(Color(hex: "3F5E82").opacity(0.7))
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 32)
+                .background(
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(Color(hex: "F5F4EB"))
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    
+    private var analyzeButtonSection: some View {
+        VStack(spacing: 0) {
+            Button(action: {
+                analyzeButtonTapped()
+            }) {
+                ZStack {
+                    // Button image - use "Analyze Button Click.png" for greyed out state, "Analyze Button.png" for active state
+                    Image(analyzerViewModel.isAnalyzeButtonEnabled && !analyzerViewModel.isAnalyzing ? "Analyze Button" : "Analyze Button Click")
+                        .renderingMode(.original)
+                        .resizable()
+                        .scaledToFit()
+                        .scaleEffect(0.6)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                    
+                    // Loading overlay when analyzing
+                    if analyzerViewModel.isAnalyzing {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(1.2)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .disabled(!analyzerViewModel.isAnalyzeButtonEnabled || analyzerViewModel.isAnalyzing)
+            
+            // Show text only when button is greyed out (disabled state)
+            if !analyzerViewModel.isAnalyzeButtonEnabled && !analyzerViewModel.isAnalyzing {
+                Text("New analysis available next Sunday morning")
+                    .font(.system(size: 12))
+                    .foregroundColor(Color(hex: "F5F4EB").opacity(0.7))
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 4)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+    
+    private func analyzeButtonTapped() {
+        guard !analyzerViewModel.isAnalyzing else { return }
+        
+        analyzerViewModel.isAnalyzing = true
+        journalViewModel.currentRetryAttempt = 1
+        
+        // Determine analysis type
+        let analysisType = journalViewModel.determineAnalysisType()
+        
+        Task {
+            do {
+                try await journalViewModel.createAnalyzerEntry(analysisType: analysisType)
+                // Reload analyzer entries and recalculate state
+                await journalViewModel.loadAnalyzerEntries()
+                await MainActor.run {
+                    recalculateAnalyzerState()
+                    analyzerViewModel.isAnalyzing = false
+                }
+            } catch {
+                // Check if it's a minimum entries error
+                if error.localizedDescription.contains("minimum") {
+                    await MainActor.run {
+                        analyzerViewModel.showMinimumEntriesAlert = true
+                        analyzerViewModel.minimumEntriesMessage = error.localizedDescription
+                        analyzerViewModel.isAnalyzing = false
+                    }
+                } else {
+                    // Other errors (AI generation failed)
+                    await MainActor.run {
+                        analyzerViewModel.isAnalyzing = false
+                        // Error message is already set in JournalViewModel
+                    }
+                }
+            }
+        }
+    }
+    
+    private func getAnalyzerLoadingText() -> String {
+        switch journalViewModel.currentRetryAttempt {
+        case 1:
+            return "Analyzing..."
+        case 2:
+            return "Retrying..."
+        case 3:
+            return "Retrying again..."
+        default:
+            return "Analyzing..."
+        }
+    }
+    
     private func recalculateAnalyzerState() {
         analyzerViewModel.update(with: journalViewModel.analyzerEntries)
         let referenceDate = analyzerViewModel.latestEntry?.createdAt ?? Date()
@@ -2662,6 +2818,23 @@ Capabilities and Reminders: You have access to the web search tools, published r
         analyzerViewModel.refreshDateRangeDisplay(referenceDate: referenceDate)
         let stats = journalViewModel.calculateAnalyzerStats(startDate: displayData.startDate, endDate: displayData.endDate)
         analyzerViewModel.refreshStats(using: stats)
+        analyzerViewModel.determineAnalysisAvailability()
+    }
+    
+    private func formatSummaryText(_ text: String) -> String {
+        // Split by lines starting with "- " and add double newline spacing between bullet points
+        let lines = text.components(separatedBy: .newlines)
+        var formattedLines: [String] = []
+        
+        for (index, line) in lines.enumerated() {
+            if line.hasPrefix("- ") && index > 0 {
+                // Add empty line before bullet point (except the first one)
+                formattedLines.append("")
+            }
+            formattedLines.append(line)
+        }
+        
+        return formattedLines.joined(separator: "\n")
     }
     
     @State private var isEditingFavorites = false

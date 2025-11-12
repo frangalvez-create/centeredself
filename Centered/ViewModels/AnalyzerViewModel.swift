@@ -37,6 +37,11 @@ class AnalyzerViewModel: ObservableObject {
     @Published var streakDuringRange: Int = 0
     @Published var favoriteLogTime: String = "—"
     @Published var centeredScore: Int?
+    @Published var summaryText: String?
+    @Published var isAnalyzeButtonEnabled: Bool = false
+    @Published var isAnalyzing: Bool = false
+    @Published var showMinimumEntriesAlert: Bool = false
+    @Published var minimumEntriesMessage: String = ""
     
     private let calendar: Calendar
     
@@ -56,13 +61,16 @@ class AnalyzerViewModel: ObservableObject {
             if let response = entry.analyzerAiResponse {
                 moodCounts = parseMoodCounts(from: response)
                 centeredScore = parseCenteredScore(from: response)
+                summaryText = parseSummaryText(from: response)
             } else {
                 moodCounts = []
                 centeredScore = nil
+                summaryText = nil
             }
         } else {
             moodCounts = []
             centeredScore = nil
+            summaryText = nil
         }
     }
     
@@ -180,6 +188,45 @@ class AnalyzerViewModel: ObservableObject {
         guard digits.count >= 2 else { return nil }
         let scoreString = String(digits.suffix(2))
         return Int(scoreString)
+    }
+    
+    private func parseSummaryText(from response: String) -> String? {
+        let trimmedResponse = response.trimmingCharacters(in: .whitespacesAndNewlines)
+        let paragraphs = trimmedResponse.components(separatedBy: "\n\n")
+        guard paragraphs.count >= 2 else { return nil }
+        let summaryParagraph = paragraphs[1].trimmingCharacters(in: .whitespacesAndNewlines)
+        return summaryParagraph.isEmpty ? nil : summaryParagraph
+    }
+    
+    /// Determines if the analyze button should be enabled
+    func determineAnalysisAvailability(for date: Date = Date()) {
+        let weekday = calendar.component(.weekday, from: date)
+        
+        // Analyzer is available on Sundays (weekday == 1)
+        let isSunday = weekday == 1
+        
+        if !isSunday {
+            isAnalyzeButtonEnabled = false
+            return
+        }
+        
+        // Check if there's already an analysis for the current period
+        // If latestEntry exists and was created today, disable the button
+        if let latestEntry = latestEntry {
+            let entryDate = calendar.startOfDay(for: latestEntry.createdAt)
+            let today = calendar.startOfDay(for: date)
+            
+            if calendar.isDate(entryDate, inSameDayAs: today) {
+                // Analysis already exists for today
+                isAnalyzeButtonEnabled = false
+            } else {
+                // No analysis for today, enable button
+                isAnalyzeButtonEnabled = true
+            }
+        } else {
+            // No previous analysis, enable button
+            isAnalyzeButtonEnabled = true
+        }
     }
 }
 
