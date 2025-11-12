@@ -9,6 +9,7 @@ class SupabaseService: ObservableObject {
     private var mockJournalEntries: [JournalEntry] = []
     private var mockGoals: [Goal] = []
     private var mockUserProfile: UserProfile?
+    private var mockAnalyzerEntries: [AnalyzerEntry] = []
     
     init() {
         if useMockData {
@@ -707,6 +708,113 @@ class SupabaseService: ObservableObject {
                 .execute()
                 .value
             return favoriteEntries
+        }
+    }
+    
+    // MARK: - Analyzer Entries
+    func fetchAnalyzerEntries(userId: UUID) async throws -> [AnalyzerEntry] {
+        if useMockData {
+            let entries = mockAnalyzerEntries.filter { $0.userId == userId }
+                .sorted { $0.createdAt > $1.createdAt }
+            print("Mock: Returning \(entries.count) analyzer entries for user \(userId)")
+            return entries
+        } else {
+            let response: [AnalyzerEntry] = try await supabase
+                .from("analyzer_entries")
+                .select()
+                .eq("user_id", value: userId)
+                .order("created_at", ascending: false)
+                .execute()
+                .value
+            return response
+        }
+    }
+    
+    func createAnalyzerEntry(
+        userId: UUID,
+        entryType: String,
+        tags: [String],
+        analyzerAiPrompt: String?
+    ) async throws -> AnalyzerEntry {
+        let newEntry = AnalyzerEntry(
+            userId: userId,
+            analyzerAiPrompt: analyzerAiPrompt,
+            analyzerAiResponse: nil,
+            entryType: entryType,
+            tags: tags
+        )
+        
+        if useMockData {
+            mockAnalyzerEntries.append(newEntry)
+            print("Mock: Created analyzer entry \(newEntry.id) for user \(userId)")
+            return newEntry
+        } else {
+            let response: [AnalyzerEntry] = try await supabase
+                .from("analyzer_entries")
+                .insert(newEntry)
+                .select()
+                .execute()
+                .value
+            
+            guard let savedEntry = response.first else {
+                throw NSError(
+                    domain: "DatabaseError",
+                    code: 0,
+                    userInfo: [NSLocalizedDescriptionKey: "Failed to create analyzer entry"]
+                )
+            }
+            
+            return savedEntry
+        }
+    }
+    
+    func updateAnalyzerEntryResponse(
+        entryId: UUID,
+        analyzerAiResponse: String
+    ) async throws -> AnalyzerEntry {
+        if useMockData {
+            guard let index = mockAnalyzerEntries.firstIndex(where: { $0.id == entryId }) else {
+                throw NSError(
+                    domain: "MockDataError",
+                    code: 0,
+                    userInfo: [NSLocalizedDescriptionKey: "Analyzer entry not found"]
+                )
+            }
+            
+            let updated = AnalyzerEntry(
+                id: mockAnalyzerEntries[index].id,
+                userId: mockAnalyzerEntries[index].userId,
+                analyzerAiPrompt: mockAnalyzerEntries[index].analyzerAiPrompt,
+                analyzerAiResponse: analyzerAiResponse,
+                entryType: mockAnalyzerEntries[index].entryType,
+                tags: mockAnalyzerEntries[index].tags,
+                createdAt: mockAnalyzerEntries[index].createdAt,
+                updatedAt: Date()
+            )
+            mockAnalyzerEntries[index] = updated
+            print("Mock: Updated analyzer entry response for \(entryId)")
+            return updated
+        } else {
+            let response: [AnalyzerEntry] = try await supabase
+                .from("analyzer_entries")
+                .update([
+                    "analyzer_ai_response": analyzerAiResponse,
+                    "updated_at": ISO8601DateFormatter().string(from: Date())
+                ])
+                .eq("id", value: entryId)
+                .select()
+                .execute()
+                .value
+            
+            guard let updatedEntry = response.first else {
+                throw NSError(
+                    domain: "DatabaseError",
+                    code: 0,
+                    userInfo: [NSLocalizedDescriptionKey: "Failed to update analyzer entry response"]
+                )
+            }
+            
+            return updatedEntry
         }
     }
     

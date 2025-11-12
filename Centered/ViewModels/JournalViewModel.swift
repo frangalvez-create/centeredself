@@ -14,6 +14,7 @@ class JournalViewModel: ObservableObject {
     @Published var goals: [Goal] = []
     @Published var shouldClearUIState = false
     @Published var followUpQuestionEntries: [JournalEntry] = []
+    @Published var analyzerEntries: [AnalyzerEntry] = []
     @Published var currentFollowUpQuestion: String = ""
     @Published var currentRetryAttempt: Int = 1 // Track current retry attempt for UI status
     
@@ -144,6 +145,7 @@ class JournalViewModel: ObservableObject {
             currentQuestion = nil
             openQuestionJournalEntries = []
             favoriteJournalEntries = []
+            analyzerEntries = []
             // Don't clear UI state here - let verifyOTP handle it when a different user signs in
             print("🚪 User signed out - UI state preserved for same user re-login")
         } catch {
@@ -202,6 +204,7 @@ class JournalViewModel: ObservableObject {
         await loadTodaysQuestion()
         await loadJournalEntries()
         await loadOpenQuestionJournalEntries()
+        await loadAnalyzerEntries()
         await loadGoals() // Load goals for persistence
         
         // Notify UI to populate state from loaded data
@@ -771,6 +774,127 @@ class JournalViewModel: ObservableObject {
         } catch {
             errorMessage = "Failed to update open question journal entry favorite status: \(error.localizedDescription)"
             print("❌ Failed to update open question journal entry favorite status: \(error.localizedDescription)")
+        }
+    }
+    
+    // MARK: - Analyzer Stats
+    func calculateAnalyzerStats(startDate: Date, endDate: Date) -> AnalyzerStats {
+        let calendar = Calendar.current
+        let startOfStart = calendar.startOfDay(for: startDate)
+        guard let endExclusive = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: endDate)) else {
+            return AnalyzerStats(logsCount: 0, streakCount: 0, favoriteLogTime: "—")
+        }
+        
+        let allEntries = journalEntries + openQuestionJournalEntries + followUpQuestionEntries
+        let filteredEntries = allEntries.filter { entry in
+            entry.createdAt >= startOfStart && entry.createdAt < endExclusive
+        }
+        
+        let logsCount = filteredEntries.count
+        
+        let daysWithEntries: Set<Date> = Set(filteredEntries.map { calendar.startOfDay(for: $0.createdAt) })
+        
+        var currentStreak = 0
+        var maxStreak = 0
+        var dayIterator = startOfStart
+        while dayIterator < endExclusive {
+            if daysWithEntries.contains(dayIterator) {
+                currentStreak += 1
+                maxStreak = max(maxStreak, currentStreak)
+            } else {
+                currentStreak = 0
+            }
+            guard let nextDay = calendar.date(byAdding: .day, value: 1, to: dayIterator) else { break }
+            dayIterator = nextDay
+        }
+        
+        var countsByBucket: [String: Int] = [:]
+        for entry in filteredEntries {
+            let components = calendar.dateComponents([.hour, .minute], from: entry.createdAt)
+            let hour = components.hour ?? 0
+            
+            if hour >= 2 && hour < 7 {
+                countsByBucket["Early Morning", default: 0] += 1
+            } else if hour >= 7 && hour < 10 {
+                countsByBucket["Morning", default: 0] += 1
+            } else if hour >= 10 && hour < 14 {
+                countsByBucket["Mid Day", default: 0] += 1
+            } else if hour >= 14 && hour < 17 {
+                countsByBucket["Afternoon", default: 0] += 1
+            } else if hour >= 17 && hour < 21 {
+                countsByBucket["Evening", default: 0] += 1
+            } else {
+                countsByBucket["Late Evening", default: 0] += 1
+            }
+        }
+        
+        let favoriteLogTime: String
+        if let topBucket = countsByBucket.max(by: { $0.value < $1.value }), topBucket.value > 0 {
+            favoriteLogTime = topBucket.key
+        } else {
+            favoriteLogTime = "—"
+        }
+        
+        return AnalyzerStats(
+            logsCount: logsCount,
+            streakCount: maxStreak,
+            favoriteLogTime: favoriteLogTime
+        )
+    }
+    // MARK: - Analyzer Entries
+    func loadAnalyzerEntries() async {
+        guard let user = currentUser else { return }
+        
+        do {
+            analyzerEntries = try await supabaseService.fetchAnalyzerEntries(userId: user.id)
+            print("🧠 Analyzer entries loaded: \(analyzerEntries.count)")
+        } catch {
+            if error.localizedDescription.contains("cancelled") {
+                print("⚠️ loadAnalyzerEntries: Request was cancelled, keeping existing data")
+            } else {
+                errorMessage = "Failed to load analyzer entries: \(error.localizedDescription)"
+                print("❌ Failed to load analyzer entries: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    @discardableResult
+    func createAnalyzerEntry(entryType: String, tags: [String] = [], analyzerAiPrompt: String?) async -> AnalyzerEntry? {
+        guard let user = currentUser else { return nil }
+        
+        do {
+            let entry = try await supabaseService.createAnalyzerEntry(
+                userId: user.id,
+                entryType: entryType,
+                tags: tags,
+                analyzerAiPrompt: analyzerAiPrompt
+            )
+            analyzerEntries.insert(entry, at: 0)
+            print("🧠 Created analyzer entry \(entry.id) (\(entryType))")
+            return entry
+        } catch {
+            errorMessage = "Failed to create analyzer entry: \(error.localizedDescription)"
+            print("❌ Failed to create analyzer entry: \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
+    func updateAnalyzerEntryResponse(entryId: UUID, analyzerAiResponse: String) async {
+        do {
+            let updated = try await supabaseService.updateAnalyzerEntryResponse(
+                entryId: entryId,
+                analyzerAiResponse: analyzerAiResponse
+            )
+            
+            if let index = analyzerEntries.firstIndex(where: { $0.id == entryId }) {
+                analyzerEntries[index] = updated
+            } else {
+                analyzerEntries.insert(updated, at: 0)
+            }
+            print("🧠 Updated analyzer entry response for \(entryId)")
+        } catch {
+            errorMessage = "Failed to update analyzer entry: \(error.localizedDescription)"
+            print("❌ Failed to update analyzer entry: \(error.localizedDescription)")
         }
     }
     
@@ -1532,6 +1656,12 @@ class JournalViewModel: ObservableObject {
             }
         }
     }
+}
+
+struct AnalyzerStats {
+    let logsCount: Int
+    let streakCount: Int
+    let favoriteLogTime: String
 }
 
 // MARK: - AI Error Types

@@ -82,7 +82,67 @@ struct ContentView: View {
     // Pull to Refresh Loading State
     @State private var isRefreshing: Bool = false
     
+    // Analyzer
+    @StateObject private var analyzerViewModel = AnalyzerViewModel()
+    @State private var showCenteredSelfSheet: Bool = false
+    
+    private let analyzerMoodColors: [Color] = [
+        Color(hex: "583F82"),
+        Color(hex: "3F8259"),
+        Color(hex: "823F47"),
+        Color(hex: "82713F"),
+        Color(hex: "3F5982")
+    ]
+    
     var body: some View {
+        rootContent
+        .onAppear {
+            Task {
+                await journalViewModel.checkAuthenticationStatus()
+                // Ensure Journal tab is selected after authentication
+                selectedTab = 0
+                
+                // Check if today is a follow-up question day
+                isFollowUpQuestionDay = journalViewModel.supabaseService.isFollowUpQuestionDay()
+                
+                // Load follow-up question if it's a follow-up day
+                if isFollowUpQuestionDay {
+                    await journalViewModel.checkAndLoadFollowUpQuestion()
+                }
+            }
+            recalculateAnalyzerState()
+        }
+        .onChange(of: journalViewModel.isAuthenticated) { isAuthenticated in
+            if isAuthenticated {
+                // When user becomes authenticated, ensure Journal tab is selected
+                selectedTab = 0
+                
+                // Check if this is a first-time user
+                checkAndShowWelcomeMessage()
+            }
+        }
+        .onChange(of: journalViewModel.analyzerEntries) { _ in
+            recalculateAnalyzerState()
+        }
+        .onChange(of: journalViewModel.journalEntries.map { $0.id }) { _ in
+            recalculateAnalyzerState()
+        }
+        .onChange(of: journalViewModel.openQuestionJournalEntries.map { $0.id }) { _ in
+            recalculateAnalyzerState()
+        }
+        .onChange(of: journalViewModel.followUpQuestionEntries.map { $0.id }) { _ in
+            recalculateAnalyzerState()
+        }
+        .alert("Oh No!", isPresented: .constant(journalViewModel.errorMessage != nil)) {
+            Button("OK") {
+                journalViewModel.errorMessage = nil
+            }
+        } message: {
+            Text(journalViewModel.errorMessage ?? "")
+        }
+    }
+    
+    private var rootContent: some View {
         Group {
             if journalViewModel.isAuthenticated {
                 VStack(spacing: 0) {
@@ -94,9 +154,12 @@ struct ContentView: View {
                         case 1:
                             favoritesPageView
                         case 2:
-                            centeredPageView
+                            analyzerPageView
                         case 3:
-                            ProfileView(showSettingsFromPopup: $showSettingsFromPopup)
+                            ProfileView(
+                                showSettingsFromPopup: $showSettingsFromPopup,
+                                openCenteredSelf: { showCenteredSelfSheet = true }
+                            )
                         default:
                             mainJournalView
                         }
@@ -130,40 +193,13 @@ struct ContentView: View {
                         }
                     }
                 )
+                .sheet(isPresented: $showCenteredSelfSheet) {
+                    centeredPageView
+                        .environmentObject(journalViewModel)
+                }
             } else {
                 authenticationView
             }
-        }
-        .onAppear {
-            Task {
-                await journalViewModel.checkAuthenticationStatus()
-                // Ensure Journal tab is selected after authentication
-                selectedTab = 0
-                
-                // Check if today is a follow-up question day
-                isFollowUpQuestionDay = journalViewModel.supabaseService.isFollowUpQuestionDay()
-                
-                // Load follow-up question if it's a follow-up day
-                if isFollowUpQuestionDay {
-                    await journalViewModel.checkAndLoadFollowUpQuestion()
-                }
-            }
-        }
-        .onChange(of: journalViewModel.isAuthenticated) { isAuthenticated in
-            if isAuthenticated {
-                // When user becomes authenticated, ensure Journal tab is selected
-                selectedTab = 0
-                
-                // Check if this is a first-time user
-                checkAndShowWelcomeMessage()
-            }
-        }
-        .alert("Oh No!", isPresented: .constant(journalViewModel.errorMessage != nil)) {
-            Button("OK") {
-                journalViewModel.errorMessage = nil
-            }
-        } message: {
-            Text(journalViewModel.errorMessage ?? "")
         }
     }
     
@@ -2274,6 +2310,63 @@ Capabilities and Reminders: You have access to the web search tools, published r
         print("CP Refresh button clicked - Goal entry reset")
     }
     
+    // MARK: - Analyzer View
+    
+    private var analyzerPageView: some View {
+        ScrollView {
+            VStack(spacing: 10) {
+                Image("Anal Logo")
+                    .renderingMode(.original)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 80, height: 80)
+                    .padding(.top, 60)
+                    .padding(.bottom, 0)
+                
+                Image("Anal Title")
+                    .renderingMode(.original)
+                    .resizable()
+                    .scaledToFit()
+                    .scaleEffect(0.6)
+                    .padding(.bottom, 0)
+                
+                // Date range display with divider lines
+                HStack(alignment: .center, spacing: 12) {
+                    Rectangle()
+                        .fill(Color(hex: "F5F4EB").opacity(0.6))
+                        .frame(maxWidth: .infinity, maxHeight: 1)
+                    
+                    Text(analyzerViewModel.dateRangeDisplay)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(Color(hex: "F5F4EB"))
+                        .multilineTextAlignment(.center)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    
+                    Rectangle()
+                        .fill(Color(hex: "F5F4EB").opacity(0.6))
+                        .frame(maxWidth: .infinity, maxHeight: 1)
+                }
+                .padding(.top, 0)
+                
+                moodTrackerSection
+                    .padding(.top, 20)
+                
+                statisticsSection
+                    .padding(.top, 20)
+                
+                Spacer(minLength: 40)
+            }
+            .padding(.horizontal, 24)
+            .frame(maxWidth: .infinity)
+        }
+        .background(Color(hex: "3F5E82"))
+        .ignoresSafeArea(.all, edges: .top)
+        .onAppear {
+            recalculateAnalyzerState()
+        }
+    }
+    
     // MARK: - Placeholder Views for Other Tabs
     
     private var centeredPageView: some View {
@@ -2328,6 +2421,214 @@ Capabilities and Reminders: You have access to the web search tools, published r
         }
         .background(Color(hex: "E3E0C9"))
         .ignoresSafeArea(.all, edges: .top)
+    }
+    
+    private var moodTrackerSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Mood Tracker")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(Color(hex: "8BECF8"))
+                .frame(maxWidth: .infinity, alignment: .center)
+            
+            if analyzerViewModel.moodCounts.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "chart.bar.doc.horizontal")
+                        .font(.system(size: 28))
+                        .foregroundColor(Color(hex: "3F5E82").opacity(0.4))
+                    Text("No mood data available yet.")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color(hex: "3F5E82"))
+                        .multilineTextAlignment(.center)
+                    Text("Run Analyze to see your top moods for the week.")
+                        .font(.system(size: 13))
+                        .foregroundColor(Color(hex: "3F5E82").opacity(0.7))
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 32)
+                .background(
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(Color(hex: "F5F4EB"))
+                )
+            } else {
+                moodBarChart()
+                    .padding(16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 24)
+                            .fill(Color(hex: "F5F4EB"))
+                    )
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    
+    private func moodBarChart() -> some View {
+        let counts = analyzerViewModel.moodCounts
+        let maxCount = max(counts.map { $0.count }.max() ?? 1, 1)
+        let tickCount = min(maxCount, 5)
+        let tickStep = max(1, maxCount / tickCount)
+        let tickValues: [Int]
+        if maxCount <= 5 {
+            tickValues = Array((1...maxCount).reversed())
+        } else {
+            tickValues = stride(from: maxCount, through: tickStep, by: -tickStep).map { Int($0) }
+        }
+        let chartHeight: CGFloat = 180
+        let barSpacing: CGFloat = counts.count > 0 ? 16 : 0
+        
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .bottom, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("#")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(Color(hex: "3F5E82"))
+                    ForEach(tickValues, id: \.self) { value in
+                        Text("\(value)")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(Color(hex: "3F5E82"))
+                    }
+                    Spacer()
+                }
+                .frame(height: chartHeight)
+                
+                HStack(alignment: .bottom, spacing: barSpacing) {
+                    ForEach(Array(counts.enumerated()), id: \.element.id) { index, mood in
+                        VStack(spacing: 8) {
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(analyzerMoodColors[index % analyzerMoodColors.count])
+                                .frame(width: 28,
+                                       height: max(CGFloat(mood.count) / CGFloat(maxCount) * (chartHeight - 40), 10))
+                            
+                            Text(mood.mood)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color(hex: "3F5E82"))
+                                .multilineTextAlignment(.center)
+                                .lineLimit(2)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+                .frame(height: chartHeight)
+            }
+            
+            HStack(spacing: barSpacing) {
+                Spacer().frame(width: 40)
+                ForEach(counts, id: \.id) { mood in
+                    Text("\(mood.count) entries")
+                        .font(.system(size: 12))
+                        .foregroundColor(Color(hex: "3F5E82").opacity(0.7))
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(.leading, 40)
+        }
+    }
+    
+    private var statisticsSection: some View {
+        VStack(spacing: 16) {
+            Text("Statistics")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(Color(hex: "8BECF8"))
+                .frame(maxWidth: .infinity, alignment: .center)
+            
+            GeometryReader { geo in
+                let spacing: CGFloat = 16
+                let columnWidth = (geo.size.width - spacing * 2) / 3
+                let topRowHeight: CGFloat = 120
+                let centeredScoreHeight: CGFloat = 300
+                let favLogTimeHeight: CGFloat = 90
+                
+                ZStack(alignment: .topLeading) {
+                    statisticsCard(
+                        title: "# Logs",
+                        value: "\(analyzerViewModel.logsCount)",
+                        titleColor: Color(hex: "545555"),
+                        valueColor: Color(hex: "3F8259")
+                    )
+                    .frame(width: columnWidth, height: topRowHeight)
+                    .offset(x: 0, y: 0)
+                    
+                    statisticsCard(
+                        title: "Log Streak",
+                        value: analyzerViewModel.streakDuringRange == 0 ? "—" : "\(analyzerViewModel.streakDuringRange) days",
+                        titleColor: Color(hex: "545555"),
+                        valueColor: Color(hex: "3F8259")
+                    )
+                    .frame(width: columnWidth, height: topRowHeight)
+                    .offset(x: columnWidth + spacing, y: 0)
+                    
+                    statisticsCard(
+                        title: "Centered Score",
+                        value: analyzerViewModel.centeredScore.map { "\($0)" } ?? "—",
+                        titleColor: Color(hex: "545555"),
+                        valueColor: Color(hex: "823F47"),
+                        valueFontSize: 32
+                    )
+                    .frame(width: columnWidth, height: centeredScoreHeight)
+                    .offset(x: (columnWidth + spacing) * 2, y: 0)
+                    
+                    statisticsCard(
+                        title: "Fav Log Time",
+                        value: analyzerViewModel.favoriteLogTime,
+                        titleColor: Color(hex: "545555"),
+                        valueColor: Color(hex: "583F82"),
+                        valueFontSize: 24
+                    )
+                    .frame(width: columnWidth * 2 + spacing, height: favLogTimeHeight)
+                    .offset(x: 0, y: topRowHeight + spacing)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
+            .frame(height: 300) // Centered Score height (tallest card)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    
+    @ViewBuilder
+    private func statisticsCard(
+        title: String,
+        value: String,
+        titleColor: Color,
+        valueColor: Color,
+        valueFontSize: CGFloat = 16,
+        minHeight: CGFloat? = nil
+    ) -> some View {
+        let card = VStack(spacing: 12) {
+            Text(title)
+                .font(.system(size: 14))
+                .foregroundColor(titleColor)
+                .frame(maxWidth: .infinity)
+                .multilineTextAlignment(.center)
+            
+            Text(value)
+                .font(.system(size: valueFontSize, weight: .bold))
+                .foregroundColor(valueColor)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 26)
+                .fill(Color(hex: "F5F4EB"))
+        )
+        
+        if let minHeight = minHeight {
+            card.frame(minHeight: minHeight)
+        } else {
+            card
+        }
+    }
+    
+    private func recalculateAnalyzerState() {
+        analyzerViewModel.update(with: journalViewModel.analyzerEntries)
+        let referenceDate = analyzerViewModel.latestEntry?.createdAt ?? Date()
+        let displayData = analyzerViewModel.computeDisplayData(for: referenceDate)
+        analyzerViewModel.refreshDateRangeDisplay(referenceDate: referenceDate)
+        let stats = journalViewModel.calculateAnalyzerStats(startDate: displayData.startDate, endDate: displayData.endDate)
+        analyzerViewModel.refreshStats(using: stats)
     }
     
     @State private var isEditingFavorites = false

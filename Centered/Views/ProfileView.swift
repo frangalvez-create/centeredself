@@ -7,6 +7,7 @@ struct ProfileView: View {
     @State private var showingInfo = false
     @State private var showingFAQ = false
     @Binding var showSettingsFromPopup: Bool
+    var openCenteredSelf: (() -> Void)? = nil
     
     var body: some View {
         VStack(spacing: 0) {
@@ -44,6 +45,35 @@ struct ProfileView: View {
             
             // Interactive Menu Sections
             VStack(spacing: 0) {
+                // What is Centered Self Section
+                Button(action: {
+                    openCenteredSelf?()
+                }) {
+                    HStack {
+                        Image("WhatCS")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 26, height: 26)
+                            .padding(.leading, 10) // 10pt from left edge
+                        
+                        Text("What is Centered Self?")
+                            .font(.system(size: 16))
+                            .foregroundColor(Color(hex: "3F5E82"))
+                            .padding(.leading, 10) // 10pt to the right of icon
+                        
+                        Spacer()
+                        
+                        Image("contact forward")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 26, height: 26)
+                            .padding(.trailing, 20) // 20pt from right edge
+                    }
+                    .padding(.vertical, 15)
+                    .background(Color.clear)
+                }
+                .buttonStyle(PlainButtonStyle())
+                
                 // Settings Section
                 Button(action: {
                     showingSettings = true
@@ -71,6 +101,7 @@ struct ProfileView: View {
                     .padding(.vertical, 15)
                     .background(Color.clear)
                 }
+                .padding(.top, 25) // 25pt below "What is Centered Self?" section
                 .buttonStyle(PlainButtonStyle())
                 
                 // Contact Section
