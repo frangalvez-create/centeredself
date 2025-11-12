@@ -2534,52 +2534,92 @@ Capabilities and Reminders: You have access to the web search tools, published r
             GeometryReader { geo in
                 let spacing: CGFloat = 16
                 let columnWidth = (geo.size.width - spacing * 2) / 3
-                let topRowHeight: CGFloat = 120
-                let centeredScoreHeight: CGFloat = 300
-                let favLogTimeHeight: CGFloat = 90
+                let topRowHeight: CGFloat = 70
+                let centeredScoreHeight: CGFloat = 156
+                let favLogTimeHeight: CGFloat = 70
                 
-                ZStack(alignment: .topLeading) {
-                    statisticsCard(
-                        title: "# Logs",
-                        value: "\(analyzerViewModel.logsCount)",
-                        titleColor: Color(hex: "545555"),
-                        valueColor: Color(hex: "3F8259")
-                    )
+                // Fixed-size ZStack with exact positioning
+                ZStack {
+                    // # Logs - Top Left (y = 0)
+                    VStack(spacing: 8) {
+                        Text("# Logs")
+                            .font(.system(size: 14))
+                            .foregroundColor(Color(hex: "545555"))
+                        Text("\(analyzerViewModel.logsCount)")
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundColor(Color(hex: "3F8259"))
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
                     .frame(width: columnWidth, height: topRowHeight)
-                    .offset(x: 0, y: 0)
-                    
-                    statisticsCard(
-                        title: "Log Streak",
-                        value: analyzerViewModel.streakDuringRange == 0 ? "—" : "\(analyzerViewModel.streakDuringRange) days",
-                        titleColor: Color(hex: "545555"),
-                        valueColor: Color(hex: "3F8259")
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(Color(hex: "F5F4EB"))
                     )
+                    .position(x: columnWidth / 2, y: topRowHeight / 2)
+                    
+                    // Log Streak - Top Middle (y = 0)
+                    VStack(spacing: 8) {
+                        Text("Log Streak")
+                            .font(.system(size: 14))
+                            .foregroundColor(Color(hex: "545555"))
+                        Text(analyzerViewModel.streakDuringRange == 0 ? "—" : "\(analyzerViewModel.streakDuringRange) days")
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundColor(Color(hex: "3F8259"))
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
                     .frame(width: columnWidth, height: topRowHeight)
-                    .offset(x: columnWidth + spacing, y: 0)
-                    
-                    statisticsCard(
-                        title: "Centered Score",
-                        value: analyzerViewModel.centeredScore.map { "\($0)" } ?? "—",
-                        titleColor: Color(hex: "545555"),
-                        valueColor: Color(hex: "823F47"),
-                        valueFontSize: 32
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(Color(hex: "F5F4EB"))
                     )
+                    .position(x: columnWidth + spacing + columnWidth / 2, y: topRowHeight / 2)
+                    
+                    // Centered Score - Top Right (y = 0, ends at y = 156pt)
+                    VStack(spacing: 25) {
+                        Text("Centered Score")
+                            .font(.system(size: 16))
+                            .foregroundColor(Color(hex: "545555"))
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                        Text(analyzerViewModel.centeredScore.map { "\($0)" } ?? "—")
+                            .font(.system(size: 32, weight: .bold))
+                            .foregroundColor(Color(hex: "823F47"))
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
                     .frame(width: columnWidth, height: centeredScoreHeight)
-                    .offset(x: (columnWidth + spacing) * 2, y: 0)
-                    
-                    statisticsCard(
-                        title: "Fav Log Time",
-                        value: analyzerViewModel.favoriteLogTime,
-                        titleColor: Color(hex: "545555"),
-                        valueColor: Color(hex: "583F82"),
-                        valueFontSize: 24
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(Color(hex: "F5F4EB"))
                     )
+                    .position(x: (columnWidth + spacing) * 2 + columnWidth / 2, y: centeredScoreHeight / 2)
+                    
+                    // Fav Log Time - Bottom Left/Middle (starts at y = 86pt, ends at y = 156pt)
+                    VStack(spacing: 8) {
+                        Text("Fav Log Time")
+                            .font(.system(size: 14))
+                            .foregroundColor(Color(hex: "545555"))
+                        Text(analyzerViewModel.favoriteLogTime)
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundColor(Color(hex: "583F82"))
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
                     .frame(width: columnWidth * 2 + spacing, height: favLogTimeHeight)
-                    .offset(x: 0, y: topRowHeight + spacing)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(Color(hex: "F5F4EB"))
+                    )
+                    .position(x: (columnWidth * 2 + spacing) / 2, y: topRowHeight + spacing + favLogTimeHeight / 2)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .frame(width: geo.size.width, height: centeredScoreHeight)
             }
-            .frame(height: 300) // Centered Score height (tallest card)
+            .frame(height: 156) // Centered Score height (tallest card)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -2593,7 +2633,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
         valueFontSize: CGFloat = 16,
         minHeight: CGFloat? = nil
     ) -> some View {
-        let card = VStack(spacing: 12) {
+        VStack(spacing: 12) {
             Text(title)
                 .font(.system(size: 14))
                 .foregroundColor(titleColor)
@@ -2609,17 +2649,10 @@ Capabilities and Reminders: You have access to the web search tools, published r
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
-        .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 26)
                 .fill(Color(hex: "F5F4EB"))
         )
-        
-        if let minHeight = minHeight {
-            card.frame(minHeight: minHeight)
-        } else {
-            card
-        }
     }
     
     private func recalculateAnalyzerState() {
