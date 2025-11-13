@@ -73,5 +73,6 @@ struct JournalEntry: Identifiable, Codable {
         self.fuqAiResponse = fuqAiResponse
         self.isFollowUpDay = isFollowUpDay
         self.usedForFollowUp = usedForFollowUp
+        self.followUpQuestion = followUpQuestion
     }
 }

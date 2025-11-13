@@ -276,19 +276,17 @@ class SupabaseService: ObservableObject {
             return mockEntries.first
         } else {
             // Get list of already used entry IDs from follow_up_generation table
-            let usedEntryIds: [UUID] = try await supabase
+            // Fetch all generations for this user and extract non-null source_entry_id values
+            let allGenerations: [FollowUpGeneration] = try await supabase
                 .from("follow_up_generation")
-                .select("source_entry_id")
+                .select()
                 .eq("user_id", value: userId)
-                .not("source_entry_id", operator: .is, value: nil)
                 .execute()
                 .value
-                .compactMap { (row: [String: Any?]) -> UUID? in
-                    if let idString = row["source_entry_id"] as? String {
-                        return UUID(uuidString: idString)
-                    }
-                    return nil
-                }
+            
+            let usedEntryIds: [UUID] = allGenerations.compactMap { generation -> UUID? in
+                return generation.sourceEntryId
+            }
             
             print("📋 Found \(usedEntryIds.count) already used entries for follow-up generation")
             
