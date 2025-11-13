@@ -16,6 +16,7 @@ struct JournalEntry: Identifiable, Codable {
     let fuqAiResponse: String?
     let isFollowUpDay: Bool?
     let usedForFollowUp: Bool?
+    let followUpQuestion: String? // NEW: The question that was used when user responded (from follow_up_generation table)
     
     enum CodingKeys: String, CodingKey {
         case id
@@ -33,9 +34,10 @@ struct JournalEntry: Identifiable, Codable {
         case fuqAiResponse = "fuq_ai_response"
         case isFollowUpDay = "is_follow_up_day"
         case usedForFollowUp = "used_for_follow_up"
+        case followUpQuestion = "follow_up_question"
     }
     
-    init(userId: UUID, guidedQuestionId: UUID?, content: String, aiPrompt: String? = nil, aiResponse: String? = nil, tags: [String] = [], isFavorite: Bool = false, entryType: String = "guided", fuqAiPrompt: String? = nil, fuqAiResponse: String? = nil, isFollowUpDay: Bool? = nil, usedForFollowUp: Bool? = nil) {
+    init(userId: UUID, guidedQuestionId: UUID?, content: String, aiPrompt: String? = nil, aiResponse: String? = nil, tags: [String] = [], isFavorite: Bool = false, entryType: String = "guided", fuqAiPrompt: String? = nil, fuqAiResponse: String? = nil, isFollowUpDay: Bool? = nil, usedForFollowUp: Bool? = nil, followUpQuestion: String? = nil) {
         self.id = UUID()
         self.userId = userId
         self.guidedQuestionId = guidedQuestionId
@@ -51,10 +53,11 @@ struct JournalEntry: Identifiable, Codable {
         self.fuqAiResponse = fuqAiResponse
         self.isFollowUpDay = isFollowUpDay
         self.usedForFollowUp = usedForFollowUp
+        self.followUpQuestion = followUpQuestion
     }
     
     // Full initializer for updates
-    init(id: UUID, userId: UUID, guidedQuestionId: UUID?, content: String, aiPrompt: String? = nil, aiResponse: String? = nil, tags: [String] = [], isFavorite: Bool = false, entryType: String = "guided", createdAt: Date, updatedAt: Date, fuqAiPrompt: String? = nil, fuqAiResponse: String? = nil, isFollowUpDay: Bool? = nil, usedForFollowUp: Bool? = nil) {
+    init(id: UUID, userId: UUID, guidedQuestionId: UUID?, content: String, aiPrompt: String? = nil, aiResponse: String? = nil, tags: [String] = [], isFavorite: Bool = false, entryType: String = "guided", createdAt: Date, updatedAt: Date, fuqAiPrompt: String? = nil, fuqAiResponse: String? = nil, isFollowUpDay: Bool? = nil, usedForFollowUp: Bool? = nil, followUpQuestion: String? = nil) {
         self.id = id
         self.userId = userId
         self.guidedQuestionId = guidedQuestionId

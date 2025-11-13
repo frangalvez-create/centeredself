@@ -1423,6 +1423,11 @@ struct ContentView: View {
         
         // Update the AI response in the UI
         await updateAIResponseDisplay()
+        
+        // NEW: Pre-generate follow-up question in background (after AI response displayed)
+        Task {
+            await journalViewModel.preGenerateFollowUpQuestionIfNeeded()
+        }
     }
     
     private func updateAIResponseDisplay() async {
@@ -1472,7 +1477,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
         Client: {content}
         Output: Provide only a succinct response to the above therapist/client conversation. First be encouraging, supportive, with a pleasant tone to their progress. Then provide additional insight on the action item mentioned by the therapist. Based on relevant behavioral, CBT, EFT, IPT or other therapy modalities. In a new paragraph, end with related, "quote" from well known figures
         Constraints: Focus on capturing the main points succinctly: complete sentences and in an encouraging, supportive, pleasant tone. Ignore fluff, background information. Do not include your own analysis or opinion. Do not reiterate the input.
-        Capabilities and Reminders: You have access to the web search tools, published research papers/studies and your gained knowledge to find and retrieve behavioral science and therapy related data. Limit the entire response to 150 words.
+        Capabilities and Reminders: You have access to the web search tools, published research papers/studies and your gained knowledge to find and retrieve behavioral science and therapy related data. Do not mention the following in the output: label paragraph 1 and 2; CBT, EFT, IPT; and word limits. Limit the entire response to 150 words.
         """
         
         // Replace placeholders
@@ -2018,6 +2023,11 @@ Capabilities and Reminders: You have access to the web search tools, published r
         
         // Update the AI response in the UI
         await updateOpenAIResponseDisplay()
+        
+        // NEW: Pre-generate follow-up question in background (after AI response displayed)
+        Task {
+            await journalViewModel.preGenerateFollowUpQuestionIfNeeded()
+        }
     }
     
     private func updateOpenAIResponseDisplay() async {
@@ -2126,6 +2136,10 @@ Capabilities and Reminders: You have access to the web search tools, published r
         // Save journal entry to Supabase with follow-up question
         Task {
             await journalViewModel.createFollowUpQuestionJournalEntry(content: followUpJournalResponse)
+            
+            // NEW: Pre-generate follow-up question in background (immediately after Done button)
+            // This can happen on follow-up day, but new question won't be displayed until next follow-up day
+            await journalViewModel.preGenerateFollowUpQuestionIfNeeded()
         }
         
         print("Follow-Up Done button tapped - Journal entry saved to Supabase: \(followUpJournalResponse)")
@@ -2778,6 +2792,11 @@ Capabilities and Reminders: You have access to the web search tools, published r
                 await MainActor.run {
                     recalculateAnalyzerState()
                     analyzerViewModel.isAnalyzing = false
+                }
+                
+                // NEW: Pre-generate follow-up question in background (after AI response displayed)
+                Task {
+                    await journalViewModel.preGenerateFollowUpQuestionIfNeeded()
                 }
             } catch {
                 // Check if it's a minimum entries error

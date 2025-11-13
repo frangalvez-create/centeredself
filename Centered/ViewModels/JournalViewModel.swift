@@ -1120,8 +1120,8 @@ class JournalViewModel: ObservableObject {
                 lastResetDate = now
                 await resetUIForNewDay()
                 
-                // Pre-generate follow-up question if today is a follow-up day
-                await preGenerateFollowUpQuestionIfNeeded()
+                // OLD: Pre-generation moved to trigger points (Centered button, Analyze button, Follow-up Done button)
+                // No longer pre-generating during 2AM reset
             } else {
                 print("🕐 Not yet time for reset - skipping")
             }
@@ -1131,34 +1131,168 @@ class JournalViewModel: ObservableObject {
         }
     }
     
-    /// Pre-generates follow-up question during 2 AM reset if today is a follow-up day
-    private func preGenerateFollowUpQuestionIfNeeded() async {
-        guard let user = currentUser else { return }
-        
-        // Check if today is a follow-up question day
-        guard supabaseService.isFollowUpQuestionDay() else {
-            print("📅 Today is not a follow-up question day - skipping pre-generation")
-            return
+    /// Pre-generates follow-up question after triggers (Centered button, Analyze button, Follow-up Done button)
+    /// Checks: same day, last follow-up day, 21 days age
+    func preGenerateFollowUpQuestionIfNeeded() async {
+        guard let user = currentUser else { 
+            print("⚠️ preGenerateFollowUpQuestionIfNeeded: User not authenticated")
+            return 
         }
         
-        // Load existing follow-up question entries
-        await loadFollowUpQuestionEntries()
-        
-        // Check if we already have a follow-up question for today
         let calendar = Calendar.current
-        let todaysFollowUpEntry = followUpQuestionEntries.first { entry in
-            calendar.isDateInToday(entry.createdAt)
+        let today = Date()
+        
+        // Check 1: Already generated today? Skip if yes
+        do {
+            if let existingGeneration = try await supabaseService.fetchFollowUpGeneration(userId: user.id) {
+                if calendar.isDate(existingGeneration.createdAt, inSameDayAs: today) {
+                    print("✅ Follow-up question already generated today - skipping pre-generation")
+                    return
+                }
+            }
+        } catch {
+            print("⚠️ Error checking existing follow-up generation: \(error.localizedDescription)")
+            // Continue with checks if we can't fetch
         }
         
-        if todaysFollowUpEntry != nil {
-            print("✅ Follow-up question already exists for today - skipping pre-generation")
+        // Check 2: Generated after last follow-up day? Skip if yes
+        // Calculate last follow-up day
+        var lastFollowUpDay: Date? = nil
+        let referenceDate = calendar.date(from: DateComponents(year: 2024, month: 1, day: 1))!
+        let daysSinceReference = calendar.dateComponents([.day], from: referenceDate, to: today).day ?? 0
+        var checkDate = today
+        
+        // Find the most recent follow-up day by going backwards
+        for _ in 0..<30 { // Check up to 30 days back
+            let checkDaysSinceReference = calendar.dateComponents([.day], from: referenceDate, to: checkDate).day ?? 0
+            if checkDaysSinceReference % 3 == 0 {
+                lastFollowUpDay = calendar.startOfDay(for: checkDate)
+                break
+            }
+            if let previousDay = calendar.date(byAdding: .day, value: -1, to: checkDate) {
+                checkDate = previousDay
+            } else {
+                break
+            }
+        }
+        
+        // If we have existing generation, check if it was created after last follow-up day
+        do {
+            if let existingGeneration = try await supabaseService.fetchFollowUpGeneration(userId: user.id),
+               let lastFollowUp = lastFollowUpDay {
+                if existingGeneration.createdAt > lastFollowUp {
+                    print("✅ Follow-up question already generated after last follow-up day - skipping pre-generation")
+                    return
+                }
+            }
+        } catch {
+            print("⚠️ Error checking follow-up generation date: \(error.localizedDescription)")
+        }
+        
+        // Check 3: Older than 21 days? Generate new if yes
+        var shouldGenerate = false
+        do {
+            if let existingGeneration = try await supabaseService.fetchFollowUpGeneration(userId: user.id) {
+                let daysSinceGeneration = calendar.dateComponents([.day], from: existingGeneration.createdAt, to: today).day ?? 0
+                if daysSinceGeneration >= 21 {
+                    print("📅 Follow-up question is \(daysSinceGeneration) days old (>= 21 days) - generating new")
+                    shouldGenerate = true
+                } else {
+                    print("✅ Follow-up question is \(daysSinceGeneration) days old (< 21 days) - keeping existing")
+                }
+            } else {
+                // No existing generation, generate new
+                print("📅 No existing follow-up generation found - generating new")
+                shouldGenerate = true
+            }
+        } catch {
+            print("⚠️ Error checking follow-up generation age: \(error.localizedDescription)")
+            // If we can't check, try to generate (safer to try than skip)
+            shouldGenerate = true
+        }
+        
+        if !shouldGenerate {
+            print("✅ Pre-generation checks passed - no new generation needed")
             return
         }
         
         // Generate follow-up question in the background
-        print("🔮 Pre-generating follow-up question for today...")
-        await generateFollowUpQuestion()
-        print("✅ Pre-generation complete - follow-up question ready for users")
+        print("🔮 Pre-generating follow-up question...")
+        await generateFollowUpQuestionForPreGeneration()
+        print("✅ Pre-generation complete - follow-up question ready for next follow-up day")
+    }
+    
+    /// Generates a new follow-up question and saves it to follow_up_generation table
+    private func generateFollowUpQuestionForPreGeneration() async {
+        guard let user = currentUser else { return }
+        
+        do {
+            // Select a past journal entry for follow-up
+            guard let pastEntry = try await supabaseService.selectPastJournalEntryForFollowUp(userId: user.id) else {
+                print("⚠️ No eligible past entry found for follow-up question")
+                // Use static open question as fallback
+                await generateFollowUpQuestionWithStaticFallback(userId: user.id)
+                return
+            }
+            
+            // Generate the follow-up question prompt
+            let fuqAiPrompt = supabaseService.generateFollowUpQuestionPrompt(pastEntry: pastEntry)
+            
+            // Generate the follow-up question using OpenAI with retry logic (2s, 4s delays)
+            let fuqAiResponse = try await generateAIResponseWithRetry(for: fuqAiPrompt)
+            
+            // Create follow-up generation entry (saves to follow_up_generation table)
+            let followUpGeneration = FollowUpGeneration(
+                userId: user.id,
+                fuqAiPrompt: fuqAiPrompt,
+                fuqAiResponse: fuqAiResponse,
+                sourceEntryId: pastEntry.id,
+                createdAt: Date(),
+                updatedAt: Date()
+            )
+            
+            // Save to follow_up_generation table (upserts, replaces existing)
+            _ = try await supabaseService.createOrUpdateFollowUpGeneration(followUpGeneration)
+            
+            print("✅ Generated new follow-up question and saved to follow_up_generation table")
+            print("✅ Question: \(fuqAiResponse.prefix(100))...")
+            print("✅ Source entry ID: \(pastEntry.id)")
+            
+        } catch {
+            print("❌ Failed to generate follow-up question: \(error.localizedDescription)")
+            // Try static fallback on error
+            await generateFollowUpQuestionWithStaticFallback(userId: user.id)
+        }
+    }
+    
+    /// Generates a follow-up question using static open question as fallback
+    private func generateFollowUpQuestionWithStaticFallback(userId: UUID) async {
+        let staticQuestion = "Looking at today or yesterday, share moments or thoughts that stood out."
+        
+        // Create a simple prompt for static question
+        let fuqAiPrompt = "Create a follow-up question based on: \(staticQuestion)"
+        
+        do {
+            // Generate question using OpenAI
+            let fuqAiResponse = try await generateAIResponseWithRetry(for: fuqAiPrompt)
+            
+            // Create follow-up generation entry
+            let followUpGeneration = FollowUpGeneration(
+                userId: userId,
+                fuqAiPrompt: fuqAiPrompt,
+                fuqAiResponse: fuqAiResponse,
+                sourceEntryId: nil, // No source entry for static fallback
+                createdAt: Date(),
+                updatedAt: Date()
+            )
+            
+            // Save to follow_up_generation table
+            _ = try await supabaseService.createOrUpdateFollowUpGeneration(followUpGeneration)
+            
+            print("✅ Generated follow-up question using static fallback")
+        } catch {
+            print("❌ Failed to generate follow-up question even with static fallback: \(error.localizedDescription)")
+        }
     }
     
     // MARK: - User Profile Updates
@@ -1236,6 +1370,7 @@ class JournalViewModel: ObservableObject {
     }
     
     /// Checks if today is a follow-up question day and loads/generates the question
+    /// NEW: Checks follow_up_generation table first, then journal_entries if user replied today
     /// - Parameter suppressErrors: If true, errors will be logged but not shown to the user (useful for background operations like pull-to-refresh)
     func checkAndLoadFollowUpQuestion(suppressErrors: Bool = false) async {
         guard let user = currentUser else { 
@@ -1251,112 +1386,76 @@ class JournalViewModel: ObservableObject {
             return
         }
         
-        // Load existing follow-up question entries for today
-        // Retry up to 3 times with delays to account for database write delays/race conditions
-        var retryCount = 0
-        let maxRetries = 3
-        var todaysEntries: [JournalEntry] = []
         let calendar = Calendar.current
         let today = Date()
         
-        while retryCount < maxRetries {
+        // Retry up to 3 times with delays to account for database write delays/race conditions
+        var retryCount = 0
+        let maxRetries = 3
+        var foundQuestion = false
+        
+        while retryCount < maxRetries && !foundQuestion {
+            // Step 1: Check if user has replied today (check journal_entries for follow_up_question on today)
             await loadFollowUpQuestionEntries()
             
-            print("🔍 Searching for today's follow-up question (attempt \(retryCount + 1)/\(maxRetries))... Found \(followUpQuestionEntries.count) total follow-up entries")
-            
-            // Check if we already have a follow-up question for today
-            // First, try to find an entry created today with a non-empty fuqAiResponse
-            // Prioritize entries with empty content (the question entry, not the user response entry)
-            todaysEntries = followUpQuestionEntries.filter { entry in
-                calendar.isDate(entry.createdAt, inSameDayAs: today)
+            let todaysReplyEntries = followUpQuestionEntries.filter { entry in
+                calendar.isDate(entry.createdAt, inSameDayAs: today) &&
+                entry.entryType == "follow_up" &&
+                !entry.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             }
             
-            print("📅 Found \(todaysEntries.count) follow-up entries created today")
-            
-            // If we found entries for today, break out of retry loop
-            if !todaysEntries.isEmpty {
+            // If user replied today, use the question from journal_entries.follow_up_question
+            if let todaysReplyEntry = todaysReplyEntries.first,
+               let followUpQuestion = todaysReplyEntry.followUpQuestion,
+               !followUpQuestion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                currentFollowUpQuestion = followUpQuestion
+                print("✅ Using follow-up question from today's reply: \(currentFollowUpQuestion.prefix(50))...")
+                foundQuestion = true
                 break
             }
             
-            // If no entries found and not last attempt, wait and retry
+            // Step 2: Check follow_up_generation table for pre-generated question
+            do {
+                if let generation = try await supabaseService.fetchFollowUpGeneration(userId: user.id),
+                   !generation.fuqAiResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    currentFollowUpQuestion = generation.fuqAiResponse
+                    print("✅ Using pre-generated follow-up question from follow_up_generation table: \(currentFollowUpQuestion.prefix(50))...")
+                    foundQuestion = true
+                    break
+                }
+            } catch {
+                print("⚠️ Error fetching follow-up generation: \(error.localizedDescription)")
+                if retryCount < maxRetries - 1 {
+                    print("⏳ Waiting 0.5s before retry...")
+                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 second delay
+                }
+                retryCount += 1
+                continue
+            }
+            
+            // If no question found and not last attempt, wait and retry
             if retryCount < maxRetries - 1 {
-                print("⏳ No entries found, waiting 0.5s before retry...")
+                print("⏳ No question found, waiting 0.5s before retry...")
                 try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 second delay
             }
             
             retryCount += 1
         }
         
-        // Debug: Print details of today's entries before filtering
-        for (index, entry) in todaysEntries.enumerated() {
-            print("   Today's entry \(index): entryType=\(entry.entryType ?? "nil"), contentLength=\(entry.content.count), fuqAiResponseLength=\(entry.fuqAiResponse?.count ?? 0)")
-            if let fuqAiResponse = entry.fuqAiResponse {
-                print("      Question: \(fuqAiResponse.prefix(50))...")
-            }
-        }
-        
-        // Sort by creation time (oldest first) to get the question entry first
-        let sortedTodaysEntries = todaysEntries.sorted { $0.createdAt < $1.createdAt }
-        
-        // Look for an entry with non-empty fuqAiResponse
-        // Prioritize entries with empty content (the question entry) over entries with content (user response)
-        var todaysFollowUpEntry: JournalEntry?
-        
-        // First, try to find an entry with empty content (the question entry)
-        if let questionEntry = sortedTodaysEntries.first(where: { entry in
-            let hasEmptyContent = entry.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            if let fuqAiResponse = entry.fuqAiResponse, !fuqAiResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                if hasEmptyContent {
-                    print("✅ Found follow-up question entry (empty content): \(fuqAiResponse.prefix(50))...")
-                    return true
+        // If still no question found, show "Generating..." message
+        if !foundQuestion && currentFollowUpQuestion.isEmpty {
+            print("⚠️ No follow-up question found - user will see 'Generating...' message")
+            // Don't generate here - pre-generation should have happened before follow-up day
+            // But we can trigger it as a fallback if really needed
+            if !suppressErrors {
+                print("🔄 Triggering fallback pre-generation...")
+                await preGenerateFollowUpQuestionIfNeeded()
+                // Try one more time after pre-generation
+                if let generation = try? await supabaseService.fetchFollowUpGeneration(userId: user.id),
+                   !generation.fuqAiResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    currentFollowUpQuestion = generation.fuqAiResponse
+                    print("✅ Using fallback pre-generated question: \(currentFollowUpQuestion.prefix(50))...")
                 }
-            }
-            return false
-        }) {
-            todaysFollowUpEntry = questionEntry
-        } else {
-            // Fallback: Find any entry with non-empty fuqAiResponse
-            todaysFollowUpEntry = sortedTodaysEntries.first { entry in
-                if let fuqAiResponse = entry.fuqAiResponse, !fuqAiResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    print("✅ Found follow-up question entry (with content): \(fuqAiResponse.prefix(50))...")
-                    return true
-                }
-                return false
-            }
-        }
-        
-        if let existingEntry = todaysFollowUpEntry, let fuqAiResponse = existingEntry.fuqAiResponse, !fuqAiResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            // Use existing follow-up question (pre-generated during 2 AM reset or generated earlier)
-            currentFollowUpQuestion = fuqAiResponse
-            print("✅ Using existing follow-up question: \(currentFollowUpQuestion.prefix(50))...")
-        } else {
-            print("⚠️ No pre-generated follow-up question found for today")
-            print("🔍 DEBUG: Why no entry found?")
-            print("   - Total follow-up entries: \(followUpQuestionEntries.count)")
-            print("   - Today's entries: \(todaysEntries.count)")
-            print("   - Sorted entries: \(sortedTodaysEntries.count)")
-            
-            // Debug: Print why no entry was found
-            if todaysEntries.isEmpty {
-                print("   ❌ NO ENTRIES FOUND FOR TODAY - This is the problem!")
-            } else {
-                print("   ❌ ENTRIES EXIST BUT NOT SELECTED:")
-                for (index, entry) in sortedTodaysEntries.enumerated() {
-                    print("      Entry \(index): contentLength=\(entry.content.count), hasFuqAiResponse=\(entry.fuqAiResponse != nil)")
-                    if let fuqAiResponse = entry.fuqAiResponse {
-                        print("         fuqAiResponse: \(fuqAiResponse.prefix(50))...")
-                    } else {
-                        print("         fuqAiResponse is NIL")
-                    }
-                }
-            }
-            
-            // Only generate if we don't already have a question loaded
-            if currentFollowUpQuestion.isEmpty {
-                print("🔄 Generating new follow-up question...")
-                await generateFollowUpQuestion(suppressErrors: suppressErrors)
-            } else {
-                print("✅ Keeping existing follow-up question in memory: \(currentFollowUpQuestion.prefix(50))...")
             }
         }
     }
@@ -1451,6 +1550,7 @@ class JournalViewModel: ObservableObject {
     }
     
     /// Creates a follow-up question journal entry
+    /// NEW: Saves follow_up_question from follow_up_generation table
     func createFollowUpQuestionJournalEntry(content: String) async {
         guard let user = currentUser else { return }
         
@@ -1458,6 +1558,17 @@ class JournalViewModel: ObservableObject {
         errorMessage = nil
         
         do {
+            // Get the question from follow_up_generation table
+            var followUpQuestionText: String? = nil
+            if let generation = try? await supabaseService.fetchFollowUpGeneration(userId: user.id) {
+                followUpQuestionText = generation.fuqAiResponse
+                print("✅ Retrieved follow-up question from follow_up_generation table: \(followUpQuestionText?.prefix(50) ?? "nil")...")
+            } else {
+                // Fallback to currentFollowUpQuestion if generation not found
+                followUpQuestionText = currentFollowUpQuestion.isEmpty ? nil : currentFollowUpQuestion
+                print("⚠️ Could not fetch from follow_up_generation, using currentFollowUpQuestion: \(followUpQuestionText?.prefix(50) ?? "nil")...")
+            }
+            
             // Create journal entry with follow-up question type
             let entry = JournalEntry(
                 userId: user.id,
@@ -1466,13 +1577,15 @@ class JournalViewModel: ObservableObject {
                 tags: ["follow_up"],
                 entryType: "follow_up",
                 fuqAiPrompt: nil,
-                fuqAiResponse: currentFollowUpQuestion,
-                isFollowUpDay: true
+                fuqAiResponse: nil, // No longer stored here
+                isFollowUpDay: true,
+                usedForFollowUp: nil,
+                followUpQuestion: followUpQuestionText // NEW: Store the question that was used
             )
             
             _ = try await supabaseService.createJournalEntry(entry)
             await loadFollowUpQuestionEntries()
-            print("✅ Follow-up question journal entry created")
+            print("✅ Follow-up question journal entry created with follow_up_question: \(followUpQuestionText?.prefix(50) ?? "nil")...")
             
         } catch {
             errorMessage = "Failed to create follow-up question journal entry: \(error.localizedDescription)"
@@ -1509,7 +1622,9 @@ class JournalViewModel: ObservableObject {
             updatedAt: Date(), // Update timestamp
             fuqAiPrompt: mostRecentEntry.fuqAiPrompt,
             fuqAiResponse: mostRecentEntry.fuqAiResponse,
-            isFollowUpDay: mostRecentEntry.isFollowUpDay
+            isFollowUpDay: mostRecentEntry.isFollowUpDay,
+            usedForFollowUp: mostRecentEntry.usedForFollowUp,
+            followUpQuestion: mostRecentEntry.followUpQuestion // Preserve follow_up_question
         )
         
         do {
@@ -1561,7 +1676,9 @@ class JournalViewModel: ObservableObject {
                 updatedAt: Date(), // Update timestamp
                 fuqAiPrompt: mostRecentEntry.fuqAiPrompt,
                 fuqAiResponse: mostRecentEntry.fuqAiResponse,
-                isFollowUpDay: mostRecentEntry.isFollowUpDay
+                isFollowUpDay: mostRecentEntry.isFollowUpDay,
+                usedForFollowUp: mostRecentEntry.usedForFollowUp,
+                followUpQuestion: mostRecentEntry.followUpQuestion // Preserve follow_up_question
             )
             
             _ = try await supabaseService.updateJournalEntry(updatedEntry)
@@ -1607,7 +1724,9 @@ class JournalViewModel: ObservableObject {
             updatedAt: Date(), // Update timestamp
             fuqAiPrompt: mostRecentEntry.fuqAiPrompt,
             fuqAiResponse: mostRecentEntry.fuqAiResponse,
-            isFollowUpDay: mostRecentEntry.isFollowUpDay
+            isFollowUpDay: mostRecentEntry.isFollowUpDay,
+            usedForFollowUp: mostRecentEntry.usedForFollowUp,
+            followUpQuestion: mostRecentEntry.followUpQuestion // Preserve follow_up_question
         )
         
         do {

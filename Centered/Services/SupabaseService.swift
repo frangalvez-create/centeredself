@@ -257,6 +257,7 @@ class SupabaseService: ObservableObject {
     }
     
     /// Selects a past journal entry for follow-up question generation
+    /// Option B: Checks source_entry_id in follow_up_generation to exclude already used entries
     func selectPastJournalEntryForFollowUp(userId: UUID) async throws -> JournalEntry? {
         let calendar = Calendar.current
         let today = Date()
@@ -274,21 +275,44 @@ class SupabaseService: ObservableObject {
             }
             return mockEntries.first
         } else {
-            // Real implementation - query database
+            // Get list of already used entry IDs from follow_up_generation table
+            let usedEntryIds: [UUID] = try await supabase
+                .from("follow_up_generation")
+                .select("source_entry_id")
+                .eq("user_id", value: userId)
+                .not("source_entry_id", operator: .is, value: nil)
+                .execute()
+                .value
+                .compactMap { (row: [String: Any?]) -> UUID? in
+                    if let idString = row["source_entry_id"] as? String {
+                        return UUID(uuidString: idString)
+                    }
+                    return nil
+                }
+            
+            print("📋 Found \(usedEntryIds.count) already used entries for follow-up generation")
+            
+            // Convert UUIDs to strings for query
+            let usedEntryIdStrings = usedEntryIds.map { $0.uuidString }
             
             // Priority 1: is_favorite = TRUE entries (not yet used for follow-up)
-            let favoriteEntries: [JournalEntry] = try await supabase
+            var favoriteQuery = supabase
                 .from("journal_entries")
                 .select()
                 .eq("user_id", value: userId)
                 .eq("is_favorite", value: true)
-                .neq("used_for_follow_up", value: true) // Exclude already used entries
                 .gte("created_at", value: fifteenDaysAgo.ISO8601Format())
                 .lte("created_at", value: fiveDaysAgo.ISO8601Format())
                 .order("created_at", ascending: true) // Oldest first
-                .limit(1)
+            
+            // Exclude already used entries - filter in memory after fetch if query syntax doesn't work
+            let favoriteEntriesAll: [JournalEntry] = try await favoriteQuery
                 .execute()
                 .value
+            
+            let favoriteEntries = favoriteEntriesAll.filter { entry in
+                !usedEntryIdStrings.contains(entry.id.uuidString)
+            }
             
             if let favoriteEntry = favoriteEntries.first {
                 print("✅ Selected favorite entry for follow-up: \(favoriteEntry.content.prefix(50))...")
@@ -296,18 +320,20 @@ class SupabaseService: ObservableObject {
             }
             
             // Priority 2: tags = "open_question" entries (not yet used for follow-up)
-            let openQuestionEntries: [JournalEntry] = try await supabase
+            let openQuestionEntriesAll: [JournalEntry] = try await supabase
                 .from("journal_entries")
                 .select()
                 .eq("user_id", value: userId)
                 .contains("tags", value: ["open_question"])
-                .neq("used_for_follow_up", value: true) // Exclude already used entries
                 .gte("created_at", value: fifteenDaysAgo.ISO8601Format())
                 .lte("created_at", value: fiveDaysAgo.ISO8601Format())
                 .order("created_at", ascending: true) // Oldest first
-                .limit(1)
                 .execute()
                 .value
+            
+            let openQuestionEntries = openQuestionEntriesAll.filter { entry in
+                !usedEntryIdStrings.contains(entry.id.uuidString)
+            }
             
             if let openQuestionEntry = openQuestionEntries.first {
                 print("✅ Selected open question entry for follow-up: \(openQuestionEntry.content.prefix(50))...")
@@ -315,16 +341,18 @@ class SupabaseService: ObservableObject {
             }
             
             // Priority 3: Most recent entry older than current day (not yet used for follow-up)
-            let recentEntries: [JournalEntry] = try await supabase
+            let recentEntriesAll: [JournalEntry] = try await supabase
                 .from("journal_entries")
                 .select()
                 .eq("user_id", value: userId)
-                .neq("used_for_follow_up", value: true) // Exclude already used entries
                 .lt("created_at", value: today.ISO8601Format())
                 .order("created_at", ascending: false) // Most recent first
-                .limit(1)
                 .execute()
                 .value
+            
+            let recentEntries = recentEntriesAll.filter { entry in
+                !usedEntryIdStrings.contains(entry.id.uuidString)
+            }
             
             if let recentEntry = recentEntries.first {
                 print("✅ Selected most recent entry for follow-up: \(recentEntry.content.prefix(50))...")
@@ -384,6 +412,8 @@ class SupabaseService: ObservableObject {
     }
     
     /// Marks a journal entry as used for follow-up question generation
+    /// NOTE: With Option B implementation, we track usage via source_entry_id in follow_up_generation table
+    /// This function is kept for backward compatibility but may be deprecated in the future
     func markEntryAsUsedForFollowUp(entryId: UUID) async throws {
         do {
             try await supabase
@@ -396,6 +426,67 @@ class SupabaseService: ObservableObject {
         } catch {
             print("❌ Failed to mark entry as used for follow-up: \(error.localizedDescription)")
             throw error
+        }
+    }
+    
+    // MARK: - Follow-Up Generation (Pre-generated Questions)
+    
+    /// Fetches the current follow-up generation for a user
+    func fetchFollowUpGeneration(userId: UUID) async throws -> FollowUpGeneration? {
+        if useMockData {
+            // Mock implementation - return nil for now
+            return nil
+        } else {
+            // Real implementation - query database
+            let response: [FollowUpGeneration] = try await supabase
+                .from("follow_up_generation")
+                .select()
+                .eq("user_id", value: userId)
+                .limit(1)
+                .execute()
+                .value
+            
+            return response.first
+        }
+    }
+    
+    /// Creates or updates (upserts) a follow-up generation entry
+    /// Since we have UNIQUE constraint on user_id, this will update if exists, create if not
+    func createOrUpdateFollowUpGeneration(_ generation: FollowUpGeneration) async throws -> FollowUpGeneration {
+        if useMockData {
+            // Mock implementation - return the generation as-is
+            return generation
+        } else {
+            // Real implementation - upsert to database
+            let response: [FollowUpGeneration] = try await supabase
+                .from("follow_up_generation")
+                .upsert(generation, onConflict: "user_id")
+                .select()
+                .execute()
+                .value
+            
+            guard let savedGeneration = response.first else {
+                throw NSError(domain: "DatabaseError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to save follow-up generation"])
+            }
+            
+            print("✅ Follow-up generation saved/updated for user \(generation.userId)")
+            return savedGeneration
+        }
+    }
+    
+    /// Deletes a follow-up generation entry (if needed)
+    func deleteFollowUpGeneration(userId: UUID) async throws {
+        if useMockData {
+            // Mock implementation - do nothing
+            return
+        } else {
+            try await supabase
+                .from("follow_up_generation")
+                .delete()
+                .eq("user_id", value: userId)
+                .execute()
+            
+            print("✅ Follow-up generation deleted for user \(userId)")
         }
     }
     
