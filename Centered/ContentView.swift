@@ -2735,7 +2735,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
                         .renderingMode(.original)
                         .resizable()
                         .scaledToFit()
-                        .scaleEffect(0.6)
+                        .scaleEffect(0.75)
                         .frame(maxWidth: .infinity, alignment: .center)
                     
                     // Loading overlay when analyzing
