@@ -1416,15 +1416,31 @@ class JournalViewModel: ObservableObject {
             
             // Step 2: Check follow_up_generation table for pre-generated question
             do {
-                if let generation = try await supabaseService.fetchFollowUpGeneration(userId: user.id),
-                   !generation.fuqAiResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    currentFollowUpQuestion = generation.fuqAiResponse
-                    print("✅ Using pre-generated follow-up question from follow_up_generation table: \(currentFollowUpQuestion.prefix(50))...")
-                    foundQuestion = true
-                    break
+                print("🔍 Attempting to fetch follow-up generation from database (attempt \(retryCount + 1)/\(maxRetries))...")
+                if let generation = try await supabaseService.fetchFollowUpGeneration(userId: user.id) {
+                    print("📦 Found follow-up generation in database")
+                    print("   - ID: \(generation.id)")
+                    print("   - Created: \(generation.createdAt)")
+                    print("   - Response length: \(generation.fuqAiResponse.count) characters")
+                    print("   - Response preview: \(generation.fuqAiResponse.prefix(100))...")
+                    
+                    let trimmedResponse = generation.fuqAiResponse.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmedResponse.isEmpty {
+                        await MainActor.run {
+                            currentFollowUpQuestion = generation.fuqAiResponse
+                        }
+                        print("✅ Using pre-generated follow-up question from follow_up_generation table: \(currentFollowUpQuestion.prefix(50))...")
+                        foundQuestion = true
+                        break
+                    } else {
+                        print("⚠️ Follow-up generation found but response is empty or whitespace-only")
+                    }
+                } else {
+                    print("⚠️ No follow-up generation found in database for user \(user.id)")
                 }
             } catch {
-                print("⚠️ Error fetching follow-up generation: \(error.localizedDescription)")
+                print("❌ Error fetching follow-up generation: \(error.localizedDescription)")
+                print("   Error type: \(type(of: error))")
                 if retryCount < maxRetries - 1 {
                     print("⏳ Waiting 0.5s before retry...")
                     try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 second delay
