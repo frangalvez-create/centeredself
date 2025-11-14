@@ -16,6 +16,7 @@ class JournalViewModel: ObservableObject {
     @Published var followUpQuestionEntries: [JournalEntry] = []
     @Published var analyzerEntries: [AnalyzerEntry] = []
     @Published var currentFollowUpQuestion: String = ""
+    @Published var isLoadingFollowUpQuestion: Bool = false // Track if we're fetching a pre-generated question
     @Published var currentRetryAttempt: Int = 1 // Track current retry attempt for UI status
     
     // Callback to clear UI state directly
@@ -1375,6 +1376,9 @@ class JournalViewModel: ObservableObject {
     func checkAndLoadFollowUpQuestion(suppressErrors: Bool = false) async {
         guard let user = currentUser else { 
             print("⚠️ checkAndLoadFollowUpQuestion: User not authenticated")
+            await MainActor.run {
+                isLoadingFollowUpQuestion = false
+            }
             return 
         }
         
@@ -1382,8 +1386,30 @@ class JournalViewModel: ObservableObject {
         guard supabaseService.isFollowUpQuestionDay() else {
             print("📅 Today is not a follow-up question day")
             // Clear follow-up question if it's not a follow-up day
-            currentFollowUpQuestion = ""
+            await MainActor.run {
+                currentFollowUpQuestion = ""
+                isLoadingFollowUpQuestion = false
+            }
             return
+        }
+        
+        // Safety check: If question already exists, clear loading state and return early
+        // This prevents stuck loading states when app comes from background
+        let existingQuestion = await MainActor.run {
+            let question = currentFollowUpQuestion
+            if !question.isEmpty {
+                isLoadingFollowUpQuestion = false
+                print("✅ Follow-up question already loaded (\(question.prefix(50))...), skipping fetch")
+            }
+            return question
+        }
+        
+        // If question already exists, exit early
+        guard existingQuestion.isEmpty else { return }
+        
+        // Set loading state (reset it first to handle any stuck states)
+        await MainActor.run {
+            isLoadingFollowUpQuestion = true
         }
         
         let calendar = Calendar.current
@@ -1408,7 +1434,10 @@ class JournalViewModel: ObservableObject {
             if let todaysReplyEntry = todaysReplyEntries.first,
                let followUpQuestion = todaysReplyEntry.followUpQuestion,
                !followUpQuestion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                currentFollowUpQuestion = followUpQuestion
+                await MainActor.run {
+                    currentFollowUpQuestion = followUpQuestion
+                    isLoadingFollowUpQuestion = false // Clear loading state immediately when question found
+                }
                 print("✅ Using follow-up question from today's reply: \(currentFollowUpQuestion.prefix(50))...")
                 foundQuestion = true
                 break
@@ -1428,6 +1457,7 @@ class JournalViewModel: ObservableObject {
                     if !trimmedResponse.isEmpty {
                         await MainActor.run {
                             currentFollowUpQuestion = generation.fuqAiResponse
+                            isLoadingFollowUpQuestion = false // Clear loading state immediately when question found
                         }
                         print("✅ Using pre-generated follow-up question from follow_up_generation table: \(currentFollowUpQuestion.prefix(50))...")
                         foundQuestion = true
@@ -1458,20 +1488,59 @@ class JournalViewModel: ObservableObject {
             retryCount += 1
         }
         
-        // If still no question found, show "Generating..." message
+        // If still no question found, trigger fallback generation if needed
         if !foundQuestion && currentFollowUpQuestion.isEmpty {
-            print("⚠️ No follow-up question found - user will see 'Generating...' message")
-            // Don't generate here - pre-generation should have happened before follow-up day
-            // But we can trigger it as a fallback if really needed
-            if !suppressErrors {
+            print("⚠️ No follow-up question found after \(maxRetries) attempts - triggering fallback if needed")
+            
+            // Always try one final fetch attempt (in case of race condition or timing issue)
+            print("🔄 Attempting final fetch from database...")
+            if let generation = try? await supabaseService.fetchFollowUpGeneration(userId: user.id),
+               !generation.fuqAiResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                await MainActor.run {
+                    currentFollowUpQuestion = generation.fuqAiResponse
+                    isLoadingFollowUpQuestion = false
+                }
+                print("✅ Found question on final fetch attempt: \(currentFollowUpQuestion.prefix(50))...")
+            } else if !suppressErrors {
+                // Only trigger pre-generation if suppressErrors is false (normal app open)
                 print("🔄 Triggering fallback pre-generation...")
                 await preGenerateFollowUpQuestionIfNeeded()
                 // Try one more time after pre-generation
                 if let generation = try? await supabaseService.fetchFollowUpGeneration(userId: user.id),
                    !generation.fuqAiResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    currentFollowUpQuestion = generation.fuqAiResponse
+                    await MainActor.run {
+                        currentFollowUpQuestion = generation.fuqAiResponse
+                        isLoadingFollowUpQuestion = false
+                    }
                     print("✅ Using fallback pre-generated question: \(currentFollowUpQuestion.prefix(50))...")
+                } else {
+                    // If still no question found, clear loading state
+                    await MainActor.run {
+                        isLoadingFollowUpQuestion = false
+                    }
+                    print("⚠️ No question found even after fallback generation")
                 }
+            } else {
+                // If suppressErrors is true (pull-to-refresh), just clear loading state
+                // Don't trigger generation during pull-to-refresh to avoid delays
+                await MainActor.run {
+                    isLoadingFollowUpQuestion = false
+                }
+                print("⚠️ Pull-to-refresh: No question found, cleared loading state")
+            }
+        } else {
+            // Question found, clear loading state
+            await MainActor.run {
+                isLoadingFollowUpQuestion = false
+            }
+            print("✅ Follow-up question loaded successfully")
+        }
+        
+        // Final safety check: ensure loading state is cleared if question exists
+        // This handles edge cases where the question was set but loading state wasn't cleared
+        await MainActor.run {
+            if !currentFollowUpQuestion.isEmpty {
+                isLoadingFollowUpQuestion = false
             }
         }
     }

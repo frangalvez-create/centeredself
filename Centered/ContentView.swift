@@ -543,19 +543,28 @@ struct ContentView: View {
                 // Dynamic Question Text - Follow-Up or Open Question
                 HStack(spacing: 8) {
                     if isFollowUpQuestionDay && !journalViewModel.currentFollowUpQuestion.isEmpty {
-                        // Follow-Up Question (color #5F4083)
+                        // Follow-Up Question (color #5F4083) - Show once loaded
                         Text(journalViewModel.currentFollowUpQuestion)
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(Color(hex: "5F4083"))
                             .multilineTextAlignment(.center)
                             .lineLimit(nil)
                             .fixedSize(horizontal: false, vertical: true)
-                    } else if isFollowUpQuestionDay && journalViewModel.currentFollowUpQuestion.isEmpty {
-                        // Generating follow-up question (during delay)
-                        Text("Generating a follow up question for you...")
+                    } else if isFollowUpQuestionDay && journalViewModel.isLoadingFollowUpQuestion {
+                        // Show loading message while fetching pre-generated question
+                        Text("Loading follow up question...")
                             .font(.system(size: 16, weight: .medium))
                             .italic()
                             .foregroundColor(Color(hex: "5F4083"))
+                            .multilineTextAlignment(.center)
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else if isFollowUpQuestionDay && journalViewModel.currentFollowUpQuestion.isEmpty {
+                        // If it's a follow-up day but no question and not loading, show open question as fallback
+                        // This should rarely happen if pre-generation is working correctly
+                        Text("Looking at today or yesterday, share moments or thoughts that stood out.")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(Color.textBlue)
                             .multilineTextAlignment(.center)
                             .lineLimit(nil)
                             .fixedSize(horizontal: false, vertical: true)
@@ -1752,10 +1761,18 @@ Capabilities and Reminders: You have access to the web search tools, published r
         
         // Load or clear follow-up question data depending on the day
         if isFollowUpDay {
+            // Reset loading state before fetching (handles stuck states from background)
+            await MainActor.run {
+                // Only reset if question is empty, otherwise keep existing question
+                if journalViewModel.currentFollowUpQuestion.isEmpty {
+                    journalViewModel.isLoadingFollowUpQuestion = false
+                }
+            }
             await journalViewModel.checkAndLoadFollowUpQuestion(suppressErrors: suppressErrors)
         } else {
             await MainActor.run {
                 journalViewModel.currentFollowUpQuestion = ""
+                journalViewModel.isLoadingFollowUpQuestion = false
             }
         }
         
@@ -2868,7 +2885,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
                     .scaledToFit()
                     .frame(width: 80, height: 80)
                     .padding(.top, 60) // 55 + 5 = 60pt (additional 2pt lower)
-                    .padding(.bottom, -10) // Negative padding to reduce gap
+                    .padding(.bottom, -17) // Negative padding to reduce gap
                 
                 // Favorite title - much closer to logo
                 Image("Favorite title")
@@ -2876,7 +2893,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
                     .resizable()
                     .scaledToFit()
                     .scaleEffect(0.353) // Reduced to 2/3 of previous size (0.53 * 0.667)
-                    .padding(.bottom, 10)
+                    .padding(.bottom, 0)
                 
                 // List of favorite entries with swipe-to-delete - 10pt below title
                 if journalViewModel.favoriteJournalEntries.isEmpty {
