@@ -1393,19 +1393,30 @@ class JournalViewModel: ObservableObject {
             return
         }
         
-        // Safety check: If question already exists, clear loading state and return early
-        // This prevents stuck loading states when app comes from background
+        // Safety check: If question already exists and suppressErrors is false (normal flow), return early
+        // BUT: If suppressErrors is true (pull-to-refresh), always fetch fresh to ensure we have the latest
         let existingQuestion = await MainActor.run {
-            let question = currentFollowUpQuestion
-            if !question.isEmpty {
-                isLoadingFollowUpQuestion = false
-                print("✅ Follow-up question already loaded (\(question.prefix(50))...), skipping fetch")
-            }
-            return question
+            return currentFollowUpQuestion
         }
         
-        // If question already exists, exit early
-        guard existingQuestion.isEmpty else { return }
+        // Only skip fetch if question exists AND we're not forcing a refresh (suppressErrors = false means normal flow)
+        // During pull-to-refresh (suppressErrors = true), we want to force a fresh fetch even if question exists
+        if !existingQuestion.isEmpty && !suppressErrors {
+            await MainActor.run {
+                isLoadingFollowUpQuestion = false
+            }
+            print("✅ Follow-up question already loaded (\(existingQuestion.prefix(50))...), skipping fetch")
+            return
+        }
+        
+        // During pull-to-refresh, clear existing question to force fresh fetch
+        // This ensures we're not using stale cached data from yesterday
+        if suppressErrors && !existingQuestion.isEmpty {
+            await MainActor.run {
+                currentFollowUpQuestion = ""
+                print("🔄 Pull-to-refresh: Cleared existing question to force fresh fetch")
+            }
+        }
         
         // Set loading state (reset it first to handle any stuck states)
         await MainActor.run {
@@ -1416,8 +1427,9 @@ class JournalViewModel: ObservableObject {
         let today = Date()
         
         // Retry up to 3 times with delays to account for database write delays/race conditions
+        // For pull-to-refresh, use more retries to handle potential timing issues
         var retryCount = 0
-        let maxRetries = 3
+        let maxRetries = suppressErrors ? 5 : 3 // More retries for pull-to-refresh
         var foundQuestion = false
         
         while retryCount < maxRetries && !foundQuestion {
@@ -1445,9 +1457,12 @@ class JournalViewModel: ObservableObject {
             
             // Step 2: Check follow_up_generation table for pre-generated question
             do {
-                print("🔍 Attempting to fetch follow-up generation from database (attempt \(retryCount + 1)/\(maxRetries))...")
+                print("🔍 [PULL-TO-REFRESH] Attempting to fetch from follow_up_generation table (attempt \(retryCount + 1)/\(maxRetries), suppressErrors: \(suppressErrors))...")
+                print("   - User ID: \(user.id)")
+                print("   - Querying: SELECT * FROM follow_up_generation WHERE user_id = '\(user.id)' LIMIT 1")
+                
                 if let generation = try await supabaseService.fetchFollowUpGeneration(userId: user.id) {
-                    print("📦 Found follow-up generation in database")
+                    print("📦 [PULL-TO-REFRESH] ✅ Found follow-up generation in database")
                     print("   - ID: \(generation.id)")
                     print("   - Created: \(generation.createdAt)")
                     print("   - Response length: \(generation.fuqAiResponse.count) characters")
@@ -1459,20 +1474,29 @@ class JournalViewModel: ObservableObject {
                             currentFollowUpQuestion = generation.fuqAiResponse
                             isLoadingFollowUpQuestion = false // Clear loading state immediately when question found
                         }
-                        print("✅ Using pre-generated follow-up question from follow_up_generation table: \(currentFollowUpQuestion.prefix(50))...")
+                        print("✅ [PULL-TO-REFRESH] Using pre-generated follow-up question from follow_up_generation table: \(currentFollowUpQuestion.prefix(50))...")
                         foundQuestion = true
                         break
                     } else {
-                        print("⚠️ Follow-up generation found but response is empty or whitespace-only")
+                        print("⚠️ [PULL-TO-REFRESH] Follow-up generation found but response is empty or whitespace-only")
+                        print("   - Full response: '\(generation.fuqAiResponse)'")
                     }
                 } else {
-                    print("⚠️ No follow-up generation found in database for user \(user.id)")
+                    print("⚠️ [PULL-TO-REFRESH] No follow-up generation found in database for user \(user.id)")
+                    print("   - This is attempt \(retryCount + 1) of \(maxRetries)")
+                    print("   - Checking if table exists and has RLS policies enabled...")
                 }
             } catch {
-                print("❌ Error fetching follow-up generation: \(error.localizedDescription)")
-                print("   Error type: \(type(of: error))")
+                print("❌ [PULL-TO-REFRESH] ERROR fetching follow-up generation: \(error.localizedDescription)")
+                print("   - Error type: \(type(of: error))")
+                print("   - Error details: \(error)")
+                print("   - suppressErrors: \(suppressErrors)")
+                if !suppressErrors {
+                    // Only show error to user if not suppressing errors
+                    errorMessage = "Failed to load follow-up question: \(error.localizedDescription)"
+                }
                 if retryCount < maxRetries - 1 {
-                    print("⏳ Waiting 0.5s before retry...")
+                    print("⏳ [PULL-TO-REFRESH] Waiting 0.5s before retry...")
                     try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 second delay
                 }
                 retryCount += 1
@@ -1489,10 +1513,25 @@ class JournalViewModel: ObservableObject {
         }
         
         // If still no question found, trigger fallback generation if needed
-        if !foundQuestion && currentFollowUpQuestion.isEmpty {
+        if !foundQuestion {
+            // Check current state before proceeding
+            let currentState = await MainActor.run {
+                return (currentFollowUpQuestion, isLoadingFollowUpQuestion)
+            }
+            
+            if !currentState.0.isEmpty {
+                // Question was found and set during retry loop, exit early
+                print("✅ Question was set during retry loop: \(currentState.0.prefix(50))...")
+                await MainActor.run {
+                    isLoadingFollowUpQuestion = false
+                }
+                return
+            }
+            
             print("⚠️ No follow-up question found after \(maxRetries) attempts - triggering fallback if needed")
             
             // Always try one final fetch attempt (in case of race condition or timing issue)
+            // This is especially important for pull-to-refresh scenarios
             print("🔄 Attempting final fetch from database...")
             if let generation = try? await supabaseService.fetchFollowUpGeneration(userId: user.id),
                !generation.fuqAiResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -1501,7 +1540,32 @@ class JournalViewModel: ObservableObject {
                     isLoadingFollowUpQuestion = false
                 }
                 print("✅ Found question on final fetch attempt: \(currentFollowUpQuestion.prefix(50))...")
-            } else if !suppressErrors {
+                return // Exit early since we found the question
+            } else {
+                print("⚠️ Final fetch attempt also failed - question may not exist in database")
+            }
+            
+            // Also check journal_entries one more time in case user replied
+            print("🔄 Attempting final check in journal_entries...")
+            await loadFollowUpQuestionEntries()
+            let todaysReplyEntries = followUpQuestionEntries.filter { entry in
+                calendar.isDate(entry.createdAt, inSameDayAs: today) &&
+                entry.entryType == "follow_up" &&
+                !entry.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            }
+            
+            if let todaysReplyEntry = todaysReplyEntries.first,
+               let followUpQuestion = todaysReplyEntry.followUpQuestion,
+               !followUpQuestion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                await MainActor.run {
+                    currentFollowUpQuestion = followUpQuestion
+                    isLoadingFollowUpQuestion = false
+                }
+                print("✅ Found question from today's reply on final check: \(currentFollowUpQuestion.prefix(50))...")
+                return
+            }
+            
+            if !suppressErrors {
                 // Only trigger pre-generation if suppressErrors is false (normal app open)
                 print("🔄 Triggering fallback pre-generation...")
                 await preGenerateFollowUpQuestionIfNeeded()
@@ -1521,12 +1585,44 @@ class JournalViewModel: ObservableObject {
                     print("⚠️ No question found even after fallback generation")
                 }
             } else {
-                // If suppressErrors is true (pull-to-refresh), just clear loading state
-                // Don't trigger generation during pull-to-refresh to avoid delays
-                await MainActor.run {
-                    isLoadingFollowUpQuestion = false
+                // If suppressErrors is true (pull-to-refresh), try one more aggressive fetch with delay
+                // This handles cases where database hasn't fully updated yet
+                print("🔄 Pull-to-refresh: Attempting final aggressive fetch after delay...")
+                try? await Task.sleep(nanoseconds: 1_500_000_000) // Wait 1.5s for database to catch up
+                
+                // Final aggressive fetch attempt
+                if let generation = try? await supabaseService.fetchFollowUpGeneration(userId: user.id),
+                   !generation.fuqAiResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    await MainActor.run {
+                        currentFollowUpQuestion = generation.fuqAiResponse
+                        isLoadingFollowUpQuestion = false
+                    }
+                    print("✅ Found question on aggressive final fetch: \(currentFollowUpQuestion.prefix(50))...")
+                } else {
+                    // If still no question, check journal_entries one more time
+                    await loadFollowUpQuestionEntries()
+                    let finalReplyEntries = followUpQuestionEntries.filter { entry in
+                        calendar.isDate(entry.createdAt, inSameDayAs: today) &&
+                        entry.entryType == "follow_up" &&
+                        !entry.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    }
+                    
+                    if let finalReplyEntry = finalReplyEntries.first,
+                       let followUpQuestion = finalReplyEntry.followUpQuestion,
+                       !followUpQuestion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        await MainActor.run {
+                            currentFollowUpQuestion = followUpQuestion
+                            isLoadingFollowUpQuestion = false
+                        }
+                        print("✅ Found question from journal_entries on aggressive final fetch: \(currentFollowUpQuestion.prefix(50))...")
+                    } else {
+                        // Finally give up and clear loading state
+                        await MainActor.run {
+                            isLoadingFollowUpQuestion = false
+                        }
+                        print("⚠️ Pull-to-refresh: No question found after all attempts, cleared loading state")
+                    }
                 }
-                print("⚠️ Pull-to-refresh: No question found, cleared loading state")
             }
         } else {
             // Question found, clear loading state
@@ -1538,10 +1634,27 @@ class JournalViewModel: ObservableObject {
         
         // Final safety check: ensure loading state is cleared if question exists
         // This handles edge cases where the question was set but loading state wasn't cleared
-        await MainActor.run {
-            if !currentFollowUpQuestion.isEmpty {
+        // Also verify question is still set (in case it was cleared somewhere else)
+        let finalState = await MainActor.run {
+            let question = currentFollowUpQuestion
+            if !question.isEmpty {
                 isLoadingFollowUpQuestion = false
+                print("✅ Final safety check: Question confirmed loaded: \(question.prefix(50))...")
+            } else {
+                // If question is empty and we're on a follow-up day, log warning
+                if supabaseService.isFollowUpQuestionDay() {
+                    print("⚠️ Final safety check: Question is empty on follow-up day - may need another fetch")
+                }
             }
+            return question
+        }
+        
+        // For pull-to-refresh, if question is still empty, log detailed state
+        if suppressErrors && finalState.isEmpty {
+            print("⚠️ Pull-to-refresh: Question still empty after all attempts")
+            print("   - User ID: \(user.id)")
+            print("   - Max retries used: \(maxRetries)")
+            print("   - Found question flag: \(foundQuestion)")
         }
     }
     

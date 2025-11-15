@@ -436,6 +436,11 @@ class SupabaseService: ObservableObject {
             return nil
         } else {
             // Real implementation - query database
+            print("🔍 [SupabaseService] fetchFollowUpGeneration: Querying follow_up_generation table")
+            print("   - User ID: \(userId)")
+            print("   - Table: follow_up_generation")
+            print("   - Query: SELECT * FROM follow_up_generation WHERE user_id = '\(userId)' LIMIT 1")
+            
             let response: [FollowUpGeneration] = try await supabase
                 .from("follow_up_generation")
                 .select()
@@ -443,6 +448,14 @@ class SupabaseService: ObservableObject {
                 .limit(1)
                 .execute()
                 .value
+            
+            print("🔍 [SupabaseService] fetchFollowUpGeneration: Query result")
+            print("   - Rows returned: \(response.count)")
+            if let generation = response.first {
+                print("   - ✅ Found generation: ID=\(generation.id), Response length=\(generation.fuqAiResponse.count)")
+            } else {
+                print("   - ⚠️ No generation found for user \(userId)")
+            }
             
             return response.first
         }

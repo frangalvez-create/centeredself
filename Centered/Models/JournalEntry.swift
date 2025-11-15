@@ -16,7 +16,7 @@ struct JournalEntry: Identifiable, Codable {
     let fuqAiResponse: String?
     let isFollowUpDay: Bool?
     let usedForFollowUp: Bool?
-    let followUpQuestion: String? // NEW: The question that was used when user responded (from follow_up_generation table)
+    let followUpQuestion: String? // The question that was used when user responded (from follow_up_generation table)
     
     enum CodingKeys: String, CodingKey {
         case id

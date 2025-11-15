@@ -79,8 +79,8 @@ struct ContentView: View {
     // Welcome Message State
     @State private var showWelcomeMessage: Bool = false
     
-    // Pull to Refresh Loading State
-    @State private var isRefreshing: Bool = false
+    // Loading View State
+    @State private var showLoadingView: Bool = false
     
     // Analyzer
     @StateObject private var analyzerViewModel = AnalyzerViewModel()
@@ -114,10 +114,11 @@ struct ContentView: View {
         }
         .onChange(of: journalViewModel.isAuthenticated) { isAuthenticated in
             if isAuthenticated {
-                // When user becomes authenticated, ensure Journal tab is selected
+                // When user becomes authenticated, show Loading View first
+                showLoadingView = true
                 selectedTab = 0
                 
-                // Check if this is a first-time user
+                // Check if this is a first-time user (will show after Loading View)
                 checkAndShowWelcomeMessage()
             }
         }
@@ -145,60 +146,101 @@ struct ContentView: View {
     private var rootContent: some View {
         Group {
             if journalViewModel.isAuthenticated {
-                VStack(spacing: 0) {
-                    // Main Content Area
-                    Group {
-                        switch selectedTab {
-                        case 0:
-                            mainJournalView
-                        case 1:
-                            favoritesPageView
-                        case 2:
-                            analyzerPageView
-                        case 3:
-                            ProfileView(
-                                showSettingsFromPopup: $showSettingsFromPopup,
-                                openCenteredSelf: { showCenteredSelfSheet = true }
-                            )
-                        default:
-                            mainJournalView
+                // Show Loading View if requested, otherwise show main content
+                if showLoadingView {
+                    loadingView
+                } else {
+                    VStack(spacing: 0) {
+                        // Main Content Area
+                        Group {
+                            switch selectedTab {
+                            case 0:
+                                mainJournalView
+                            case 1:
+                                favoritesPageView
+                            case 2:
+                                analyzerPageView
+                            case 3:
+                                ProfileView(
+                                    showSettingsFromPopup: $showSettingsFromPopup,
+                                    openCenteredSelf: { showCenteredSelfSheet = true }
+                                )
+                            default:
+                                mainJournalView
+                            }
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        
+                        // Custom Tab Bar
+                        customTabBar
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    
-                    // Custom Tab Bar
-                    customTabBar
-                }
-                .background(Color(hex: "E3E0C9"))
-                .ignoresSafeArea(.all)
-                .overlay(
-                    // Info Popup
-                    Group {
-                        if showInfoPopup {
-                            infoPopupView
+                    .background(Color(hex: "E3E0C9"))
+                    .ignoresSafeArea(.all)
+                    .overlay(
+                        // Info Popup
+                        Group {
+                            if showInfoPopup {
+                                infoPopupView
+                            }
+                            if showGoalInfoPopup {
+                                goalInfoPopupView
+                            }
+                            if showQ3InfoPopup {
+                                q3InfoPopupView
+                            }
                         }
-                        if showGoalInfoPopup {
-                            goalInfoPopupView
+                    )
+                    .overlay(
+                        // Welcome Message Modal
+                        Group {
+                            if showWelcomeMessage {
+                                welcomeMessageView
+                            }
                         }
-                        if showQ3InfoPopup {
-                            q3InfoPopupView
-                        }
+                    )
+                    .sheet(isPresented: $showCenteredSelfSheet) {
+                        centeredPageView
+                            .environmentObject(journalViewModel)
                     }
-                )
-                .overlay(
-                    // Welcome Message Modal
-                    Group {
-                        if showWelcomeMessage {
-                            welcomeMessageView
-                        }
-                    }
-                )
-                .sheet(isPresented: $showCenteredSelfSheet) {
-                    centeredPageView
-                        .environmentObject(journalViewModel)
                 }
             } else {
                 authenticationView
+            }
+        }
+    }
+    
+    // MARK: - Loading View
+    
+    private var loadingView: some View {
+        VStack {
+            Spacer()
+            
+            Image("Fav Logo")
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 80, height: 80)
+            
+            Text("Updating Daily Questions…")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(Color(hex: "3F5E82"))
+                .padding(.top, 10)
+            
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(hex: "E3E0C9"))
+        .ignoresSafeArea(.all)
+        .allowsHitTesting(true) // Block all interactions
+        .onAppear {
+            // Auto-switch back to Journal View after 2 seconds
+            Task {
+                try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+                await MainActor.run {
+                    showLoadingView = false
+                    // Ensure Journal tab is selected
+                    selectedTab = 0
+                }
             }
         }
     }
@@ -1024,68 +1066,16 @@ struct ContentView: View {
                                 .padding(.top, 10)
                         }
                         .padding(20)
-                        .background(Color.black.opacity(0.7))
+                        .background(Color(hex: "345377").opacity(0.9))
                         .cornerRadius(10)
                     }
                 }
             }
         )
         .refreshable {
-            // Pull to refresh gesture - manual journal text refresh
-            isRefreshing = true
-            
-            // Track start time for minimum display duration
-            let startTime = Date()
-
-            await reloadJournalDataSequence(suppressErrors: true)
-            
-            // Calculate elapsed time and ensure minimum 2-second display
-            let elapsedTime = Date().timeIntervalSince(startTime)
-            let minimumDisplayTime: TimeInterval = 2.0
-            let remainingTime = max(0, minimumDisplayTime - elapsedTime)
-            
-            // Wait for remaining time to ensure minimum 2-second display
-            if remainingTime > 0 {
-                try? await Task.sleep(nanoseconds: UInt64(remainingTime * 1_000_000_000))
-            }
-            
-            // Verify the question was loaded correctly
-            if journalViewModel.currentQuestion != nil {
-                // Set to false after all operations complete and minimum display time
-                await MainActor.run {
-                    isRefreshing = false
-                }
-            } else {
-                // Retry if question not loaded
-                await journalViewModel.loadTodaysQuestion()
-                await MainActor.run {
-                    isRefreshing = false
-                }
-            }
-        }
-        .overlay {
-            // Loading overlay during refresh
-            if isRefreshing {
-                ZStack {
-                    Color.black.opacity(0.3)
-                        .ignoresSafeArea()
-                    
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .scaleEffect(1.5)
-                            .tint(.white)
-                        
-                        Text("Updating daily questions...")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white)
-                    }
-                    .padding(20)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.black.opacity(0.8))
-                    )
-                }
-                .allowsHitTesting(true) // Block all interactions
+            // Pull to refresh gesture - immediately switch to Loading View
+            await MainActor.run {
+                showLoadingView = true
             }
         }
         .onAppear {
@@ -1761,14 +1751,24 @@ Capabilities and Reminders: You have access to the web search tools, published r
         
         // Load or clear follow-up question data depending on the day
         if isFollowUpDay {
-            // Reset loading state before fetching (handles stuck states from background)
-            await MainActor.run {
-                // Only reset if question is empty, otherwise keep existing question
-                if journalViewModel.currentFollowUpQuestion.isEmpty {
-                    journalViewModel.isLoadingFollowUpQuestion = false
-                }
-            }
+            // Load follow-up question entries BEFORE fetching the question
+            // This ensures the data is available for checks
+            await journalViewModel.loadFollowUpQuestionEntries()
+            
+            // Load follow-up question (checkAndLoadFollowUpQuestion handles clearing for pull-to-refresh)
             await journalViewModel.checkAndLoadFollowUpQuestion(suppressErrors: suppressErrors)
+            
+            // IMPORTANT: Verify the question was loaded after fetch completes
+            // This ensures we have the question before UI state population
+            let loadedQuestion = await MainActor.run {
+                return journalViewModel.currentFollowUpQuestion
+            }
+            
+            if loadedQuestion.isEmpty && isFollowUpDay {
+                print("⚠️ Pull-to-refresh: Question still empty after checkAndLoadFollowUpQuestion, attempting one more fetch...")
+                // One final attempt if question is still empty
+                await journalViewModel.checkAndLoadFollowUpQuestion(suppressErrors: suppressErrors)
+            }
         } else {
             await MainActor.run {
                 journalViewModel.currentFollowUpQuestion = ""
@@ -1782,6 +1782,14 @@ Capabilities and Reminders: You have access to the web search tools, published r
         // Repopulate UI state with the freshly loaded data
         await MainActor.run {
             populateUIStateFromJournalEntries()
+            
+            // IMPORTANT: Ensure follow-up question is preserved after populateUIStateFromJournalEntries
+            // This prevents the question from being lost during UI state population
+            // Only update isFollowUpQuestionDay if we have a valid question loaded
+            if isFollowUpDay && !journalViewModel.currentFollowUpQuestion.isEmpty {
+                // Question is loaded, ensure UI state reflects this
+                print("✅ Preserving follow-up question after UI state population: \(journalViewModel.currentFollowUpQuestion.prefix(50))...")
+            }
             
             if let mostRecentGoal = journalViewModel.goals.first {
                 goalText = mostRecentGoal.goals
@@ -2418,12 +2426,12 @@ Capabilities and Reminders: You have access to the web search tools, published r
                         
                         Text(getAnalyzerLoadingText())
                             .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white)
+                            .foregroundColor(Color(hex: "F5F4EB"))
                     }
                     .padding(20)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.black.opacity(0.8))
+                            .fill(Color(hex: "345377").opacity(0.8))
                     )
                 }
                 .allowsHitTesting(true) // Block all interactions
@@ -2885,7 +2893,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
                     .scaledToFit()
                     .frame(width: 80, height: 80)
                     .padding(.top, 60) // 55 + 5 = 60pt (additional 2pt lower)
-                    .padding(.bottom, -17) // Negative padding to reduce gap
+                    .padding(.bottom, -20) // Negative padding to reduce gap
                 
                 // Favorite title - much closer to logo
                 Image("Favorite title")
