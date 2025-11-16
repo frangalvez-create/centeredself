@@ -141,14 +141,19 @@ class JournalViewModel: ObservableObject {
         do {
             try await supabaseService.signOut()
             currentUser = nil
+            lastUserId = nil // Reset last user ID to allow proper detection on next login
             isAuthenticated = false
             journalEntries = []
             currentQuestion = nil
             openQuestionJournalEntries = []
             favoriteJournalEntries = []
             analyzerEntries = []
+            // Clear follow-up question state to prevent user data leakage
+            currentFollowUpQuestion = ""
+            followUpQuestionEntries = []
+            isLoadingFollowUpQuestion = false
             // Don't clear UI state here - let verifyOTP handle it when a different user signs in
-            print("🚪 User signed out - UI state preserved for same user re-login")
+            print("🚪 User signed out - cleared all user-specific data including follow-up question")
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -157,6 +162,17 @@ class JournalViewModel: ObservableObject {
     // MARK: - UI State Management
     func clearUIState() async {
         print("🧹 Triggering UI state clear for user isolation - shouldClearUIState set to true")
+        
+        // Clear all user-specific data including follow-up question to prevent data leakage
+        currentFollowUpQuestion = ""
+        followUpQuestionEntries = []
+        isLoadingFollowUpQuestion = false
+        currentQuestion = nil
+        journalEntries = []
+        openQuestionJournalEntries = []
+        favoriteJournalEntries = []
+        analyzerEntries = []
+        goals = []
         
         // Try both approaches
         shouldClearUIState = true
@@ -170,7 +186,7 @@ class JournalViewModel: ObservableObject {
         // Give the UI time to process the change before resetting
         try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         shouldClearUIState = false
-        print("🧹 Reset shouldClearUIState to false")
+        print("🧹 Reset shouldClearUIState to false - all user data cleared including follow-up question")
     }
     
     func authenticateTestUser() async {
@@ -1143,12 +1159,35 @@ class JournalViewModel: ObservableObject {
         let calendar = Calendar.current
         let today = Date()
         
-        // Check 1: Already generated today? Skip if yes
+        // Check 1: Already generated today? Skip if yes (UNLESS it's a follow-up day and user just replied)
+        // On follow-up day, we want to generate a NEW question after user replies for the NEXT follow-up day
+        let isTodayFollowUpDay = supabaseService.isFollowUpQuestionDay()
+        
+        // Check if user replied today (needed to allow regeneration on follow-up day)
+        await loadFollowUpQuestionEntries()
+        let todaysReplies = followUpQuestionEntries.filter { entry in
+            calendar.isDate(entry.createdAt, inSameDayAs: today) &&
+            entry.entryType == "follow_up" &&
+            !entry.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        let userRepliedToday = !todaysReplies.isEmpty
+        
         do {
             if let existingGeneration = try await supabaseService.fetchFollowUpGeneration(userId: user.id) {
                 if calendar.isDate(existingGeneration.createdAt, inSameDayAs: today) {
-                    print("✅ Follow-up question already generated today - skipping pre-generation")
-                    return
+                    // If today is a follow-up day AND user replied today, allow regeneration
+                    // This generates a new question for the NEXT follow-up day
+                    if isTodayFollowUpDay && userRepliedToday {
+                        print("📅 Follow-up day + user replied today - allowing new generation for next follow-up day")
+                        print("   - Existing generation created: \(existingGeneration.createdAt)")
+                        print("   - User replied: \(userRepliedToday)")
+                        // Continue to generation logic below (don't return)
+                    } else {
+                        print("✅ Follow-up question already generated today - skipping pre-generation")
+                        print("   - Is follow-up day: \(isTodayFollowUpDay)")
+                        print("   - User replied today: \(userRepliedToday)")
+                        return
+                    }
                 }
             }
         } catch {
@@ -1377,9 +1416,24 @@ class JournalViewModel: ObservableObject {
         guard let user = currentUser else { 
             print("⚠️ checkAndLoadFollowUpQuestion: User not authenticated")
             await MainActor.run {
+                currentFollowUpQuestion = ""
                 isLoadingFollowUpQuestion = false
             }
             return 
+        }
+        
+        // Safety check: Ensure we're loading for the correct user
+        // Clear question if user ID doesn't match lastUserId (user switched)
+        if let lastId = lastUserId, lastId != user.id {
+            print("⚠️ checkAndLoadFollowUpQuestion: User ID mismatch detected - clearing stale question")
+            print("   - Last user ID: \(lastId)")
+            print("   - Current user ID: \(user.id)")
+            await MainActor.run {
+                currentFollowUpQuestion = ""
+                isLoadingFollowUpQuestion = false
+            }
+            // Update lastUserId to current user
+            lastUserId = user.id
         }
         
         // Check if today is a follow-up question day
