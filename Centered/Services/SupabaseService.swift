@@ -1313,7 +1313,7 @@ Task: Analyze and evaluate all the user's inputs from the last 7 days
 
 User Input: {content}
 
-Output: Create three paragraphs. The first paragraph, list the top three moods with number (#) of instances found in the user input analysis. Ex. "mood1(#), mood2(#), mood3(#)". Only display moods (#). Second paragraph, first bullet = summary of the inputs, second bullet = action the user can make to address input summary and goal for the next week. Tone = encouraging and supportive. Limit to 200 words. Last paragraph, evaluate the inputs and generate a "centered score" from 60 to 100. (60-70=professional therapy help may be needed, 70-80=normal but needs improvement, 80-90=normal human emotions, 90-100=well balanced mental health). Only display score number.
+Output: Create three paragraphs. The first paragraph, list the top three moods (each mood one word only) with number (#) of instances found in the user input analysis. Ex. "mood1(#), mood2(#), mood3(#)". Only display moods (#). Second paragraph, first bullet = summary of the inputs, second bullet = action the user can make to address input summary and goal for the next week. Tone = encouraging and supportive. Limit to 200 words. Last paragraph, evaluate the inputs and generate a "centered score" from 60 to 100. (60-70=professional therapy help may be needed, 70-80=normal but needs improvement, 80-90=normal human emotions, 90-100=well balanced mental health). Only display score number.
 """
         return promptTemplate.replacingOccurrences(of: "{content}", with: content)
     }
@@ -1327,7 +1327,7 @@ Task: Analyze and evaluate all the user's inputs from the last month
 
 User Input: {content}
 
-Output: Create three paragraphs. The first paragraph, list the top five moods with number (#) of instances found in the user input analysis. Ex. "mood1(#), mood2(#), mood3(#), mood4(#), mood5(#)". Only display moods (#). Second paragraph, first bullet = summary of the inputs, second bullet = action the user can make to address input summary and goal for the next week. Tone = encouraging and supportive. Limit to 200 words. Last paragraph, evaluate the inputs and generate a "centered score" from 60 to 100. (60-70=professional therapy help may be needed, 70-80=normal but needs improvement, 80-90=normal human emotions, 90-100=well balanced mental health). Only display score number.
+Output: Create three paragraphs. The first paragraph, list the top five moods (each mood one word only) with number (#) of instances found in the user input analysis. Ex. "mood1(#), mood2(#), mood3(#), mood4(#), mood5(#)". Only display moods (#). Second paragraph, first bullet = summary of the inputs, second bullet = action the user can make to address input summary and goal for the next week. Tone = encouraging and supportive. Limit to 200 words. Last paragraph, evaluate the inputs and generate a "centered score" from 60 to 100. (60-70=professional therapy help may be needed, 70-80=normal but needs improvement, 80-90=normal human emotions, 90-100=well balanced mental health). Only display score number.
 """
         return promptTemplate.replacingOccurrences(of: "{content}", with: content)
     }

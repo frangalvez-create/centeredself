@@ -2571,7 +2571,8 @@ Capabilities and Reminders: You have access to the web search tools, published r
                             .font(.system(size: 14, weight: .medium))
                             .foregroundColor(Color(hex: "3F5E82"))
                             .multilineTextAlignment(.center)
-                            .lineLimit(2)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
                     }
                     .frame(maxWidth: .infinity)
                 }
