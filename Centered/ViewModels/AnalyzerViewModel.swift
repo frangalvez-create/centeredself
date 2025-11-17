@@ -30,7 +30,7 @@ struct MoodCount: Identifiable, Equatable {
 @MainActor
 class AnalyzerViewModel: ObservableObject {
     @Published var mode: AnalyzerMode = .weekly
-    @Published var dateRangeDisplay: String = "Run Analyze to view insights"
+    @Published var dateRangeDisplay: String = "Run analysis"
     @Published var latestEntry: AnalyzerEntry?
     @Published var moodCounts: [MoodCount] = []
     @Published var logsCount: Int = 0
@@ -198,35 +198,75 @@ class AnalyzerViewModel: ObservableObject {
         return summaryParagraph.isEmpty ? nil : summaryParagraph
     }
     
-    /// Determines if the analyze button should be enabled
-    func determineAnalysisAvailability(for date: Date = Date()) {
-        let weekday = calendar.component(.weekday, from: date)
+    /// Determines if analysis should be weekly or monthly based on date
+    /// Monthly analysis occurs on the last Sunday of the month, otherwise weekly
+    func determineAnalysisMode(for date: Date) -> AnalyzerMode {
+        let startOfDay = calendar.startOfDay(for: date)
         
-        // Analyzer is available on Sundays (weekday == 1)
-        let isSunday = weekday == 1
-        
-        if !isSunday {
-            isAnalyzeButtonEnabled = false
-            return
+        // Check if this date is the last Sunday of the month
+        let lastSundayOfMonth = findLastSundayOfMonth(for: startOfDay)
+        if let lastSunday = lastSundayOfMonth, calendar.isDate(startOfDay, inSameDayAs: lastSunday) {
+            return .monthly
         }
         
-        // Check if there's already an analysis for the current period
-        // If latestEntry exists and was created today, disable the button
-        if let latestEntry = latestEntry {
-            let entryDate = calendar.startOfDay(for: latestEntry.createdAt)
-            let today = calendar.startOfDay(for: date)
-            
-            if calendar.isDate(entryDate, inSameDayAs: today) {
-                // Analysis already exists for today
-                isAnalyzeButtonEnabled = false
-            } else {
-                // No analysis for today, enable button
-                isAnalyzeButtonEnabled = true
+        // Otherwise, use weekly analysis
+        return .weekly
+    }
+    
+    /// Finds the last Sunday of the month for a given date
+    private func findLastSundayOfMonth(for date: Date) -> Date? {
+        let components = calendar.dateComponents([.year, .month], from: date)
+        
+        guard let firstOfMonth = calendar.date(from: components),
+              let range = calendar.range(of: .day, in: .month, for: firstOfMonth) else {
+            return nil
+        }
+        
+        // Find the last Sunday of the month
+        for day in range.reversed() {
+            if let date = calendar.date(byAdding: .day, value: day - 1, to: firstOfMonth) {
+                if calendar.component(.weekday, from: date) == 1 { // Sunday
+                    return date
+                }
             }
-        } else {
-            // No previous analysis, enable button
-            isAnalyzeButtonEnabled = true
         }
+        
+        return nil
+    }
+    
+    /// Determines if the analyze button should be enabled
+    /// Button is available any day of the week, but disabled if an analysis already exists for the current period
+    func determineAnalysisAvailability(for date: Date = Date(), allEntries: [AnalyzerEntry] = []) {
+        // Determine the mode (weekly or monthly) based on the current date
+        let currentMode = determineAnalysisMode(for: date)
+        
+        // Calculate the current period that would be analyzed if button is clicked today
+        let currentPeriod = computeDisplayData(for: date, mode: currentMode)
+        
+        // Check if any existing analyzer entry was created for the same period
+        // We determine the period an entry analyzed by calculating what period its createdAt date falls into
+        let hasAnalysisForCurrentPeriod = allEntries.contains { entry in
+            // Determine what mode this entry was created for
+            let entryMode = determineAnalysisMode(for: entry.createdAt)
+            
+            // Calculate what period this entry analyzed based on when it was created
+            let entryPeriod = computeDisplayData(for: entry.createdAt, mode: entryMode)
+            
+            // Check if the entry's period matches the current period
+            // Compare both start and end dates to ensure exact match
+            let entryStart = calendar.startOfDay(for: entryPeriod.startDate)
+            let entryEnd = calendar.startOfDay(for: entryPeriod.endDate)
+            let currentStart = calendar.startOfDay(for: currentPeriod.startDate)
+            let currentEnd = calendar.startOfDay(for: currentPeriod.endDate)
+            
+            // Also check that the entry type matches (weekly vs monthly)
+            let modesMatch = entryMode == currentPeriod.mode
+            
+            return modesMatch && entryStart == currentStart && entryEnd == currentEnd
+        }
+        
+        // Enable button if no analysis exists for the current period
+        isAnalyzeButtonEnabled = !hasAnalysisForCurrentPeriod
     }
 }
 

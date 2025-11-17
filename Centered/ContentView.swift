@@ -2857,12 +2857,28 @@ Capabilities and Reminders: You have access to the web search tools, published r
     
     private func recalculateAnalyzerState() {
         analyzerViewModel.update(with: journalViewModel.analyzerEntries)
-        let referenceDate = analyzerViewModel.latestEntry?.createdAt ?? Date()
-        let displayData = analyzerViewModel.computeDisplayData(for: referenceDate)
-        analyzerViewModel.refreshDateRangeDisplay(referenceDate: referenceDate)
-        let stats = journalViewModel.calculateAnalyzerStats(startDate: displayData.startDate, endDate: displayData.endDate)
-        analyzerViewModel.refreshStats(using: stats)
-        analyzerViewModel.determineAnalysisAvailability()
+        
+        // If there's a completed analysis, display the date range that was analyzed
+        // Otherwise, show placeholder text
+        if let latestEntry = analyzerViewModel.latestEntry {
+            // Calculate the period that was analyzed when this entry was created
+            // Determine the mode (weekly/monthly) based on when the entry was created
+            let entryMode = analyzerViewModel.determineAnalysisMode(for: latestEntry.createdAt)
+            let displayData = analyzerViewModel.computeDisplayData(for: latestEntry.createdAt, mode: entryMode)
+            analyzerViewModel.dateRangeDisplay = displayData.dateRangeText
+            
+            // Calculate stats for the analyzed period
+            let stats = journalViewModel.calculateAnalyzerStats(startDate: displayData.startDate, endDate: displayData.endDate)
+            analyzerViewModel.refreshStats(using: stats)
+        } else {
+            // No analysis yet - show placeholder
+            analyzerViewModel.dateRangeDisplay = "Run analysis"
+            // Reset stats when no analysis exists
+            analyzerViewModel.refreshStats(using: AnalyzerStats(logsCount: 0, streakCount: 0, favoriteLogTime: "—"))
+        }
+        
+        // Pass all analyzer entries to check if current period has been analyzed
+        analyzerViewModel.determineAnalysisAvailability(for: Date(), allEntries: journalViewModel.analyzerEntries)
     }
     
     private func formatSummaryText(_ text: String) -> String {

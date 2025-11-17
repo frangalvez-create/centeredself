@@ -808,24 +808,6 @@ class JournalViewModel: ObservableObject {
         let uniqueDays = Set(entriesInRange.map { calendar.startOfDay(for: $0.createdAt) })
         let logsCount = uniqueDays.count
         
-        // Calculate streak (consecutive days with entries from endDate backwards)
-        let sortedDays = uniqueDays.sorted(by: >)
-        var streakCount = 0
-        var currentDate = calendar.startOfDay(for: endDate)
-        
-        for day in sortedDays {
-            if calendar.isDate(day, inSameDayAs: currentDate) {
-                streakCount += 1
-                if let previousDay = calendar.date(byAdding: .day, value: -1, to: currentDate) {
-                    currentDate = previousDay
-                } else {
-                    break
-                }
-            } else {
-                break
-            }
-        }
-        
         // Calculate favorite log time (time of day with most entries)
         let timeCategories: [(String, Range<Int>)] = [
             ("Early Morning", 2..<7),
@@ -848,6 +830,39 @@ class JournalViewModel: ObservableObject {
         }
         
         let favoriteLogTime = timeCounts.max(by: { $0.value < $1.value })?.key ?? "—"
+        
+        // Calculate streak (consecutive days with entries within the analysis period)
+        // Start from the latest day with an entry in the range and count backwards
+        guard let latestDay = uniqueDays.max() else {
+            return AnalyzerStats(
+                logsCount: logsCount,
+                streakCount: 0,
+                favoriteLogTime: favoriteLogTime
+            )
+        }
+        
+        var streakCount = 0
+        var currentDate = calendar.startOfDay(for: latestDay)
+        let rangeStart = calendar.startOfDay(for: startDate)
+        let rangeEnd = calendar.startOfDay(for: endDate)
+        
+        // Count consecutive days backwards from the latest day with an entry
+        // Only count days that are within the analysis period (startDate to endDate)
+        while currentDate >= rangeStart && currentDate <= rangeEnd {
+            // Check if this day has an entry
+            if uniqueDays.contains(currentDate) {
+                streakCount += 1
+                // Move to previous day
+                if let previousDay = calendar.date(byAdding: .day, value: -1, to: currentDate) {
+                    currentDate = previousDay
+                } else {
+                    break
+                }
+            } else {
+                // No entry for this day - streak is broken
+                break
+            }
+        }
         
         return AnalyzerStats(
             logsCount: logsCount,
