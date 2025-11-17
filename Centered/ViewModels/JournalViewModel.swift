@@ -1195,50 +1195,62 @@ class JournalViewModel: ObservableObject {
             // Continue with checks if we can't fetch
         }
         
-        // Check 2: Generated after last follow-up day? Skip if yes
-        // Calculate last follow-up day
-        var lastFollowUpDay: Date? = nil
-        let referenceDate = calendar.date(from: DateComponents(year: 2024, month: 1, day: 1))!
-        let daysSinceReference = calendar.dateComponents([.day], from: referenceDate, to: today).day ?? 0
-        var checkDate = today
-        
-        // Find the most recent follow-up day by going backwards
-        for _ in 0..<30 { // Check up to 30 days back
-            let checkDaysSinceReference = calendar.dateComponents([.day], from: referenceDate, to: checkDate).day ?? 0
-            if checkDaysSinceReference % 3 == 0 {
-                lastFollowUpDay = calendar.startOfDay(for: checkDate)
-                break
-            }
-            if let previousDay = calendar.date(byAdding: .day, value: -1, to: checkDate) {
-                checkDate = previousDay
-            } else {
-                break
-            }
-        }
-        
-        // If we have existing generation, check if it was created after last follow-up day
-        do {
-            if let existingGeneration = try await supabaseService.fetchFollowUpGeneration(userId: user.id),
-               let lastFollowUp = lastFollowUpDay {
-                if existingGeneration.createdAt > lastFollowUp {
-                    print("✅ Follow-up question already generated after last follow-up day - skipping pre-generation")
-                    return
-                }
-            }
-        } catch {
-            print("⚠️ Error checking follow-up generation date: \(error.localizedDescription)")
-        }
-        
-        // Check 3: Older than 21 days? Generate new if yes
+        // Check 2: If we passed Check 1 (same day with reply on follow-up day), always generate
+        // Otherwise, check if generation is needed based on age and trigger points
         var shouldGenerate = false
+        
         do {
             if let existingGeneration = try await supabaseService.fetchFollowUpGeneration(userId: user.id) {
                 let daysSinceGeneration = calendar.dateComponents([.day], from: existingGeneration.createdAt, to: today).day ?? 0
-                if daysSinceGeneration >= 21 {
+                
+                // Always generate if:
+                // 1. We passed Check 1 (follow-up day + user replied - already handled above, will continue)
+                // 2. Question is older than 21 days (refresh old question)
+                // 3. Question was generated BEFORE the last follow-up day (it's stale and was used already)
+                
+                // Calculate last follow-up day
+                let referenceDate = calendar.date(from: DateComponents(year: 2024, month: 1, day: 1))!
+                var lastFollowUpDay: Date? = nil
+                var checkDate = today
+                
+                // Find the most recent follow-up day by going backwards
+                for _ in 0..<30 {
+                    let checkDaysSinceReference = calendar.dateComponents([.day], from: referenceDate, to: checkDate).day ?? 0
+                    if checkDaysSinceReference % 3 == 0 {
+                        lastFollowUpDay = calendar.startOfDay(for: checkDate)
+                        break
+                    }
+                    if let previousDay = calendar.date(byAdding: .day, value: -1, to: checkDate) {
+                        checkDate = previousDay
+                    } else {
+                        break
+                    }
+                }
+                
+                // If question was generated BEFORE last follow-up day, it's stale (already used) - generate new
+                if let lastFollowUp = lastFollowUpDay {
+                    if existingGeneration.createdAt < lastFollowUp {
+                        print("📅 Follow-up question was generated BEFORE last follow-up day (stale) - generating new")
+                        shouldGenerate = true
+                    } else if daysSinceGeneration >= 21 {
+                        print("📅 Follow-up question is \(daysSinceGeneration) days old (>= 21 days) - generating new")
+                        shouldGenerate = true
+                    } else {
+                        // Question was generated after last follow-up day and less than 21 days old
+                        // Since we're at a trigger point, allow generation for the NEXT follow-up day
+                        print("📅 Trigger point detected - generating new question for next follow-up day")
+                        print("   - Existing question age: \(daysSinceGeneration) days")
+                        print("   - Last follow-up day: \(lastFollowUp)")
+                        print("   - Existing question created: \(existingGeneration.createdAt)")
+                        shouldGenerate = true
+                    }
+                } else if daysSinceGeneration >= 21 {
                     print("📅 Follow-up question is \(daysSinceGeneration) days old (>= 21 days) - generating new")
                     shouldGenerate = true
                 } else {
-                    print("✅ Follow-up question is \(daysSinceGeneration) days old (< 21 days) - keeping existing")
+                    // Fallback: if we can't determine last follow-up day, generate if trigger occurred
+                    print("📅 Trigger point detected - generating new question")
+                    shouldGenerate = true
                 }
             } else {
                 // No existing generation, generate new
@@ -1246,7 +1258,7 @@ class JournalViewModel: ObservableObject {
                 shouldGenerate = true
             }
         } catch {
-            print("⚠️ Error checking follow-up generation age: \(error.localizedDescription)")
+            print("⚠️ Error checking follow-up generation: \(error.localizedDescription)")
             // If we can't check, try to generate (safer to try than skip)
             shouldGenerate = true
         }
