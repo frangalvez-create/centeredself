@@ -52,7 +52,7 @@ class JournalViewModel: ObservableObject {
             currentUser = mockUser
             lastUserId = mockUser.id
             isAuthenticated = true
-            await loadInitialData()
+            // Don't load data here - let the Journal view's onAppear handle it after LoadingView
             return
         }
         
@@ -75,7 +75,7 @@ class JournalViewModel: ObservableObject {
                 currentUser = userProfile
                 lastUserId = userProfile.id // Update the tracked user ID
                 isAuthenticated = true
-                await loadInitialData()
+                // Don't load data here - let the Journal view's onAppear handle it after LoadingView
             } catch {
                 print("Error loading user profile: \(error)")
                 isAuthenticated = false
@@ -205,7 +205,7 @@ class JournalViewModel: ObservableObject {
             // For mock data, we can directly verify with a dummy OTP
             currentUser = try await supabaseService.verifyOTP(email: testEmail, token: "123456")
             isAuthenticated = true
-            await loadInitialData()
+            // Don't load data here - let the Journal view's onAppear handle it after LoadingView
             print("✅ Test user authenticated successfully")
         } catch {
             print("❌ Test user authentication failed: \(error.localizedDescription)")
@@ -1023,14 +1023,30 @@ class JournalViewModel: ObservableObject {
     
     // MARK: - Favorite Journal Entries
     func loadFavoriteEntries() async {
-        guard let user = currentUser else { return }
+        guard let user = currentUser else {
+            print("⚠️ loadFavoriteEntries: No current user, skipping load")
+            return
+        }
+        
+        guard isAuthenticated else {
+            print("⚠️ loadFavoriteEntries: User not authenticated, skipping load")
+            return
+        }
         
         do {
             favoriteJournalEntries = try await supabaseService.fetchFavoriteJournalEntries(userId: user.id)
             print("✅ Loaded \(favoriteJournalEntries.count) favorite entries")
         } catch {
-            errorMessage = "Failed to load favorite entries: \(error.localizedDescription)"
-            print("❌ Failed to load favorite entries: \(error.localizedDescription)")
+            // Handle cancelled requests gracefully
+            if error.localizedDescription.contains("cancelled") {
+                print("⚠️ loadFavoriteEntries: Request was cancelled, keeping existing entries")
+            } else if error.localizedDescription.contains("not authenticated") || error.localizedDescription.contains("authentication") {
+                // Don't show error for authentication issues - user might not be logged in yet
+                print("⚠️ loadFavoriteEntries: Authentication issue, skipping error display")
+            } else {
+                errorMessage = "Failed to load favorite entries: \(error.localizedDescription)"
+                print("❌ Failed to load favorite entries: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -2105,6 +2121,10 @@ class JournalViewModel: ObservableObject {
             throw AIError.userNotAuthenticated
         }
         
+        guard isAuthenticated else {
+            throw AIError.userNotAuthenticated
+        }
+        
         isLoading = true
         errorMessage = nil
         currentRetryAttempt = 1
@@ -2188,9 +2208,10 @@ class JournalViewModel: ObservableObject {
             print("✅ Analyzer entry created and AI response generated successfully")
             
         } catch {
-            // Only set generic error message if it's not a minimum entries error
-            // Minimum entries errors should be handled by ContentView without showing generic AI error
-            if !error.localizedDescription.contains("minimum") {
+            // Only set generic error message if it's not a minimum entries error or authentication error
+            // Minimum entries errors and authentication errors should be handled by ContentView without showing generic AI error
+            let errorDesc = error.localizedDescription.lowercased()
+            if !errorDesc.contains("minimum") && !errorDesc.contains("not authenticated") && !errorDesc.contains("authentication") {
                 errorMessage = "The AI's taking a short break 😅 please try again shortly."
             }
             print("❌ Failed to create analyzer entry: \(error.localizedDescription)")

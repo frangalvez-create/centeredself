@@ -102,23 +102,8 @@ struct ContentView: View {
                 // Ensure Journal tab is selected after authentication
                 selectedTab = 0
                 
-                // Only load data if authenticated
-                // Note: loadInitialData() is already called in checkAuthenticationStatus(),
-                // which loads journal entries, analyzer entries, goals, etc.
-                if journalViewModel.isAuthenticated {
-                    // Check if today is a follow-up question day
-                    isFollowUpQuestionDay = journalViewModel.supabaseService.isFollowUpQuestionDay()
-                    
-                    // Load follow-up question if it's a follow-up day
-                    if isFollowUpQuestionDay {
-                        await journalViewModel.checkAndLoadFollowUpQuestion()
-                    }
-                    
-                    // Recalculate analyzer state (entries already loaded by loadInitialData)
-                    await MainActor.run {
-                        recalculateAnalyzerState()
-                    }
-                }
+                // Don't load data here - wait for authentication to complete,
+                // then LoadingView will appear, then Journal view's onAppear will load data
             }
         }
         .onChange(of: journalViewModel.isAuthenticated) { isAuthenticated in
