@@ -105,7 +105,7 @@ class AnalyzerViewModel: ObservableObject {
         let weekday = calendar.component(.weekday, from: startOfDay)
         let daysSinceSunday = (weekday + 6) % 7
         guard let previousSunday = calendar.date(byAdding: .day, value: -(daysSinceSunday + 7), to: startOfDay),
-              let lastSaturday = calendar.date(byAdding: .day, value: -1, to: calendar.date(byAdding: .weekOfYear, value: 0, to: startOfDay) ?? startOfDay) else {
+              let lastSaturday = calendar.date(byAdding: .day, value: 6, to: previousSunday) else {
             return (startOfDay, startOfDay)
         }
         return (calendar.startOfDay(for: previousSunday), calendar.startOfDay(for: lastSaturday))

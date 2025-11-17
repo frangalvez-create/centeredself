@@ -3109,11 +3109,21 @@ Capabilities and Reminders: You have access to the web search tools, published r
             
             // Favorites Tab (now using Centered Tab icons)
             Button(action: { selectedTab = 2 }) {
-                Image(selectedTab == 2 ? "Centered Tab click" : "Centered Tab")
-                    .renderingMode(.original)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 36, height: 36)
+                ZStack(alignment: .topTrailing) {
+                    Image(selectedTab == 2 ? "Centered Tab click" : "Centered Tab")
+                        .renderingMode(.original)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 36, height: 36)
+                    
+                    // Red dot indicator when Analyze button is enabled
+                    if analyzerViewModel.isAnalyzeButtonEnabled {
+                        Circle()
+                            .fill(Color.red)
+                            .frame(width: 10, height: 10)
+                            .offset(x: 2, y: -2) // Position at top right
+                    }
+                }
             }
             .frame(maxWidth: .infinity)
             
