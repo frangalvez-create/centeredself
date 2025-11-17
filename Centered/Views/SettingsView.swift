@@ -1002,7 +1002,7 @@ struct SettingsView: View {
         
         let content = UNMutableNotificationContent()
         content.title = "End of Week Journal Reminder"
-        content.body = "How did your week go? Want to journal about it?"
+        content.body = "Did you analyze and journal your week yet?"
         content.sound = .default
         
         var dateComponents = DateComponents()

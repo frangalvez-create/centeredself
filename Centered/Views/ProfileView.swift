@@ -22,26 +22,8 @@ struct ProfileView: View {
             // User Email
             Text(journalViewModel.currentUser?.email ?? "user@example.com")
                 .font(.system(size: 18))
-                .foregroundColor(Color(hex: "3F5E82"))
+                .foregroundColor(Color(hex: "545555"))
                 .padding(.top, 30) // 30pt below profile logo
-            
-            // Statistics Section
-            HStack {
-                // Total Entries
-                Text("Total Entries: \(journalViewModel.journalEntries.count)")
-                    .font(.system(size: 15))
-                    .foregroundColor(Color(hex: "545555"))
-                    .padding(.leading, 30) // 30pt from left edge
-                
-                Spacer()
-                
-                // Entry Streak
-                Text("Log Streak: \(journalViewModel.calculateEntryStreak())")
-                    .font(.system(size: 15))
-                    .foregroundColor(Color(hex: "545555"))
-                    .padding(.trailing, 30) // 30pt from right edge
-            }
-            .padding(.top, 20) // 20pt below email
             
             // Interactive Menu Sections
             VStack(spacing: 0) {
@@ -194,7 +176,7 @@ struct ProfileView: View {
                 .buttonStyle(PlainButtonStyle())
                 .padding(.top, 25) // 25pt below Info section
             }
-            .padding(.top, 80) // 80pt below statistics section
+            .padding(.top, 80) // 80pt below email
             .padding(.leading, 10) // 10pt more left padding
             
             Spacer()
@@ -217,7 +199,7 @@ struct ProfileView: View {
             }) {
                 Text("Log Out")
                     .font(.system(size: 16))
-                    .foregroundColor(Color(hex: "3F5E82"))
+                    .foregroundColor(Color(hex: "545555"))
             }
             .padding(.bottom, 40) // 40pt from bottom
         }

@@ -2118,6 +2118,8 @@ class JournalViewModel: ObservableObject {
                 let message = analysisType == "monthly"
                     ? "Sorry, a minimum of \"nine days\" of journal entries is needed to run the monthly analysis."
                     : "Sorry, a minimum of \"two days\" of journal entries is needed to run the weekly analysis. Try again next week"
+                // Don't set generic error message for minimum entries error - let ContentView handle it
+                isLoading = false
                 throw NSError(domain: "AnalyzerError", code: 0, userInfo: [NSLocalizedDescriptionKey: message])
             }
             
@@ -2175,7 +2177,11 @@ class JournalViewModel: ObservableObject {
             print("✅ Analyzer entry created and AI response generated successfully")
             
         } catch {
-            errorMessage = "The AI's taking a short break 😅 please try again shortly."
+            // Only set generic error message if it's not a minimum entries error
+            // Minimum entries errors should be handled by ContentView without showing generic AI error
+            if !error.localizedDescription.contains("minimum") {
+                errorMessage = "The AI's taking a short break 😅 please try again shortly."
+            }
             print("❌ Failed to create analyzer entry: \(error.localizedDescription)")
             throw error
         }
