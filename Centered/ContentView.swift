@@ -109,8 +109,15 @@ struct ContentView: View {
                 if isFollowUpQuestionDay {
                     await journalViewModel.checkAndLoadFollowUpQuestion()
                 }
+                
+                // Load analyzer entries to populate analyzer view
+                await journalViewModel.loadAnalyzerEntries()
+                
+                // Recalculate analyzer state after entries are loaded
+                await MainActor.run {
+                    recalculateAnalyzerState()
+                }
             }
-            recalculateAnalyzerState()
         }
         .onChange(of: journalViewModel.isAuthenticated) { isAuthenticated in
             if isAuthenticated {
@@ -2410,7 +2417,14 @@ Capabilities and Reminders: You have access to the web search tools, published r
         .background(Color(hex: "3F5E82"))
         .ignoresSafeArea(.all, edges: .top)
         .onAppear {
-            recalculateAnalyzerState()
+            Task {
+                // Load analyzer entries when Analyzer tab appears
+                await journalViewModel.loadAnalyzerEntries()
+                // Recalculate state after entries are loaded
+                await MainActor.run {
+                    recalculateAnalyzerState()
+                }
+            }
         }
         .overlay {
             // Loading overlay during analyzer AI generation
