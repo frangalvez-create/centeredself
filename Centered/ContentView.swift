@@ -102,20 +102,22 @@ struct ContentView: View {
                 // Ensure Journal tab is selected after authentication
                 selectedTab = 0
                 
-                // Check if today is a follow-up question day
-                isFollowUpQuestionDay = journalViewModel.supabaseService.isFollowUpQuestionDay()
-                
-                // Load follow-up question if it's a follow-up day
-                if isFollowUpQuestionDay {
-                    await journalViewModel.checkAndLoadFollowUpQuestion()
-                }
-                
-                // Load analyzer entries to populate analyzer view
-                await journalViewModel.loadAnalyzerEntries()
-                
-                // Recalculate analyzer state after entries are loaded
-                await MainActor.run {
-                    recalculateAnalyzerState()
+                // Only load data if authenticated
+                // Note: loadInitialData() is already called in checkAuthenticationStatus(),
+                // which loads journal entries, analyzer entries, goals, etc.
+                if journalViewModel.isAuthenticated {
+                    // Check if today is a follow-up question day
+                    isFollowUpQuestionDay = journalViewModel.supabaseService.isFollowUpQuestionDay()
+                    
+                    // Load follow-up question if it's a follow-up day
+                    if isFollowUpQuestionDay {
+                        await journalViewModel.checkAndLoadFollowUpQuestion()
+                    }
+                    
+                    // Recalculate analyzer state (entries already loaded by loadInitialData)
+                    await MainActor.run {
+                        recalculateAnalyzerState()
+                    }
                 }
             }
         }
@@ -2418,11 +2420,14 @@ Capabilities and Reminders: You have access to the web search tools, published r
         .ignoresSafeArea(.all, edges: .top)
         .onAppear {
             Task {
-                // Load analyzer entries when Analyzer tab appears
-                await journalViewModel.loadAnalyzerEntries()
-                // Recalculate state after entries are loaded
-                await MainActor.run {
-                    recalculateAnalyzerState()
+                // Only load analyzer entries if authenticated
+                if journalViewModel.isAuthenticated {
+                    // Load analyzer entries when Analyzer tab appears
+                    await journalViewModel.loadAnalyzerEntries()
+                    // Recalculate state after entries are loaded
+                    await MainActor.run {
+                        recalculateAnalyzerState()
+                    }
                 }
             }
         }

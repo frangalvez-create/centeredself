@@ -872,15 +872,26 @@ class JournalViewModel: ObservableObject {
     }
     // MARK: - Analyzer Entries
     func loadAnalyzerEntries() async {
-        guard let user = currentUser else { return }
+        guard let user = currentUser else {
+            print("⚠️ loadAnalyzerEntries: No current user, skipping load")
+            return
+        }
+        
+        guard isAuthenticated else {
+            print("⚠️ loadAnalyzerEntries: User not authenticated, skipping load")
+            return
+        }
         
         do {
-            analyzerEntries = try await supabaseService.fetchAnalyzerEntries()
+            analyzerEntries = try await supabaseService.fetchAnalyzerEntries(userId: user.id)
             print("✅ Analyzer entries loaded: \(analyzerEntries.count) entries found")
         } catch {
             // Handle cancelled requests gracefully
             if error.localizedDescription.contains("cancelled") {
                 print("⚠️ loadAnalyzerEntries: Request was cancelled, keeping existing entries")
+            } else if error.localizedDescription.contains("not authenticated") || error.localizedDescription.contains("authentication") {
+                // Don't show error for authentication issues - user might not be logged in yet
+                print("⚠️ loadAnalyzerEntries: Authentication issue, skipping error display")
             } else {
                 errorMessage = "Failed to load analyzer entries: \(error.localizedDescription)"
                 print("❌ Failed to load analyzer entries: \(error.localizedDescription)")
