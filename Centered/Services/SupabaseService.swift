@@ -870,31 +870,6 @@ class SupabaseService: ObservableObject {
         }
     }
     
-    func createAnalyzerEntry(_ entry: AnalyzerEntry) async throws -> AnalyzerEntry {
-        if useMockData {
-            mockAnalyzerEntries.append(entry)
-            print("Mock: Created analyzer entry \(entry.id) for user \(entry.userId)")
-            return entry
-        } else {
-            let response: [AnalyzerEntry] = try await supabase
-                .from("analyzer_entries")
-                .insert(entry)
-                .select()
-                .execute()
-                .value
-            
-            guard let savedEntry = response.first else {
-                throw NSError(
-                    domain: "DatabaseError",
-                    code: 0,
-                    userInfo: [NSLocalizedDescriptionKey: "Failed to create analyzer entry"]
-                )
-            }
-            
-            return savedEntry
-        }
-    }
-    
     func updateAnalyzerEntryResponse(
         entryId: UUID,
         analyzerAiResponse: String
@@ -938,39 +913,6 @@ class SupabaseService: ObservableObject {
                     domain: "DatabaseError",
                     code: 0,
                     userInfo: [NSLocalizedDescriptionKey: "Failed to update analyzer entry response"]
-                )
-            }
-            
-            return updatedEntry
-        }
-    }
-    
-    func updateAnalyzerEntry(_ entry: AnalyzerEntry) async throws -> AnalyzerEntry {
-        if useMockData {
-            guard let index = mockAnalyzerEntries.firstIndex(where: { $0.id == entry.id }) else {
-                throw NSError(
-                    domain: "MockDataError",
-                    code: 0,
-                    userInfo: [NSLocalizedDescriptionKey: "Analyzer entry not found"]
-                )
-            }
-            mockAnalyzerEntries[index] = entry
-            print("Mock: Updated analyzer entry \(entry.id)")
-            return entry
-        } else {
-            let response: [AnalyzerEntry] = try await supabase
-                .from("analyzer_entries")
-                .update(entry)
-                .eq("id", value: entry.id)
-                .select()
-                .execute()
-                .value
-            
-            guard let updatedEntry = response.first else {
-                throw NSError(
-                    domain: "DatabaseError",
-                    code: 0,
-                    userInfo: [NSLocalizedDescriptionKey: "Failed to update analyzer entry"]
                 )
             }
             
