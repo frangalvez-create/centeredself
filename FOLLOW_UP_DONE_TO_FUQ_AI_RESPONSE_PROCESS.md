@@ -650,3 +650,4 @@ Capabilities and Reminders: You have access to the web search tools, published r
 - State variables update separately for follow-up questions to prevent conflicts
 - Loading overlay blocks interaction during generation
 
+

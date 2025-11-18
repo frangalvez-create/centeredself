@@ -335,3 +335,4 @@ Follow-up questions are generated every 3rd day (based on days since January 1, 
 - `followUpShowFavoriteButton: Bool` - Whether to show favorite button
 - `followUpIsFavoriteClicked: Bool` - Whether favorite is clicked
 
+

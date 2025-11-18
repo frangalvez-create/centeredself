@@ -245,7 +245,14 @@ class AnalyzerViewModel: ObservableObject {
         
         // Check if any existing analyzer entry was created for the same period
         // We determine the period an entry analyzed by calculating what period its createdAt date falls into
+        // IMPORTANT: Only consider entries with a valid (non-empty) analyzerAiResponse
         let hasAnalysisForCurrentPeriod = allEntries.contains { entry in
+            // Skip entries without a valid AI response - these are incomplete/failed analyses
+            guard let response = entry.analyzerAiResponse,
+                  !response.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                return false
+            }
+            
             // Determine what mode this entry was created for
             let entryMode = determineAnalysisMode(for: entry.createdAt)
             

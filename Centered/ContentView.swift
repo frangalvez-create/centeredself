@@ -1773,9 +1773,15 @@ Capabilities and Reminders: You have access to the web search tools, published r
         // Load goals after journal data
         await journalViewModel.loadGoals()
         
+        // Load analyzer entries to calculate red dot state (even when not on Analyzer tab)
+        await journalViewModel.loadAnalyzerEntries()
+        
         // Repopulate UI state with the freshly loaded data
         await MainActor.run {
             populateUIStateFromJournalEntries()
+            
+            // Recalculate analyzer state after entries are loaded to update red dot
+            recalculateAnalyzerState()
             
             // IMPORTANT: Ensure follow-up question is preserved after populateUIStateFromJournalEntries
             // This prevents the question from being lost during UI state population
@@ -2354,7 +2360,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
                     .scaledToFit()
                     .frame(width: 80, height: 80)
                     .padding(.top, 60)
-                    .padding(.bottom, -5)
+                    .padding(.bottom, -15)
                 
                 Image("Anal Title")
                     .renderingMode(.original)
@@ -2914,7 +2920,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
                     .scaledToFit()
                     .frame(width: 80, height: 80)
                     .padding(.top, 60) // 55 + 5 = 60pt (additional 2pt lower)
-                    .padding(.bottom, -20) // Negative padding to reduce gap
+                    .padding(.bottom, -30) // Negative padding to reduce gap
                 
                 // Favorite title - much closer to logo
                 Image("Favorite title")

@@ -774,3 +774,4 @@ The process begins when a user types their journal entry, clicks the "Done" butt
 - Loading states are tracked separately for each type
 - Favorite button functionality is identical for all three types
 
+

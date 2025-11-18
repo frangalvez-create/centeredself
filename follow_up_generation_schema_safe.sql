@@ -79,3 +79,4 @@ CREATE POLICY "Users can delete their own follow_up_generation entries." ON publ
 -- after this migration is complete and verified. They are not removed here to allow for
 -- gradual migration if needed.
 
+

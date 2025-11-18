@@ -2188,6 +2188,18 @@ class JournalViewModel: ObservableObject {
             // Generate AI response with retry logic
             let aiResponse = try await generateAIResponseWithRetry(for: analyzerPrompt)
             
+            // Check if AI response is empty or null - if so, delete the entry and throw error
+            let trimmedResponse = aiResponse.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmedResponse.isEmpty {
+                print("⚠️ AI response is empty - deleting analyzer entry and keeping button enabled")
+                // Delete the created entry since we don't have a valid response
+                try await supabaseService.deleteAnalyzerEntry(entryId: createdEntry.id)
+                // Reload analyzer entries to update UI
+                await loadAnalyzerEntries()
+                // Throw error to keep button enabled
+                throw NSError(domain: "AnalyzerError", code: 0, userInfo: [NSLocalizedDescriptionKey: "AI response was empty. Please try again."])
+            }
+            
             // Update analyzer entry with AI response
             let updatedEntry = AnalyzerEntry(
                 id: createdEntry.id,
