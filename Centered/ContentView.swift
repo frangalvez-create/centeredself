@@ -3158,86 +3158,8 @@ Capabilities and Reminders: You have access to the web search tools, published r
     // MARK: - Welcome Message
     
     private var welcomeMessageView: some View {
-        ZStack {
-            // Background overlay
-            Color.black.opacity(0.4)
-                .ignoresSafeArea(.all)
-            
-            // Welcome modal
-            VStack(spacing: 20) {
-                // Welcome title
-                Text("Welcome to Centered Self!")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(Color(hex: "3F5E82"))
-                    .multilineTextAlignment(.center)
-                
-                // Description
-                Text("This is your personal journaling space where you can:")
-                    .font(.system(size: 16))
-                    .foregroundColor(Color(hex: "545555"))
-                    .multilineTextAlignment(.center)
-                
-                // Bullet points
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(alignment: .top, spacing: 12) {
-                        Text("•")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(Color(hex: "3F5E82"))
-                        Text("Answer guided questions for daily reflection")
-                            .font(.system(size: 15))
-                            .foregroundColor(Color(hex: "545555"))
-                    }
-                    
-                    HStack(alignment: .top, spacing: 12) {
-                        Text("•")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(Color(hex: "3F5E82"))
-                        Text("Write freely about anything on your mind")
-                            .font(.system(size: 15))
-                            .foregroundColor(Color(hex: "545555"))
-                    }
-                    
-                    HStack(alignment: .top, spacing: 12) {
-                        Text("•")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(Color(hex: "3F5E82"))
-                        Text("Get AI-powered insights to deepen your self-awareness")
-                            .font(.system(size: 15))
-                            .foregroundColor(Color(hex: "545555"))
-                    }
-                    
-                    HStack(alignment: .top, spacing: 12) {
-                        Text("•")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(Color(hex: "3F5E82"))
-                        Text("Customize AI guidance to help achieve your goals")
-                            .font(.system(size: 15))
-                            .foregroundColor(Color(hex: "545555"))
-                    }
-                }
-                .padding(.horizontal, 20)
-                
-                // Get Started button
-                Button(action: {
-                    dismissWelcomeMessage()
-                }) {
-                    Text("Get Started")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(Color(hex: "3F5E82"))
-                        .cornerRadius(12)
-                }
-                .padding(.horizontal, 40)
-                .padding(.top, 10)
-            }
-            .padding(.vertical, 30)
-            .padding(.horizontal, 20)
-            .background(Color(hex: "E3E0C9"))
-            .cornerRadius(20)
-            .shadow(radius: 20)
-            .padding(.horizontal, 30)
+        OnboardingCarouselView {
+            dismissWelcomeMessage()
         }
     }
     
