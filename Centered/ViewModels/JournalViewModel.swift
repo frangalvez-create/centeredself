@@ -1230,6 +1230,38 @@ class JournalViewModel: ObservableObject {
                         print("   - User replied today: \(userRepliedToday)")
                         return
                     }
+                } else {
+                    // Existing generation was NOT created today
+                    // IMPORTANT: If it's a follow-up day and user hasn't replied yet, don't overwrite the displayed question
+                    if isTodayFollowUpDay && !userRepliedToday {
+                        // Check if the existing generation is for today's follow-up day
+                        // Calculate last follow-up day to see if generation is for today
+                        let referenceDate = calendar.date(from: DateComponents(year: 2024, month: 1, day: 1))!
+                        var lastFollowUpDay: Date? = nil
+                        var checkDate = today
+                        
+                        for _ in 0..<30 {
+                            let checkDaysSinceReference = calendar.dateComponents([.day], from: referenceDate, to: checkDate).day ?? 0
+                            if checkDaysSinceReference % 3 == 0 {
+                                lastFollowUpDay = calendar.startOfDay(for: checkDate)
+                                break
+                            }
+                            if let previousDay = calendar.date(byAdding: .day, value: -1, to: checkDate) {
+                                checkDate = previousDay
+                            } else {
+                                break
+                            }
+                        }
+                        
+                        // If generation was created for today's follow-up day, don't overwrite it
+                        if let lastFollowUp = lastFollowUpDay, existingGeneration.createdAt >= lastFollowUp {
+                            print("✅ It's a follow-up day and question is already displayed - skipping pre-generation until user replies")
+                            print("   - Existing generation created: \(existingGeneration.createdAt)")
+                            print("   - Today is follow-up day: \(lastFollowUp)")
+                            print("   - User replied today: \(userRepliedToday)")
+                            return
+                        }
+                    }
                 }
             }
         } catch {
@@ -1279,20 +1311,34 @@ class JournalViewModel: ObservableObject {
                         shouldGenerate = true
                     } else {
                         // Question was generated after last follow-up day and less than 21 days old
-                        // Since we're at a trigger point, allow generation for the NEXT follow-up day
-                        print("📅 Trigger point detected - generating new question for next follow-up day")
-                        print("   - Existing question age: \(daysSinceGeneration) days")
-                        print("   - Last follow-up day: \(lastFollowUp)")
-                        print("   - Existing question created: \(existingGeneration.createdAt)")
-                        shouldGenerate = true
+                        // Only generate if it's NOT a follow-up day (to avoid overwriting displayed question)
+                        // OR if user has already replied to today's question
+                        if !isTodayFollowUpDay || userRepliedToday {
+                            print("📅 Trigger point detected - generating new question for next follow-up day")
+                            print("   - Existing question age: \(daysSinceGeneration) days")
+                            print("   - Last follow-up day: \(lastFollowUp)")
+                            print("   - Existing question created: \(existingGeneration.createdAt)")
+                            print("   - Is follow-up day: \(isTodayFollowUpDay)")
+                            print("   - User replied today: \(userRepliedToday)")
+                            shouldGenerate = true
+                        } else {
+                            print("✅ It's a follow-up day with displayed question - skipping generation until user replies")
+                            shouldGenerate = false
+                        }
                     }
                 } else if daysSinceGeneration >= 21 {
                     print("📅 Follow-up question is \(daysSinceGeneration) days old (>= 21 days) - generating new")
                     shouldGenerate = true
                 } else {
-                    // Fallback: if we can't determine last follow-up day, generate if trigger occurred
-                    print("📅 Trigger point detected - generating new question")
-                    shouldGenerate = true
+                    // Fallback: if we can't determine last follow-up day, only generate if not a follow-up day
+                    // OR if user has already replied
+                    if !isTodayFollowUpDay || userRepliedToday {
+                        print("📅 Trigger point detected - generating new question")
+                        shouldGenerate = true
+                    } else {
+                        print("✅ It's a follow-up day - skipping generation until user replies")
+                        shouldGenerate = false
+                    }
                 }
             } else {
                 // No existing generation, generate new
@@ -2112,6 +2158,13 @@ class JournalViewModel: ObservableObject {
         
         let isEligible = entryCount >= minimumRequired
         
+        print("🔍 checkAnalyzerEligibility: Analysis type: \(analysisType)")
+        print("   Date range: \(startDate) to \(endDate)")
+        print("   Total entries found: \(entries.count)")
+        print("   Unique days with entries: \(entryCount)")
+        print("   Minimum required: \(minimumRequired)")
+        print("   Is eligible: \(isEligible)")
+        
         return (isEligible, entryCount, minimumRequired)
     }
     
@@ -2138,21 +2191,32 @@ class JournalViewModel: ObservableObject {
                 dateRange = supabaseService.calculateDateRangeForWeeklyAnalysis()
             }
             
-            // Check eligibility
+            print("📊 createAnalyzerEntry: Analysis type: \(analysisType)")
+            print("   Date range calculated: \(dateRange.start) to \(dateRange.end)")
+            
+            // Check eligibility BEFORE making any API calls
             let eligibility = try await checkAnalyzerEligibility(
                 analysisType: analysisType,
                 startDate: dateRange.start,
                 endDate: dateRange.end
             )
             
+            print("📊 createAnalyzerEntry: Eligibility check completed")
+            print("   Is eligible: \(eligibility.isEligible)")
+            print("   Entry count: \(eligibility.entryCount)")
+            print("   Minimum required: \(eligibility.minimumRequired)")
+            
             if !eligibility.isEligible {
                 let message = analysisType == "monthly"
                     ? "Sorry, a minimum of \"nine days\" of journal entries is needed to run the monthly analysis."
                     : "Sorry, a minimum of \"two days\" of journal entries is needed to run the weekly analysis. Try again next week"
+                print("❌ createAnalyzerEntry: Insufficient entries - throwing error: \(message)")
                 // Don't set generic error message for minimum entries error - let ContentView handle it
                 isLoading = false
                 throw NSError(domain: "AnalyzerError", code: 0, userInfo: [NSLocalizedDescriptionKey: message])
             }
+            
+            print("✅ createAnalyzerEntry: Eligibility check passed, proceeding with analysis")
             
             // Fetch journal entries for the date range
             let entries = try await supabaseService.fetchJournalEntriesForAnalyzer(
@@ -2160,8 +2224,8 @@ class JournalViewModel: ObservableObject {
                 endDate: dateRange.end
             )
             
-            // Combine all entry content
-            let content = entries.map { $0.content }.joined(separator: "\n\n")
+            // Prepare content with summarization if needed (1000 chars weekly, 2000 chars monthly)
+            let content = supabaseService.prepareContentForAnalyzer(entries: entries, analysisType: analysisType)
             
             // Generate analyzer prompt
             let analyzerPrompt: String

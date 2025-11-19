@@ -1303,6 +1303,8 @@ class SupabaseService: ObservableObject {
             let startDateString = formatter.string(from: startDate)
             let endDateString = formatter.string(from: endDate)
             
+            print("📅 fetchJournalEntriesForAnalyzer: Fetching entries from \(startDateString) to \(endDateString)")
+            
             // Use Supabase client's automatic deserialization
             let response: [JournalEntry] = try await supabase
                 .from("journal_entries")
@@ -1314,8 +1316,93 @@ class SupabaseService: ObservableObject {
                 .execute()
                 .value
             
-            return response
+            // Additional filtering in memory to ensure entries are truly within the range
+            // This prevents timezone or timestamp precision issues
+            let filteredEntries = response.filter { entry in
+                let entryDate = entry.createdAt
+                return entryDate >= startDate && entryDate <= endDate
+            }
+            
+            print("📅 fetchJournalEntriesForAnalyzer: Found \(response.count) entries from DB, \(filteredEntries.count) after filtering")
+            for entry in filteredEntries {
+                print("   - Entry at \(entry.createdAt): \(entry.content.prefix(50))...")
+            }
+            
+            return filteredEntries
         }
+    }
+    
+    /// Prepares content for analyzer with character limits and sentence-aware truncation
+    /// Weekly: 1000 chars, Monthly: 2000 chars
+    func prepareContentForAnalyzer(entries: [JournalEntry], analysisType: String) -> String {
+        let maxChars = analysisType == "monthly" ? 2000 : 1000
+        
+        guard !entries.isEmpty else { return "" }
+        
+        // Sort entries chronologically
+        let sortedEntries = entries.sorted { $0.createdAt < $1.createdAt }
+        
+        // Calculate total size
+        let totalChars = sortedEntries.reduce(0) { $0 + $1.content.count }
+        
+        // If already under limit, return all
+        if totalChars <= maxChars {
+            return sortedEntries.map { $0.content }.joined(separator: "\n\n")
+        }
+        
+        // Need to summarize
+        let separatorChars = (sortedEntries.count - 1) * 2 // "\n\n" between entries
+        let availableChars = maxChars - separatorChars
+        let charsPerEntry = availableChars / sortedEntries.count
+        let minCharsPerEntry = max(30, charsPerEntry / 3) // At least 30 chars per entry
+        
+        var summaries: [String] = []
+        var remainingChars = availableChars
+        
+        for (index, entry) in sortedEntries.enumerated() {
+            let isLast = index == sortedEntries.count - 1
+            let allocated = isLast ? remainingChars : max(minCharsPerEntry, min(charsPerEntry, remainingChars))
+            
+            guard allocated > 0 else { break }
+            
+            var summary: String
+            if entry.content.count <= allocated {
+                // Entry fits completely
+                summary = entry.content
+            } else {
+                // Truncate with sentence awareness
+                let truncated = String(entry.content.prefix(allocated))
+                
+                // Try to find a sentence boundary (period, exclamation, question mark)
+                if let lastSentenceEnd = truncated.lastIndex(where: { $0 == "." || $0 == "!" || $0 == "?" }),
+                   truncated.distance(from: truncated.startIndex, to: lastSentenceEnd) > allocated * 2 / 3 {
+                    // Found a sentence boundary within reasonable distance - use it
+                    summary = String(truncated[...lastSentenceEnd])
+                } else {
+                    // No good sentence boundary, truncate and add ellipsis
+                    summary = truncated.trimmingCharacters(in: .whitespaces) + "..."
+                }
+            }
+            
+            summaries.append(summary)
+            
+            // Update remaining characters (subtract summary length + separator if not last)
+            remainingChars -= summary.count
+            if index < sortedEntries.count - 1 {
+                remainingChars -= 2 // "\n\n"
+            }
+            
+            if remainingChars <= 0 { break }
+        }
+        
+        let result = summaries.joined(separator: "\n\n")
+        
+        // Final safety check: ensure we didn't exceed limit due to rounding
+        if result.count > maxChars {
+            return String(result.prefix(maxChars))
+        }
+        
+        return result
     }
     
     /// Generates a weekly analyzer prompt based on journal entries
@@ -1353,12 +1440,22 @@ Output: Create three paragraphs. The first paragraph, list the top five moods (e
         let weekday = calendar.component(.weekday, from: startOfDay)
         let daysSinceSunday = (weekday + 6) % 7
         
+        // Calculate previous Sunday (7 days before the current week's Sunday)
         guard let previousSunday = calendar.date(byAdding: .day, value: -(daysSinceSunday + 7), to: startOfDay),
-              let lastSaturday = calendar.date(byAdding: .day, value: -1, to: calendar.date(byAdding: .weekOfYear, value: 0, to: startOfDay) ?? startOfDay) else {
+              let lastSaturday = calendar.date(byAdding: .day, value: 6, to: previousSunday) else {
             return (startOfDay, startOfDay)
         }
         
-        return (calendar.startOfDay(for: previousSunday), calendar.startOfDay(for: lastSaturday))
+        // Set start to beginning of Sunday (00:00:00)
+        let rangeStart = calendar.startOfDay(for: previousSunday)
+        
+        // Set end to end of Saturday (23:59:59.999) to include all entries from Saturday
+        guard let endOfSaturday = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: lastSaturday) else {
+            return (rangeStart, calendar.startOfDay(for: lastSaturday))
+        }
+        let rangeEnd = calendar.date(byAdding: .nanosecond, value: 999_000_000, to: endOfSaturday) ?? endOfSaturday
+        
+        return (rangeStart, rangeEnd)
     }
     
     /// Calculates the date range for monthly analysis (previous last Sunday of month to current last Saturday of month)
@@ -1372,7 +1469,16 @@ Output: Create three paragraphs. The first paragraph, list the top five moods (e
         
         if let lastSunday = lastMonthCandidates.first(where: { calendar.component(.weekday, from: $0) == 1 }),
            let lastSaturday = lastMonthCandidates.first(where: { calendar.component(.weekday, from: $0) == 7 }) {
-            return (calendar.startOfDay(for: lastSunday), calendar.startOfDay(for: lastSaturday))
+            // Set start to beginning of Sunday (00:00:00)
+            let rangeStart = calendar.startOfDay(for: lastSunday)
+            
+            // Set end to end of Saturday (23:59:59.999) to include all entries from Saturday
+            guard let endOfSaturday = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: lastSaturday) else {
+                return (rangeStart, calendar.startOfDay(for: lastSaturday))
+            }
+            let rangeEnd = calendar.date(byAdding: .nanosecond, value: 999_000_000, to: endOfSaturday) ?? endOfSaturday
+            
+            return (rangeStart, rangeEnd)
         }
         
         // Fallback to weekly range if monthly calculation fails
