@@ -70,6 +70,9 @@ struct ContentView: View {
     // Q3 Popup for Guided Questions
     @State private var showQ3InfoPopup: Bool = false
     
+    // Q4 Popup for Analyzer
+    @State private var showQ4InfoPopup: Bool = false
+    
     // Authentication State
     @State private var email: String = ""
     @State private var otpCode: String = ""
@@ -181,6 +184,9 @@ struct ContentView: View {
                             }
                             if showQ3InfoPopup {
                                 q3InfoPopupView
+                            }
+                            if showQ4InfoPopup {
+                                q4InfoPopupView
                             }
                         }
                     )
@@ -1060,7 +1066,7 @@ struct ContentView: View {
                                 .padding(.top, 10)
                         }
                         .padding(20)
-                        .background(Color(hex: "345377").opacity(0.9))
+                        .background(Color(hex: "345377"))
                         .cornerRadius(10)
                     }
                 }
@@ -2415,11 +2421,17 @@ Capabilities and Reminders: You have access to the web search tools, published r
                 if journalViewModel.isAuthenticated {
                     // Load analyzer entries when Analyzer tab appears
                     await journalViewModel.loadAnalyzerEntries()
-                    // Recalculate state after entries are loaded
+                    // Recalculate state after entries are loaded - ensure on main thread
                     await MainActor.run {
                         recalculateAnalyzerState()
                     }
                 }
+            }
+        }
+        .onChange(of: journalViewModel.analyzerEntries.count) { _ in
+            // Recalculate when analyzer entries change (e.g., after loading)
+            if journalViewModel.isAuthenticated {
+                recalculateAnalyzerState()
             }
         }
         .overlay {
@@ -2441,7 +2453,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
                     .padding(20)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(hex: "345377").opacity(0.8))
+                            .fill(Color(hex: "345377"))
                     )
                 }
                 .allowsHitTesting(true) // Block all interactions
@@ -2809,6 +2821,21 @@ Capabilities and Reminders: You have access to the web search tools, published r
             }
         }
         .frame(maxWidth: .infinity)
+        .overlay(
+            // Q4 Icon as overlay - positioned 20pt to the right of Analyze button center
+            // Coordinates: x: (screenWidth/2 + buttonWidth/2 + 20), y: 0
+            // Current position: x: 200pt from center, y: 0pt from top (adjust these values)
+            Button(action: {
+                showQ4InfoPopup = true
+            }) {
+                Image("Q4")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 27, height: 27)
+            }
+            .offset(x: 170, y: -5), // ADJUST: x = distance from center (positive = right), y = vertical offset (negative = up)
+            alignment: .center
+        )
     }
     
     private func analyzeButtonTapped() {
@@ -3337,6 +3364,96 @@ Capabilities and Reminders: You have access to the web search tools, published r
             }
             .padding(16)
             .background(Color(hex: "E3E0C9"))
+            .cornerRadius(16)
+            .shadow(radius: 10)
+            .padding(.horizontal, 20)
+        }
+    }
+    
+    private var q4InfoPopupView: some View {
+        ZStack {
+            // Background overlay
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    showQ4InfoPopup = false
+                }
+            
+            // Popup content
+            VStack(alignment: .leading, spacing: 8) {
+                // Analyzer Section
+                Text("Analyzer")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(Color(hex: "8BECF8"))
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                Text("• Tracks most common moods")
+                    .font(.system(size: 15))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                Text("• Calculates log entry statistics")
+                    .font(.system(size: 15))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                Text("• Generates a Centered Score - how mentally centered you are based on your log entries (0-100)")
+                    .font(.system(size: 15))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                Text("• Summarizes your week/month and provides actions and goals.")
+                    .font(.system(size: 15))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                // Analysis Availability Section
+                Text("Analysis Availability")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(Color(hex: "8BECF8"))
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 8)
+                
+                Text("• Weekly analysis available every Sunday morning")
+                    .font(.system(size: 15))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                Text("• Monthly analysis available last Sunday of the month")
+                    .font(.system(size: 15))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                // Analysis Entry Minimums Section
+                Text("Analysis Entry Minimums")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(Color(hex: "8BECF8"))
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 8)
+                
+                Text("• Weekly Analysis: 2 days of log entries / week")
+                    .font(.system(size: 15))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                Text("• Monthly Analysis: 9 days of log entries / month")
+                    .font(.system(size: 15))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(16)
+            .background(Color(hex: "274262"))
             .cornerRadius(16)
             .shadow(radius: 10)
             .padding(.horizontal, 20)

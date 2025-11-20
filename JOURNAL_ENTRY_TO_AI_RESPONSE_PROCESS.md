@@ -775,3 +775,4 @@ The process begins when a user types their journal entry, clicks the "Done" butt
 - Favorite button functionality is identical for all three types
 
 
+

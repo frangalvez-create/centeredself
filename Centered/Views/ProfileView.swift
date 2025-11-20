@@ -176,7 +176,7 @@ struct ProfileView: View {
                 .buttonStyle(PlainButtonStyle())
                 .padding(.top, 25) // 25pt below Info section
             }
-            .padding(.top, 80) // 80pt below email
+            .padding(.top, 50) // 50pt below email
             .padding(.leading, 10) // 10pt more left padding
             
             Spacer()
