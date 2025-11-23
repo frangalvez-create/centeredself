@@ -2797,7 +2797,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
                         .renderingMode(.original)
                         .resizable()
                         .scaledToFit()
-                        .scaleEffect(0.75)
+                        .scaleEffect(0.70)
                         .frame(maxWidth: .infinity, alignment: .center)
                     
                     // Loading overlay when analyzing
@@ -2833,7 +2833,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
                     .scaledToFit()
                     .frame(width: 27, height: 27)
             }
-            .offset(x: 170, y: -5), // ADJUST: x = distance from center (positive = right), y = vertical offset (negative = up)
+            .offset(x: 162, y: -5), // ADJUST: x = distance from center (positive = right), y = vertical offset (negative = up)
             alignment: .center
         )
     }

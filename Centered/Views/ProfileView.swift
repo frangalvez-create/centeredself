@@ -52,7 +52,8 @@ struct ProfileView: View {
                             .padding(.trailing, 20) // 20pt from right edge
                     }
                     .padding(.vertical, 15)
-                    .background(Color.clear)
+                    .background(Color(hex: "F5F4EB"))
+                    .cornerRadius(8)
                 }
                 .buttonStyle(PlainButtonStyle())
                 
@@ -81,7 +82,8 @@ struct ProfileView: View {
                             .padding(.trailing, 20) // 20pt from right edge
                     }
                     .padding(.vertical, 15)
-                    .background(Color.clear)
+                    .background(Color(hex: "F5F4EB"))
+                    .cornerRadius(8)
                 }
                 .padding(.top, 25) // 25pt below "What is Centered Self?" section
                 .buttonStyle(PlainButtonStyle())
@@ -111,7 +113,8 @@ struct ProfileView: View {
                             .padding(.trailing, 20) // 20pt from right edge
                     }
                     .padding(.vertical, 15)
-                    .background(Color.clear)
+                    .background(Color(hex: "F5F4EB"))
+                    .cornerRadius(8)
                 }
                 .buttonStyle(PlainButtonStyle())
                 .padding(.top, 25) // 25pt below Settings section
@@ -141,7 +144,8 @@ struct ProfileView: View {
                             .padding(.trailing, 20) // 20pt from right edge
                     }
                     .padding(.vertical, 15)
-                    .background(Color.clear)
+                    .background(Color(hex: "F5F4EB"))
+                    .cornerRadius(8)
                 }
                 .buttonStyle(PlainButtonStyle())
                 .padding(.top, 25) // 25pt below Contact section
@@ -171,13 +175,15 @@ struct ProfileView: View {
                             .padding(.trailing, 20) // 20pt from right edge
                     }
                     .padding(.vertical, 15)
-                    .background(Color.clear)
+                    .background(Color(hex: "F5F4EB"))
+                    .cornerRadius(8)
                 }
                 .buttonStyle(PlainButtonStyle())
                 .padding(.top, 25) // 25pt below Info section
             }
             .padding(.top, 50) // 50pt below email
             .padding(.leading, 10) // 10pt more left padding
+            .padding(.trailing, 10) // 10pt right padding to match left
             
             Spacer()
             

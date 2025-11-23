@@ -126,21 +126,8 @@ class AnalyzerViewModel: ObservableObject {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d"
         let startText = formatter.string(from: range.start)
-        formatter.dateFormat = "MMM d"
         let endText = formatter.string(from: range.end)
         
-        let dayFormatter = DateFormatter()
-        dayFormatter.dateFormat = "d"
-        if let day = Int(dayFormatter.string(from: range.end)) {
-            let suffix: String
-            switch day % 10 {
-            case 1 where day != 11: suffix = "st"
-            case 2 where day != 12: suffix = "nd"
-            case 3 where day != 13: suffix = "rd"
-            default: suffix = "th"
-            }
-            return "\(startText) to \(endText)\(suffix)"
-        }
         return "\(startText) to \(endText)"
     }
     

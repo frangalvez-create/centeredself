@@ -1373,14 +1373,69 @@ class SupabaseService: ObservableObject {
                 // Truncate with sentence awareness
                 let truncated = String(entry.content.prefix(allocated))
                 
-                // Try to find a sentence boundary (period, exclamation, question mark)
-                if let lastSentenceEnd = truncated.lastIndex(where: { $0 == "." || $0 == "!" || $0 == "?" }),
-                   truncated.distance(from: truncated.startIndex, to: lastSentenceEnd) > allocated * 2 / 3 {
-                    // Found a sentence boundary within reasonable distance - use it
-                    summary = String(truncated[...lastSentenceEnd])
+                // Try to find the last complete sentence boundary
+                // Search backwards from the end to find a sentence end (., !, ?)
+                // Start searching from 60% of the way through to ensure we get most content
+                // while ending at a complete sentence
+                let searchStartPercent = 0.6
+                let minSearchPosition = max(Int(Double(truncated.count) * searchStartPercent), truncated.count - 150)
+                let minSearchIndex = truncated.index(truncated.startIndex, offsetBy: min(minSearchPosition, truncated.count))
+                
+                var bestSentenceEnd: String.Index? = nil
+                var currentIndex = truncated.endIndex
+                
+                // Search backwards from the end
+                while currentIndex > minSearchIndex && currentIndex > truncated.startIndex {
+                    let charIndex = truncated.index(before: currentIndex)
+                    let char = truncated[charIndex]
+                    
+                    // Check if this is a sentence-ending punctuation
+                    if char == "." || char == "!" || char == "?" {
+                        // Check if it's followed by space, newline, or end of string
+                        let isAtEnd = charIndex == truncated.index(before: truncated.endIndex)
+                        var isValidBoundary = false
+                        
+                        if isAtEnd {
+                            // At the very end of truncated string - this is a valid boundary
+                            isValidBoundary = true
+                        } else {
+                            // Check the character after the punctuation
+                            let nextIndex = truncated.index(after: charIndex)
+                            if nextIndex < truncated.endIndex {
+                                let nextChar = truncated[nextIndex]
+                                // Valid if followed by space, newline, or tab
+                                isValidBoundary = (nextChar == " " || nextChar == "\n" || nextChar == "\t")
+                            } else {
+                                isValidBoundary = true
+                            }
+                        }
+                        
+                        if isValidBoundary {
+                            // Found a valid sentence boundary - use the position after the punctuation
+                            bestSentenceEnd = truncated.index(after: charIndex)
+                            break
+                        }
+                    }
+                    
+                    currentIndex = charIndex
+                }
+                
+                if let sentenceEnd = bestSentenceEnd {
+                    // Found a sentence boundary - use everything up to and including the sentence
+                    summary = String(truncated[..<sentenceEnd]).trimmingCharacters(in: .whitespaces)
                 } else {
-                    // No good sentence boundary, truncate and add ellipsis
-                    summary = truncated.trimmingCharacters(in: .whitespaces) + "..."
+                    // No sentence boundary found - try to truncate at word boundary
+                    // Find the last space before the truncation point (search from 70% onwards)
+                    let wordBoundarySearchStart = max(Int(Double(truncated.count) * 0.7), truncated.count - 80)
+                    let wordBoundaryStartIndex = truncated.index(truncated.startIndex, offsetBy: min(wordBoundarySearchStart, truncated.count))
+                    
+                    if let lastSpaceIndex = truncated[wordBoundaryStartIndex..<truncated.endIndex].lastIndex(of: " ") {
+                        // Found a space - truncate there
+                        summary = String(truncated[..<lastSpaceIndex]).trimmingCharacters(in: .whitespaces) + "..."
+                    } else {
+                        // No good word boundary, just truncate and add ellipsis
+                        summary = truncated.trimmingCharacters(in: .whitespaces) + "..."
+                    }
                 }
             }
             

@@ -538,9 +538,9 @@ class JournalViewModel: ObservableObject {
                     }
                 }
                 
-                // Wait before retrying (exponential backoff: 2s, 4s)
+                // Wait before retrying (exponential backoff: 4s, 7s)
                 if attempt < maxRetries {
-                    let delay: Double = attempt == 1 ? 2.0 : 4.0 // 2s for first retry, 4s for second retry
+                    let delay: Double = attempt == 1 ? 4.0 : 7.0 // 4s for first retry, 7s for second retry
                     print("⏳ Waiting \(delay) seconds before retry...")
                     try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
                 }
@@ -1217,8 +1217,38 @@ class JournalViewModel: ObservableObject {
         do {
             if let existingGeneration = try await supabaseService.fetchFollowUpGeneration(userId: user.id) {
                 if calendar.isDate(existingGeneration.createdAt, inSameDayAs: today) {
-                    // If today is a follow-up day AND user replied today, allow regeneration
-                    // This generates a new question for the NEXT follow-up day
+                    // If generation was created today, check if it's already for the next follow-up day
+                    // Calculate last follow-up day to determine if existing generation is already for next cycle
+                    let referenceDate = calendar.date(from: DateComponents(year: 2024, month: 1, day: 1))!
+                    var lastFollowUpDay: Date? = nil
+                    var checkDate = today
+                    
+                    for _ in 0..<30 {
+                        let checkDaysSinceReference = calendar.dateComponents([.day], from: referenceDate, to: checkDate).day ?? 0
+                        if checkDaysSinceReference % 3 == 0 {
+                            lastFollowUpDay = calendar.startOfDay(for: checkDate)
+                            break
+                        }
+                        if let previousDay = calendar.date(byAdding: .day, value: -1, to: checkDate) {
+                            checkDate = previousDay
+                        } else {
+                            break
+                        }
+                    }
+                    
+                    // If generation was created today AFTER the last follow-up day start, it's already for next cycle
+                    // Don't regenerate on same day - the existing question is already valid for next follow-up day
+                    if let lastFollowUp = lastFollowUpDay, existingGeneration.createdAt >= lastFollowUp {
+                        print("✅ Follow-up question already generated today for next follow-up day - skipping pre-generation")
+                        print("   - Existing generation created: \(existingGeneration.createdAt)")
+                        print("   - Last follow-up day: \(lastFollowUp)")
+                        print("   - Is follow-up day: \(isTodayFollowUpDay)")
+                        print("   - User replied today: \(userRepliedToday)")
+                        return
+                    }
+                    
+                    // If today is a follow-up day AND user replied today, and generation is from before last follow-up day
+                    // (shouldn't happen, but handle edge case), allow regeneration
                     if isTodayFollowUpDay && userRepliedToday {
                         print("📅 Follow-up day + user replied today - allowing new generation for next follow-up day")
                         print("   - Existing generation created: \(existingGeneration.createdAt)")
@@ -1311,18 +1341,24 @@ class JournalViewModel: ObservableObject {
                         shouldGenerate = true
                     } else {
                         // Question was generated after last follow-up day and less than 21 days old
-                        // Only generate if it's NOT a follow-up day (to avoid overwriting displayed question)
-                        // OR if user has already replied to today's question
-                        if !isTodayFollowUpDay || userRepliedToday {
-                            print("📅 Trigger point detected - generating new question for next follow-up day")
+                        // This means it's already a valid pre-generated question for the next follow-up day
+                        // Only generate a NEW question if:
+                        // 1. It's a follow-up day AND user replied today (need new question for next cycle)
+                        // Otherwise, the existing pre-generated question is still valid - don't generate
+                        if isTodayFollowUpDay && userRepliedToday {
+                            print("📅 Follow-up day + user replied today - generating new question for next cycle")
+                            print("   - Existing question age: \(daysSinceGeneration) days")
+                            print("   - Last follow-up day: \(lastFollowUp)")
+                            print("   - Existing question created: \(existingGeneration.createdAt)")
+                            print("   - User replied today: \(userRepliedToday)")
+                            shouldGenerate = true
+                        } else {
+                            print("✅ Valid pre-generated question already exists for next follow-up day - skipping generation")
                             print("   - Existing question age: \(daysSinceGeneration) days")
                             print("   - Last follow-up day: \(lastFollowUp)")
                             print("   - Existing question created: \(existingGeneration.createdAt)")
                             print("   - Is follow-up day: \(isTodayFollowUpDay)")
                             print("   - User replied today: \(userRepliedToday)")
-                            shouldGenerate = true
-                        } else {
-                            print("✅ It's a follow-up day with displayed question - skipping generation until user replies")
                             shouldGenerate = false
                         }
                     }
@@ -1330,13 +1366,14 @@ class JournalViewModel: ObservableObject {
                     print("📅 Follow-up question is \(daysSinceGeneration) days old (>= 21 days) - generating new")
                     shouldGenerate = true
                 } else {
-                    // Fallback: if we can't determine last follow-up day, only generate if not a follow-up day
-                    // OR if user has already replied
-                    if !isTodayFollowUpDay || userRepliedToday {
-                        print("📅 Trigger point detected - generating new question")
+                    // Fallback: if we can't determine last follow-up day, only generate if:
+                    // 1. It's a follow-up day AND user replied today (need new question for next cycle)
+                    // Otherwise, assume existing question is still valid - don't generate
+                    if isTodayFollowUpDay && userRepliedToday {
+                        print("📅 Trigger point detected (fallback) - follow-up day + user replied - generating new question")
                         shouldGenerate = true
                     } else {
-                        print("✅ It's a follow-up day - skipping generation until user replies")
+                        print("✅ Existing follow-up question exists (fallback) - skipping generation")
                         shouldGenerate = false
                     }
                 }
@@ -2250,7 +2287,19 @@ class JournalViewModel: ObservableObject {
             let createdEntry = try await supabaseService.createAnalyzerEntry(analyzerEntry)
             
             // Generate AI response with retry logic
-            let aiResponse = try await generateAIResponseWithRetry(for: analyzerPrompt)
+            // If all retries fail, the entry will be deleted in the catch block
+            let aiResponse: String
+            do {
+                aiResponse = try await generateAIResponseWithRetry(for: analyzerPrompt)
+            } catch {
+                // All retries failed - delete the entry since analyzerAiResponse = nil is considered a failure
+                print("⚠️ All retry attempts failed - deleting analyzer entry")
+                try await supabaseService.deleteAnalyzerEntry(entryId: createdEntry.id)
+                // Reload analyzer entries to update UI
+                await loadAnalyzerEntries()
+                // Re-throw the error
+                throw error
+            }
             
             // Check if AI response is empty or null - if so, delete the entry and throw error
             let trimmedResponse = aiResponse.trimmingCharacters(in: .whitespacesAndNewlines)
