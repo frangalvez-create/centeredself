@@ -1375,10 +1375,10 @@ class SupabaseService: ObservableObject {
                 
                 // Try to find the last complete sentence boundary
                 // Search backwards from the end to find a sentence end (., !, ?)
-                // Start searching from 60% of the way through to ensure we get most content
-                // while ending at a complete sentence
-                let searchStartPercent = 0.6
-                let minSearchPosition = max(Int(Double(truncated.count) * searchStartPercent), truncated.count - 150)
+                // Start searching from 50% of the way through to ensure we find sentence boundaries
+                // even in longer entries
+                let searchStartPercent = 0.5
+                let minSearchPosition = max(Int(Double(truncated.count) * searchStartPercent), truncated.count - 200)
                 let minSearchIndex = truncated.index(truncated.startIndex, offsetBy: min(minSearchPosition, truncated.count))
                 
                 var bestSentenceEnd: String.Index? = nil
@@ -1425,15 +1425,16 @@ class SupabaseService: ObservableObject {
                     summary = String(truncated[..<sentenceEnd]).trimmingCharacters(in: .whitespaces)
                 } else {
                     // No sentence boundary found - try to truncate at word boundary
-                    // Find the last space before the truncation point (search from 70% onwards)
-                    let wordBoundarySearchStart = max(Int(Double(truncated.count) * 0.7), truncated.count - 80)
+                    // Find the last space before the truncation point (search from 60% onwards)
+                    let wordBoundarySearchStart = max(Int(Double(truncated.count) * 0.6), truncated.count - 100)
                     let wordBoundaryStartIndex = truncated.index(truncated.startIndex, offsetBy: min(wordBoundarySearchStart, truncated.count))
                     
                     if let lastSpaceIndex = truncated[wordBoundaryStartIndex..<truncated.endIndex].lastIndex(of: " ") {
-                        // Found a space - truncate there
+                        // Found a space - truncate there (before the space)
                         summary = String(truncated[..<lastSpaceIndex]).trimmingCharacters(in: .whitespaces) + "..."
                     } else {
-                        // No good word boundary, just truncate and add ellipsis
+                        // No good word boundary found - this shouldn't happen often
+                        // Just truncate and add ellipsis
                         summary = truncated.trimmingCharacters(in: .whitespaces) + "..."
                     }
                 }

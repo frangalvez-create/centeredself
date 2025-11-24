@@ -474,7 +474,7 @@ class JournalViewModel: ObservableObject {
             print("✅ AI response generated and saved: \(aiResponse.prefix(100))...")
             
         } catch {
-            errorMessage = "The AI's taking a short break 😅 please try again shortly."
+            errorMessage = "The AI was on it's break 😅 please try again."
             print("❌ Failed to generate AI response: \(error.localizedDescription)")
         }
         
@@ -747,7 +747,7 @@ class JournalViewModel: ObservableObject {
             print("✅ Open Question AI response generated and saved: \(aiResponse.prefix(100))...")
             
         } catch {
-            errorMessage = "The AI's taking a short break 😅 please try again shortly."
+            errorMessage = "The AI was on it's break 😅 please try again."
             print("❌ Failed to generate open question AI response: \(error.localizedDescription)")
         }
         
@@ -1929,7 +1929,7 @@ class JournalViewModel: ObservableObject {
         } catch {
             // Only show error message if not suppressed (e.g., during pull-to-refresh)
             if !suppressErrors {
-                errorMessage = "The AI's taking a short break 😅 please try again shortly."
+                errorMessage = "The AI was on it's break 😅 please try again."
             }
             print("❌ Failed to generate follow-up question: \(error.localizedDescription)")
             if suppressErrors {
@@ -2076,7 +2076,7 @@ class JournalViewModel: ObservableObject {
             print("✅ Follow-up question AI response generated and saved")
             
         } catch {
-            errorMessage = "The AI's taking a short break 😅 please try again shortly."
+            errorMessage = "The AI was on it's break 😅 please try again."
             print("❌ Failed to generate follow-up question AI response: \(error.localizedDescription)")
         }
         
@@ -2337,7 +2337,7 @@ class JournalViewModel: ObservableObject {
             // Minimum entries errors and authentication errors should be handled by ContentView without showing generic AI error
             let errorDesc = error.localizedDescription.lowercased()
             if !errorDesc.contains("minimum") && !errorDesc.contains("not authenticated") && !errorDesc.contains("authentication") {
-                errorMessage = "The AI's taking a short break 😅 please try again shortly."
+                errorMessage = "The AI was on it's break 😅 please try again."
             }
             print("❌ Failed to create analyzer entry: \(error.localizedDescription)")
             throw error

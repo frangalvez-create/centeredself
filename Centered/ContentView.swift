@@ -147,57 +147,57 @@ struct ContentView: View {
                 if showLoadingView {
                     loadingView
                 } else {
-                    VStack(spacing: 0) {
-                        // Main Content Area
-                        Group {
-                            switch selectedTab {
-                            case 0:
-                                mainJournalView
-                            case 1:
-                                favoritesPageView
-                            case 2:
+                VStack(spacing: 0) {
+                    // Main Content Area
+                    Group {
+                        switch selectedTab {
+                        case 0:
+                            mainJournalView
+                        case 1:
+                            favoritesPageView
+                        case 2:
                                 analyzerPageView
-                            case 3:
+                        case 3:
                                 ProfileView(
                                     showSettingsFromPopup: $showSettingsFromPopup,
                                     openCenteredSelf: { showCenteredSelfSheet = true }
                                 )
-                            default:
-                                mainJournalView
-                            }
+                        default:
+                            mainJournalView
                         }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        
-                        // Custom Tab Bar
-                        customTabBar
                     }
-                    .background(Color(hex: "E3E0C9"))
-                    .ignoresSafeArea(.all)
-                    .overlay(
-                        // Info Popup
-                        Group {
-                            if showInfoPopup {
-                                infoPopupView
-                            }
-                            if showGoalInfoPopup {
-                                goalInfoPopupView
-                            }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    
+                    // Custom Tab Bar
+                    customTabBar
+                }
+                .background(Color(hex: "E3E0C9"))
+                .ignoresSafeArea(.all)
+                .overlay(
+                    // Info Popup
+                    Group {
+                        if showInfoPopup {
+                            infoPopupView
+                        }
+                        if showGoalInfoPopup {
+                            goalInfoPopupView
+                        }
                             if showQ3InfoPopup {
                                 q3InfoPopupView
                             }
                             if showQ4InfoPopup {
                                 q4InfoPopupView
                             }
+                    }
+                )
+                .overlay(
+                    // Welcome Message Modal
+                    Group {
+                        if showWelcomeMessage {
+                            welcomeMessageView
                         }
-                    )
-                    .overlay(
-                        // Welcome Message Modal
-                        Group {
-                            if showWelcomeMessage {
-                                welcomeMessageView
-                            }
-                        }
-                    )
+                    }
+                )
                     .sheet(isPresented: $showCenteredSelfSheet) {
                         centeredPageView
                             .environmentObject(journalViewModel)
@@ -239,9 +239,9 @@ struct ContentView: View {
                 await MainActor.run {
                     showLoadingView = false
                     // Ensure Journal tab is selected
-                    selectedTab = 0
-                }
+                selectedTab = 0
             }
+        }
         }
     }
     
@@ -540,10 +540,10 @@ struct ContentView: View {
                                             .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: "3F5E82")))
                                             .frame(width: 37, height: 37)
                                     } else {
-                                        Image(getButtonImageName())
-                                            .resizable()
-                                            .scaledToFit()
-                                            .frame(width: showCenteredButton ? 37 : 24, height: showCenteredButton ? 37 : 24)
+                                    Image(getButtonImageName())
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: showCenteredButton ? 37 : 24, height: showCenteredButton ? 37 : 24)
                                             .opacity(showCenteredButton ? 0.9 : 0.8)
                                             .scaleEffect(showCenteredButton ? 1.4 : 1.0)
                                         }
@@ -604,12 +604,12 @@ struct ContentView: View {
                     } else if isFollowUpQuestionDay && journalViewModel.currentFollowUpQuestion.isEmpty {
                         // If it's a follow-up day but no question and not loading, show open question as fallback
                         // This should rarely happen if pre-generation is working correctly
-                        Text("Looking at today or yesterday, share moments or thoughts that stood out.")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(Color.textBlue)
-                            .multilineTextAlignment(.center)
-                            .lineLimit(nil)
-                            .fixedSize(horizontal: false, vertical: true)
+                    Text("Looking at today or yesterday, share moments or thoughts that stood out.")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(Color.textBlue)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
                     } else {
                         // Regular Open Question
                         Text("Looking at today or yesterday, share moments or thoughts that stood out.")
@@ -700,7 +700,7 @@ struct ContentView: View {
                                         if isFollowUpQuestionDay {
                                             followUpShowFavoriteButton = true
                                         } else {
-                                            openShowFavoriteButton = true
+                                        openShowFavoriteButton = true
                                         }
                                     }
                                 }
@@ -779,7 +779,7 @@ struct ContentView: View {
                                     if isFollowUpQuestionDay {
                                         updateFollowUpTextEditorHeight()
                                     } else {
-                                        updateOpenTextEditorHeight()
+                                    updateOpenTextEditorHeight()
                                     }
                                 }
                         }
@@ -864,8 +864,8 @@ struct ContentView: View {
                                             if openShowCenteredButton && !openIsGeneratingAI {
                                                 openCenteredButtonTapped()
                                             } else if !openIsGeneratingAI {
-                                                openDoneButtonTapped()
-                                            }
+                                            openDoneButtonTapped()
+                                        }
                                         }
                                     }) {
                                         if (isFollowUpQuestionDay ? followUpIsGeneratingAI : openIsGeneratingAI) {
@@ -877,8 +877,8 @@ struct ContentView: View {
                                             let showCenteredButton = isFollowUpQuestionDay ? followUpShowCenteredButton : openShowCenteredButton
                                             
                                             Image(buttonImageName)
-                                                .resizable()
-                                                .scaledToFit()
+                                            .resizable()
+                                            .scaledToFit()
                                                 .frame(width: showCenteredButton ? 37 : 24, height: showCenteredButton ? 37 : 24)
                                                 .opacity(showCenteredButton ? 0.9 : 0.8)
                                                 .scaleEffect(showCenteredButton ? 1.4 : 1.0)
@@ -901,7 +901,7 @@ struct ContentView: View {
                                         if isFollowUpQuestionDay {
                                             followUpFavoriteButtonTapped()
                                         } else {
-                                            openFavoriteButtonTapped()
+                                        openFavoriteButtonTapped()
                                         }
                                     }) {
                                         let isFavoriteClicked = isFollowUpQuestionDay ? followUpIsFavoriteClicked : openIsFavoriteClicked
@@ -1071,6 +1071,13 @@ struct ContentView: View {
                     }
                 }
             }
+        )
+        .simultaneousGesture(
+            TapGesture()
+                .onEnded { _ in
+                    // Dismiss keyboard when tapping outside text fields
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                }
         )
         .refreshable {
             // Pull to refresh gesture - immediately switch to Loading View
@@ -1417,7 +1424,7 @@ struct ContentView: View {
         
         // Generate AI response using OpenAI API with timeout
         try await withTimeout(seconds: 30) {
-            await journalViewModel.generateAndSaveAIResponse()
+        await journalViewModel.generateAndSaveAIResponse()
         }
         
         // Update the AI response in the UI
@@ -2049,7 +2056,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
         
         // Generate AI response using OpenAI API with timeout
         try await withTimeout(seconds: 30) {
-            await journalViewModel.generateAndSaveOpenQuestionAIResponse()
+        await journalViewModel.generateAndSaveOpenQuestionAIResponse()
         }
         
         // Update the AI response in the UI
@@ -3148,11 +3155,11 @@ Capabilities and Reminders: You have access to the web search tools, published r
             // Favorites Tab (now using Centered Tab icons)
             Button(action: { selectedTab = 2 }) {
                 ZStack(alignment: .topTrailing) {
-                    Image(selectedTab == 2 ? "Centered Tab click" : "Centered Tab")
-                        .renderingMode(.original)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 36, height: 36)
+                Image(selectedTab == 2 ? "Centered Tab click" : "Centered Tab")
+                    .renderingMode(.original)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 36, height: 36)
                     
                     // Red dot indicator when Analyze button is enabled
                     if analyzerViewModel.isAnalyzeButtonEnabled {
@@ -3186,7 +3193,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
     
     private var welcomeMessageView: some View {
         OnboardingCarouselView {
-            dismissWelcomeMessage()
+                    dismissWelcomeMessage()
         }
     }
     
