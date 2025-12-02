@@ -2314,7 +2314,7 @@ class JournalViewModel: ObservableObject {
                 endDate: dateRange.end
             )
             
-            // Prepare content with summarization if needed (1000 chars weekly, 2000 chars monthly)
+            // Prepare content with summarization if needed (1000 chars weekly, 1500 chars monthly)
             let content = supabaseService.prepareContentForAnalyzer(entries: entries, analysisType: analysisType)
             
             // Generate analyzer prompt

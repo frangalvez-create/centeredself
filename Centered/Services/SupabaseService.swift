@@ -1333,9 +1333,9 @@ class SupabaseService: ObservableObject {
     }
     
     /// Prepares content for analyzer with character limits and sentence-aware truncation
-    /// Weekly: 1000 chars, Monthly: 2000 chars
+    /// Weekly: 1000 chars, Monthly: 1500 chars
     func prepareContentForAnalyzer(entries: [JournalEntry], analysisType: String) -> String {
-        let maxChars = analysisType == "monthly" ? 2000 : 1000
+        let maxChars = analysisType == "monthly" ? 1500 : 1000
         
         guard !entries.isEmpty else { return "" }
         

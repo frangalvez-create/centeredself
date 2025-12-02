@@ -3433,7 +3433,7 @@ Capabilities and Reminders: You have access to the web search tools, published r
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 
-                Text("• Monthly analysis available last Sunday of the month")
+                Text("• Monthly analysis available the Sunday after the month ends")
                     .font(.system(size: 15))
                     .foregroundColor(.white)
                     .multilineTextAlignment(.leading)
