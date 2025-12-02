@@ -2168,12 +2168,44 @@ class JournalViewModel: ObservableObject {
             return "weekly"
         }
         
-        // Check if previousSaturday is within the last 7 days of its month
-        // If so, the previous week was the last week of the month - run monthly analysis for entire month
-        let daysFromEnd = calendar.dateComponents([.day], from: previousSaturday, to: lastDateOfMonth).day ?? 0
-        if daysFromEnd < 7 {
-            // Previous week was the last week of the month - run monthly analysis for entire month
-            return "monthly"
+        // Get the month of the previous week's Sunday and Saturday
+        let previousSundayMonth = calendar.component(.month, from: previousSunday)
+        let previousSundayYear = calendar.component(.year, from: previousSunday)
+        let previousSaturdayMonth = calendar.component(.month, from: previousSaturday)
+        let previousSaturdayYear = calendar.component(.year, from: previousSaturday)
+        let todayMonth = calendar.component(.month, from: today)
+        let todayYear = calendar.component(.year, from: today)
+        
+        // Check if previous week spans month boundary (Sunday in one month, Saturday in another)
+        let previousWeekSpansMonths = (previousSundayMonth != previousSaturdayMonth) || (previousSundayYear != previousSaturdayYear)
+        
+        // Check if we're now in a different month than the previous week's Sunday
+        let isInDifferentMonth = (previousSundayMonth != todayMonth) || (previousSundayYear != todayYear)
+        
+        // Monthly analysis becomes available when:
+        // 1. The previous week spanned month boundaries (Sunday was in month A, Saturday was in month B)
+        // 2. We're now in the month that contains the previous week's Saturday (month B)
+        // This means the previous week's Sunday was the last Sunday of the completed month
+        if previousWeekSpansMonths && isInDifferentMonth {
+            // Check if previousSunday was in a different month than today
+            // If so, analyze the month that contains previousSunday (the completed month)
+            let monthToCheck = previousSunday
+            
+            // Get the last day of the month that contains previousSunday
+            let monthComponents = calendar.dateComponents([.year, .month], from: monthToCheck)
+            guard let firstOfMonth = calendar.date(from: monthComponents),
+                  let range = calendar.range(of: .day, in: .month, for: firstOfMonth),
+                  let lastDayOfMonth = range.last,
+                  let lastDateOfMonth = calendar.date(byAdding: .day, value: lastDayOfMonth - 1, to: firstOfMonth) else {
+                return "weekly"
+            }
+            
+            // Check if previousSunday is within the last 7 days of its month
+            let daysFromEnd = calendar.dateComponents([.day], from: previousSunday, to: lastDateOfMonth).day ?? 0
+            if daysFromEnd < 7 {
+                // Previous Sunday was in the last week of a completed month - run monthly analysis
+                return "monthly"
+            }
         }
         
         // Otherwise, use weekly analysis

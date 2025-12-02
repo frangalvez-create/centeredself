@@ -1514,8 +1514,56 @@ Output: Create three paragraphs. The first paragraph, list the top five moods (e
         return (rangeStart, rangeEnd)
     }
     
-    /// Calculates the date range for monthly analysis (entire previous month: first day to last day)
+    /// Calculates the date range for monthly analysis
+    /// When monthly analysis is triggered, it analyzes the month that contains the previous week's Saturday
+    /// (which is in the last 7 days of that month)
     func calculateDateRangeForMonthlyAnalysis(for date: Date = Date()) -> (start: Date, end: Date) {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        
+        // Calculate what the previous week would be (Sunday to Saturday)
+        let weekday = calendar.component(.weekday, from: startOfDay)
+        let daysSinceSunday = (weekday + 6) % 7
+        
+        // Calculate previous Sunday (7 days before the current week's Sunday)
+        guard let previousSunday = calendar.date(byAdding: .day, value: -(daysSinceSunday + 7), to: startOfDay),
+              let previousSaturday = calendar.date(byAdding: .day, value: 6, to: previousSunday) else {
+            // Fallback to previous month if calculation fails
+            return calculateDateRangeForPreviousMonth(for: date)
+        }
+        
+        // The month to analyze is the month that contains previousSunday
+        // When monthly analysis is triggered, the previous week spanned months (Sunday in month A, Saturday in month B)
+        // We want to analyze the month that contains previousSunday (the completed month A)
+        let monthToAnalyze = previousSunday
+        
+        // Get the first day of the month that contains previousSaturday
+        let components = calendar.dateComponents([.year, .month], from: monthToAnalyze)
+        guard let firstOfMonth = calendar.date(from: components) else {
+            return calculateDateRangeForPreviousMonth(for: date)
+        }
+        
+        // Get the last day of that month
+        guard let range = calendar.range(of: .day, in: .month, for: firstOfMonth),
+              let lastDayOfMonth = range.last,
+              let lastDateOfMonth = calendar.date(byAdding: .day, value: lastDayOfMonth - 1, to: firstOfMonth) else {
+            return calculateDateRangeForPreviousMonth(for: date)
+        }
+        
+        // Set start to beginning of first day (00:00:00)
+        let rangeStart = calendar.startOfDay(for: firstOfMonth)
+        
+        // Set end to end of last day (23:59:59.999) to include all entries from the last day
+        guard let endOfLastDay = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: lastDateOfMonth) else {
+            return (rangeStart, calendar.startOfDay(for: lastDateOfMonth))
+        }
+        let rangeEnd = calendar.date(byAdding: .nanosecond, value: 999_000_000, to: endOfLastDay) ?? endOfLastDay
+        
+        return (rangeStart, rangeEnd)
+    }
+    
+    /// Helper function to calculate date range for the previous month (fallback)
+    private func calculateDateRangeForPreviousMonth(for date: Date) -> (start: Date, end: Date) {
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: date)
         
