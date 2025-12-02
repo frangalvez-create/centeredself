@@ -113,13 +113,26 @@ class AnalyzerViewModel: ObservableObject {
     
     private func monthlyRange(for date: Date) -> (start: Date, end: Date) {
         let startOfDay = calendar.startOfDay(for: date)
-        let lastMonthCandidates = stride(from: 1, through: calendar.range(of: .day, in: .month, for: startOfDay)?.count ?? 31, by: 1)
-            .compactMap { calendar.date(byAdding: .day, value: -$0, to: startOfDay) }
-        if let lastSunday = lastMonthCandidates.first(where: { calendar.component(.weekday, from: $0) == 1 }),
-           let lastSaturday = lastMonthCandidates.first(where: { calendar.component(.weekday, from: $0) == 7 }) {
-            return (calendar.startOfDay(for: lastSunday), calendar.startOfDay(for: lastSaturday))
+        
+        // Get the previous month
+        guard let previousMonth = calendar.date(byAdding: .month, value: -1, to: startOfDay) else {
+            return weeklyRange(for: date)
         }
-        return weeklyRange(for: date)
+        
+        // Get the first day of the previous month
+        let components = calendar.dateComponents([.year, .month], from: previousMonth)
+        guard let firstOfPreviousMonth = calendar.date(from: components) else {
+            return weeklyRange(for: date)
+        }
+        
+        // Get the last day of the previous month
+        guard let range = calendar.range(of: .day, in: .month, for: firstOfPreviousMonth),
+              let lastDayOfMonth = range.last,
+              let lastDateOfMonth = calendar.date(byAdding: .day, value: lastDayOfMonth - 1, to: firstOfPreviousMonth) else {
+            return weeklyRange(for: date)
+        }
+        
+        return (calendar.startOfDay(for: firstOfPreviousMonth), calendar.startOfDay(for: lastDateOfMonth))
     }
     
     private func formattedWeekRange(_ range: (start: Date, end: Date)) -> String {
@@ -186,13 +199,34 @@ class AnalyzerViewModel: ObservableObject {
     }
     
     /// Determines if analysis should be weekly or monthly based on date
-    /// Monthly analysis occurs on the last Sunday of the month, otherwise weekly
+    /// Monthly analysis occurs when the previous week was the last week of the previous month, otherwise weekly
     func determineAnalysisMode(for date: Date) -> AnalyzerMode {
         let startOfDay = calendar.startOfDay(for: date)
         
-        // Check if this date is the last Sunday of the month
-        let lastSundayOfMonth = findLastSundayOfMonth(for: startOfDay)
-        if let lastSunday = lastSundayOfMonth, calendar.isDate(startOfDay, inSameDayAs: lastSunday) {
+        // Calculate what the previous week would be (Sunday to Saturday)
+        let weekday = calendar.component(.weekday, from: startOfDay)
+        let daysSinceSunday = (weekday + 6) % 7
+        
+        // Calculate previous Sunday (7 days before the current week's Sunday)
+        guard let previousSunday = calendar.date(byAdding: .day, value: -(daysSinceSunday + 7), to: startOfDay),
+              let previousSaturday = calendar.date(byAdding: .day, value: 6, to: previousSunday) else {
+            return .weekly
+        }
+        
+        // Get the last day of the month that contains previousSaturday
+        let components = calendar.dateComponents([.year, .month], from: previousSaturday)
+        guard let firstOfMonth = calendar.date(from: components),
+              let range = calendar.range(of: .day, in: .month, for: firstOfMonth),
+              let lastDayOfMonth = range.last,
+              let lastDateOfMonth = calendar.date(byAdding: .day, value: lastDayOfMonth - 1, to: firstOfMonth) else {
+            return .weekly
+        }
+        
+        // Check if previousSaturday is within the last 7 days of its month
+        // If so, the previous week was the last week of the month - run monthly analysis for entire month
+        let daysFromEnd = calendar.dateComponents([.day], from: previousSaturday, to: lastDateOfMonth).day ?? 0
+        if daysFromEnd < 7 {
+            // Previous week was the last week of the month - run monthly analysis for entire month
             return .monthly
         }
         

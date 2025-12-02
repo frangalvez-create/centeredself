@@ -1514,31 +1514,40 @@ Output: Create three paragraphs. The first paragraph, list the top five moods (e
         return (rangeStart, rangeEnd)
     }
     
-    /// Calculates the date range for monthly analysis (previous last Sunday of month to current last Saturday of month)
+    /// Calculates the date range for monthly analysis (entire previous month: first day to last day)
     func calculateDateRangeForMonthlyAnalysis(for date: Date = Date()) -> (start: Date, end: Date) {
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: date)
         
-        // Find the last Sunday of the previous month
-        let lastMonthCandidates = stride(from: 1, through: calendar.range(of: .day, in: .month, for: startOfDay)?.count ?? 31, by: 1)
-            .compactMap { calendar.date(byAdding: .day, value: -$0, to: startOfDay) }
-        
-        if let lastSunday = lastMonthCandidates.first(where: { calendar.component(.weekday, from: $0) == 1 }),
-           let lastSaturday = lastMonthCandidates.first(where: { calendar.component(.weekday, from: $0) == 7 }) {
-            // Set start to beginning of Sunday (00:00:00)
-            let rangeStart = calendar.startOfDay(for: lastSunday)
-            
-            // Set end to end of Saturday (23:59:59.999) to include all entries from Saturday
-            guard let endOfSaturday = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: lastSaturday) else {
-                return (rangeStart, calendar.startOfDay(for: lastSaturday))
-            }
-            let rangeEnd = calendar.date(byAdding: .nanosecond, value: 999_000_000, to: endOfSaturday) ?? endOfSaturday
-            
-            return (rangeStart, rangeEnd)
+        // Get the previous month
+        guard let previousMonth = calendar.date(byAdding: .month, value: -1, to: startOfDay) else {
+            // Fallback to weekly range if calculation fails
+            return calculateDateRangeForWeeklyAnalysis(for: date)
         }
         
-        // Fallback to weekly range if monthly calculation fails
-        return calculateDateRangeForWeeklyAnalysis(for: date)
+        // Get the first day of the previous month
+        let components = calendar.dateComponents([.year, .month], from: previousMonth)
+        guard let firstOfPreviousMonth = calendar.date(from: components) else {
+            return calculateDateRangeForWeeklyAnalysis(for: date)
+        }
+        
+        // Get the last day of the previous month
+        guard let range = calendar.range(of: .day, in: .month, for: firstOfPreviousMonth),
+              let lastDayOfMonth = range.last,
+              let lastDateOfMonth = calendar.date(byAdding: .day, value: lastDayOfMonth - 1, to: firstOfPreviousMonth) else {
+            return calculateDateRangeForWeeklyAnalysis(for: date)
+        }
+        
+        // Set start to beginning of first day (00:00:00)
+        let rangeStart = calendar.startOfDay(for: firstOfPreviousMonth)
+        
+        // Set end to end of last day (23:59:59.999) to include all entries from the last day
+        guard let endOfLastDay = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: lastDateOfMonth) else {
+            return (rangeStart, calendar.startOfDay(for: lastDateOfMonth))
+        }
+        let rangeEnd = calendar.date(byAdding: .nanosecond, value: 999_000_000, to: endOfLastDay) ?? endOfLastDay
+        
+        return (rangeStart, rangeEnd)
     }
     
     /// Checks if analyzer is available (every Sunday at 2 AM)

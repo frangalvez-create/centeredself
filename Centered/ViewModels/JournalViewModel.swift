@@ -2149,9 +2149,30 @@ class JournalViewModel: ObservableObject {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: date)
         
-        // Check if today is the last Sunday of the month
-        let lastSundayOfMonth = findLastSundayOfMonth(for: today)
-        if let lastSunday = lastSundayOfMonth, calendar.isDate(today, inSameDayAs: lastSunday) {
+        // Calculate what the previous week would be (Sunday to Saturday)
+        let weekday = calendar.component(.weekday, from: today)
+        let daysSinceSunday = (weekday + 6) % 7
+        
+        // Calculate previous Sunday (7 days before the current week's Sunday)
+        guard let previousSunday = calendar.date(byAdding: .day, value: -(daysSinceSunday + 7), to: today),
+              let previousSaturday = calendar.date(byAdding: .day, value: 6, to: previousSunday) else {
+            return "weekly"
+        }
+        
+        // Get the last day of the month that contains previousSaturday
+        let components = calendar.dateComponents([.year, .month], from: previousSaturday)
+        guard let firstOfMonth = calendar.date(from: components),
+              let range = calendar.range(of: .day, in: .month, for: firstOfMonth),
+              let lastDayOfMonth = range.last,
+              let lastDateOfMonth = calendar.date(byAdding: .day, value: lastDayOfMonth - 1, to: firstOfMonth) else {
+            return "weekly"
+        }
+        
+        // Check if previousSaturday is within the last 7 days of its month
+        // If so, the previous week was the last week of the month - run monthly analysis for entire month
+        let daysFromEnd = calendar.dateComponents([.day], from: previousSaturday, to: lastDateOfMonth).day ?? 0
+        if daysFromEnd < 7 {
+            // Previous week was the last week of the month - run monthly analysis for entire month
             return "monthly"
         }
         
