@@ -1431,8 +1431,13 @@ struct ContentView: View {
         await updateAIResponseDisplay()
         
         // NEW: Pre-generate follow-up question in background (after AI response displayed)
-        Task {
-            await journalViewModel.preGenerateFollowUpQuestionIfNeeded()
+        // Only trigger on non-follow-up days (guided question Centered button should not trigger on follow-up days)
+        if !isFollowUpQuestionDay {
+            Task {
+                await journalViewModel.preGenerateFollowUpQuestionIfNeeded()
+            }
+        } else {
+            print("⏭️ Skipping follow-up pre-generation - today is a follow-up day")
         }
     }
     

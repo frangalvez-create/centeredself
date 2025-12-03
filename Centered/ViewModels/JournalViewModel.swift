@@ -1963,7 +1963,8 @@ class JournalViewModel: ObservableObject {
     }
     
     /// Creates a follow-up question journal entry
-    /// NEW: Saves follow_up_question from follow_up_generation table
+    /// NEW: Saves follow_up_question from currentFollowUpQuestion (the question displayed to user)
+    /// This ensures we save the correct question the user answered, not a pre-generated one for next time
     func createFollowUpQuestionJournalEntry(content: String) async {
         guard let user = currentUser else { return }
         
@@ -1971,15 +1972,21 @@ class JournalViewModel: ObservableObject {
         errorMessage = nil
         
         do {
-            // Get the question from follow_up_generation table
+            // Use the question that's currently displayed to the user
+            // This ensures we save the correct question, not a pre-generated one for next time
+            // The follow_up_generation table may have been overwritten with a new question for the next follow-up day
             var followUpQuestionText: String? = nil
-            if let generation = try? await supabaseService.fetchFollowUpGeneration(userId: user.id) {
-                followUpQuestionText = generation.fuqAiResponse
-                print("✅ Retrieved follow-up question from follow_up_generation table: \(followUpQuestionText?.prefix(50) ?? "nil")...")
+            if !currentFollowUpQuestion.isEmpty {
+                followUpQuestionText = currentFollowUpQuestion
+                print("✅ Using currentFollowUpQuestion for follow_up_question field: \(followUpQuestionText?.prefix(50) ?? "nil")...")
             } else {
-                // Fallback to currentFollowUpQuestion if generation not found
-                followUpQuestionText = currentFollowUpQuestion.isEmpty ? nil : currentFollowUpQuestion
-                print("⚠️ Could not fetch from follow_up_generation, using currentFollowUpQuestion: \(followUpQuestionText?.prefix(50) ?? "nil")...")
+                // Fallback: try to fetch from follow_up_generation if currentFollowUpQuestion is empty
+                if let generation = try? await supabaseService.fetchFollowUpGeneration(userId: user.id) {
+                    followUpQuestionText = generation.fuqAiResponse
+                    print("⚠️ currentFollowUpQuestion was empty, using follow_up_generation table: \(followUpQuestionText?.prefix(50) ?? "nil")...")
+                } else {
+                    print("⚠️ No follow-up question found in currentFollowUpQuestion or follow_up_generation table")
+                }
             }
             
             // Create journal entry with follow-up question type
