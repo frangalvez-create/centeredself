@@ -1529,9 +1529,10 @@ class JournalViewModel: ObservableObject {
             for (index, entry) in followUpQuestionEntries.enumerated() {
                 let calendar = Calendar.current
                 let isToday = calendar.isDate(entry.createdAt, inSameDayAs: Date())
-                print("   Entry \(index): entryType=\(entry.entryType ?? "nil"), contentLength=\(entry.content.count), fuqAiResponseLength=\(entry.fuqAiResponse?.count ?? 0), isToday=\(isToday)")
-                if let fuqAiResponse = entry.fuqAiResponse {
-                    print("      Question: \(fuqAiResponse.prefix(50))...")
+                print("   Entry \(index): entryType=\(entry.entryType ?? "nil"), contentLength=\(entry.content.count), isToday=\(isToday)")
+                print("      - followUpQuestion field: \(entry.followUpQuestion != nil ? "exists (\(entry.followUpQuestion?.count ?? 0) chars)" : "nil")")
+                if let followUpQuestion = entry.followUpQuestion {
+                    print("      - followUpQuestion value: \(followUpQuestion.prefix(50))...")
                 }
             }
         } catch {
@@ -1634,50 +1635,72 @@ class JournalViewModel: ObservableObject {
             }
             
             // If user replied today, use the question from journal_entries.follow_up_question
-            if let todaysReplyEntry = todaysReplyEntries.first,
-               let followUpQuestion = todaysReplyEntry.followUpQuestion,
-               !followUpQuestion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                await MainActor.run {
-                    currentFollowUpQuestion = followUpQuestion
-                    isLoadingFollowUpQuestion = false // Clear loading state immediately when question found
+            if let todaysReplyEntry = todaysReplyEntries.first {
+                print("📝 Found today's reply entry - checking follow_up_question field...")
+                print("   - Entry ID: \(todaysReplyEntry.id)")
+                print("   - Entry created: \(todaysReplyEntry.createdAt)")
+                print("   - Entry content length: \(todaysReplyEntry.content.count)")
+                print("   - followUpQuestion field exists: \(todaysReplyEntry.followUpQuestion != nil)")
+                
+                if let followUpQuestion = todaysReplyEntry.followUpQuestion,
+                   !followUpQuestion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    await MainActor.run {
+                        currentFollowUpQuestion = followUpQuestion
+                        isLoadingFollowUpQuestion = false // Clear loading state immediately when question found
+                    }
+                    print("✅ Using follow-up question from today's reply: \(currentFollowUpQuestion.prefix(50))...")
+                    foundQuestion = true
+                    break
+                } else {
+                    print("⚠️ Today's reply entry exists but follow_up_question field is missing or empty")
+                    print("   - This should not happen if entry was created correctly")
+                    print("   - Will skip pre-generated question to avoid using future question")
+                    // Don't break - let the hasAnyReplyToday check handle this
                 }
-                print("✅ Using follow-up question from today's reply: \(currentFollowUpQuestion.prefix(50))...")
-                foundQuestion = true
-                break
             }
             
             // Step 2: Check follow_up_generation table for pre-generated question
-            do {
-                print("🔍 [PULL-TO-REFRESH] Attempting to fetch from follow_up_generation table (attempt \(retryCount + 1)/\(maxRetries), suppressErrors: \(suppressErrors))...")
-                print("   - User ID: \(user.id)")
-                print("   - Querying: SELECT * FROM follow_up_generation WHERE user_id = '\(user.id)' LIMIT 1")
-                
-                if let generation = try await supabaseService.fetchFollowUpGeneration(userId: user.id) {
-                    print("📦 [PULL-TO-REFRESH] ✅ Found follow-up generation in database")
-                    print("   - ID: \(generation.id)")
-                    print("   - Created: \(generation.createdAt)")
-                    print("   - Response length: \(generation.fuqAiResponse.count) characters")
-                    print("   - Response preview: \(generation.fuqAiResponse.prefix(100))...")
+            // IMPORTANT: Only use pre-generated question if user hasn't replied today
+            // If user has replied today, skip pre-generated to avoid using future question
+            if !todaysReplyEntries.isEmpty {
+                print("⚠️ User has replied today - skipping pre-generated question to avoid using future question")
+                print("   - Found \(todaysReplyEntries.count) reply entries for today")
+                print("   - If follow_up_question field was missing, this indicates a data issue")
+                // Skip pre-generated question entirely - user already replied, so pre-generated is for next time
+                // Continue to next retry to see if question appears in journal entry
+            } else {
+                // Only check pre-generated question if user hasn't replied yet
+                do {
+                    print("🔍 [PULL-TO-REFRESH] Attempting to fetch from follow_up_generation table (attempt \(retryCount + 1)/\(maxRetries), suppressErrors: \(suppressErrors))...")
+                    print("   - User ID: \(user.id)")
+                    print("   - Querying: SELECT * FROM follow_up_generation WHERE user_id = '\(user.id)' LIMIT 1")
                     
-                    let trimmedResponse = generation.fuqAiResponse.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !trimmedResponse.isEmpty {
-                        await MainActor.run {
-                            currentFollowUpQuestion = generation.fuqAiResponse
-                            isLoadingFollowUpQuestion = false // Clear loading state immediately when question found
+                    if let generation = try await supabaseService.fetchFollowUpGeneration(userId: user.id) {
+                        print("📦 [PULL-TO-REFRESH] ✅ Found follow-up generation in database")
+                        print("   - ID: \(generation.id)")
+                        print("   - Created: \(generation.createdAt)")
+                        print("   - Response length: \(generation.fuqAiResponse.count) characters")
+                        print("   - Response preview: \(generation.fuqAiResponse.prefix(100))...")
+                        
+                        let trimmedResponse = generation.fuqAiResponse.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !trimmedResponse.isEmpty {
+                            await MainActor.run {
+                                currentFollowUpQuestion = generation.fuqAiResponse
+                                isLoadingFollowUpQuestion = false // Clear loading state immediately when question found
+                            }
+                            print("✅ [PULL-TO-REFRESH] Using pre-generated follow-up question from follow_up_generation table: \(currentFollowUpQuestion.prefix(50))...")
+                            foundQuestion = true
+                            break
+                        } else {
+                            print("⚠️ [PULL-TO-REFRESH] Follow-up generation found but response is empty or whitespace-only")
+                            print("   - Full response: '\(generation.fuqAiResponse)'")
                         }
-                        print("✅ [PULL-TO-REFRESH] Using pre-generated follow-up question from follow_up_generation table: \(currentFollowUpQuestion.prefix(50))...")
-                        foundQuestion = true
-                        break
                     } else {
-                        print("⚠️ [PULL-TO-REFRESH] Follow-up generation found but response is empty or whitespace-only")
-                        print("   - Full response: '\(generation.fuqAiResponse)'")
+                        print("⚠️ [PULL-TO-REFRESH] No follow-up generation found in database for user \(user.id)")
+                        print("   - This is attempt \(retryCount + 1) of \(maxRetries)")
+                        print("   - Checking if table exists and has RLS policies enabled...")
                     }
-                } else {
-                    print("⚠️ [PULL-TO-REFRESH] No follow-up generation found in database for user \(user.id)")
-                    print("   - This is attempt \(retryCount + 1) of \(maxRetries)")
-                    print("   - Checking if table exists and has RLS policies enabled...")
-                }
-            } catch {
+                } catch {
                 print("❌ [PULL-TO-REFRESH] ERROR fetching follow-up generation: \(error.localizedDescription)")
                 print("   - Error type: \(type(of: error))")
                 print("   - Error details: \(error)")

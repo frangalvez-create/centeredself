@@ -266,6 +266,9 @@ class SupabaseService: ObservableObject {
         let fifteenDaysAgo = calendar.date(byAdding: .day, value: -15, to: today)!
         let fiveDaysAgo = calendar.date(byAdding: .day, value: -5, to: today)!
         
+        // Calculate 3 days ago for Priority 3
+        let threeDaysAgo = calendar.date(byAdding: .day, value: -3, to: today)!
+        
         if useMockData {
             // Mock implementation - return a mock entry if available
             let mockEntries = mockJournalEntries.filter { entry in
@@ -338,12 +341,12 @@ class SupabaseService: ObservableObject {
                 return openQuestionEntry
             }
             
-            // Priority 3: Most recent entry older than current day (not yet used for follow-up)
+            // Priority 3: Most recent entry older than 3 days ago (not yet used for follow-up)
             let recentEntriesAll: [JournalEntry] = try await supabase
                 .from("journal_entries")
                 .select()
                 .eq("user_id", value: userId)
-                .lt("created_at", value: today.ISO8601Format())
+                .lt("created_at", value: threeDaysAgo.ISO8601Format())
                 .order("created_at", ascending: false) // Most recent first
                 .execute()
                 .value
