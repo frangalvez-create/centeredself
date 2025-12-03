@@ -1701,20 +1701,21 @@ class JournalViewModel: ObservableObject {
                         print("   - Checking if table exists and has RLS policies enabled...")
                     }
                 } catch {
-                print("❌ [PULL-TO-REFRESH] ERROR fetching follow-up generation: \(error.localizedDescription)")
-                print("   - Error type: \(type(of: error))")
-                print("   - Error details: \(error)")
-                print("   - suppressErrors: \(suppressErrors)")
-                if !suppressErrors {
-                    // Only show error to user if not suppressing errors
-                    errorMessage = "Failed to load follow-up question: \(error.localizedDescription)"
+                    print("❌ [PULL-TO-REFRESH] ERROR fetching follow-up generation: \(error.localizedDescription)")
+                    print("   - Error type: \(type(of: error))")
+                    print("   - Error details: \(error)")
+                    print("   - suppressErrors: \(suppressErrors)")
+                    if !suppressErrors {
+                        // Only show error to user if not suppressing errors
+                        errorMessage = "Failed to load follow-up question: \(error.localizedDescription)"
+                    }
+                    if retryCount < maxRetries - 1 {
+                        print("⏳ [PULL-TO-REFRESH] Waiting 0.5s before retry...")
+                        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 second delay
+                    }
+                    retryCount += 1
+                    continue
                 }
-                if retryCount < maxRetries - 1 {
-                    print("⏳ [PULL-TO-REFRESH] Waiting 0.5s before retry...")
-                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 second delay
-                }
-                retryCount += 1
-                continue
             }
             
             // If no question found and not last attempt, wait and retry
