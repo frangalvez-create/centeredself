@@ -2068,8 +2068,13 @@ Capabilities and Reminders: You have access to the web search tools, published r
         await updateOpenAIResponseDisplay()
         
         // NEW: Pre-generate follow-up question in background (after AI response displayed)
-        Task {
-            await journalViewModel.preGenerateFollowUpQuestionIfNeeded()
+        // Only trigger on non-follow-up days (open question Centered button should not trigger on follow-up days)
+        if !isFollowUpQuestionDay {
+            Task {
+                await journalViewModel.preGenerateFollowUpQuestionIfNeeded()
+            }
+        } else {
+            print("⏭️ Skipping follow-up pre-generation - today is a follow-up day")
         }
     }
     
@@ -2176,9 +2181,13 @@ Capabilities and Reminders: You have access to the web search tools, published r
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
         impactFeedback.impactOccurred()
         
+        // CRITICAL: Capture the question BEFORE any pre-generation can overwrite it
+        // This ensures we save the correct question the user answered
+        let questionToSave = journalViewModel.currentFollowUpQuestion
+        
         // Save journal entry to Supabase with follow-up question
         Task {
-            await journalViewModel.createFollowUpQuestionJournalEntry(content: followUpJournalResponse)
+            await journalViewModel.createFollowUpQuestionJournalEntry(content: followUpJournalResponse, question: questionToSave)
             
             // NEW: Pre-generate follow-up question in background (immediately after Done button)
             // This can happen on follow-up day, but new question won't be displayed until next follow-up day

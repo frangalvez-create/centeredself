@@ -1214,6 +1214,15 @@ class JournalViewModel: ObservableObject {
         }
         let userRepliedToday = !todaysReplies.isEmpty
         
+        // SAFETY CHECK: If it's a follow-up day and user hasn't replied yet, don't generate
+        // This prevents generation when called from guided/open question Centered buttons on follow-up days
+        // Only allow generation on follow-up days if user has already replied (triggered from follow-up Done button)
+        if isTodayFollowUpDay && !userRepliedToday {
+            print("⏭️ Skipping pre-generation - today is follow-up day but user hasn't replied yet")
+            print("   - Pre-generation should only happen after user replies to follow-up question")
+            return
+        }
+        
         do {
             if let existingGeneration = try await supabaseService.fetchFollowUpGeneration(userId: user.id) {
                 if calendar.isDate(existingGeneration.createdAt, inSameDayAs: today) {
@@ -1963,29 +1972,31 @@ class JournalViewModel: ObservableObject {
     }
     
     /// Creates a follow-up question journal entry
-    /// NEW: Saves follow_up_question from currentFollowUpQuestion (the question displayed to user)
-    /// This ensures we save the correct question the user answered, not a pre-generated one for next time
-    func createFollowUpQuestionJournalEntry(content: String) async {
+    /// NEW: Accepts the question as a parameter to ensure we save the correct question the user answered
+    /// This prevents issues where currentFollowUpQuestion might be overwritten by pre-generation before saving
+    func createFollowUpQuestionJournalEntry(content: String, question: String? = nil) async {
         guard let user = currentUser else { return }
         
         isLoading = true
         errorMessage = nil
         
         do {
-            // Use the question that's currently displayed to the user
-            // This ensures we save the correct question, not a pre-generated one for next time
-            // The follow_up_generation table may have been overwritten with a new question for the next follow-up day
+            // Use the question passed as parameter (captured at UI level before any pre-generation)
+            // If not provided, fallback to currentFollowUpQuestion, then to database
             var followUpQuestionText: String? = nil
-            if !currentFollowUpQuestion.isEmpty {
+            if let providedQuestion = question, !providedQuestion.isEmpty {
+                followUpQuestionText = providedQuestion
+                print("✅ Using provided question for follow_up_question field: \(followUpQuestionText?.prefix(50) ?? "nil")...")
+            } else if !currentFollowUpQuestion.isEmpty {
                 followUpQuestionText = currentFollowUpQuestion
                 print("✅ Using currentFollowUpQuestion for follow_up_question field: \(followUpQuestionText?.prefix(50) ?? "nil")...")
             } else {
-                // Fallback: try to fetch from follow_up_generation if currentFollowUpQuestion is empty
+                // Fallback: try to fetch from follow_up_generation if both are empty
                 if let generation = try? await supabaseService.fetchFollowUpGeneration(userId: user.id) {
                     followUpQuestionText = generation.fuqAiResponse
-                    print("⚠️ currentFollowUpQuestion was empty, using follow_up_generation table: \(followUpQuestionText?.prefix(50) ?? "nil")...")
+                    print("⚠️ No question provided or in currentFollowUpQuestion, using follow_up_generation table: \(followUpQuestionText?.prefix(50) ?? "nil")...")
                 } else {
-                    print("⚠️ No follow-up question found in currentFollowUpQuestion or follow_up_generation table")
+                    print("⚠️ No follow-up question found in provided question, currentFollowUpQuestion, or follow_up_generation table")
                 }
             }
             
