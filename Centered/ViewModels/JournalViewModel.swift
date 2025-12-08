@@ -2351,9 +2351,12 @@ class JournalViewModel: ObservableObject {
             print("✅ createAnalyzerEntry: Eligibility check passed, proceeding with analysis")
             
             // Fetch journal entries for the date range
+            // For monthly analysis, limit to 8 random entries (prioritizing favorites)
+            let entryLimit = analysisType == "monthly" ? 8 : nil
             let entries = try await supabaseService.fetchJournalEntriesForAnalyzer(
                 startDate: dateRange.start,
-                endDate: dateRange.end
+                endDate: dateRange.end,
+                limit: entryLimit
             )
             
             // Prepare content with summarization if needed (1000 chars weekly, 1000 chars monthly)
@@ -2389,7 +2392,7 @@ class JournalViewModel: ObservableObject {
                 let timeoutSeconds: TimeInterval = analysisType == "monthly" ? 60.0 : 30.0
                 print("⏱️ Setting timeout for \(analysisType) analysis: \(timeoutSeconds) seconds")
                 aiResponse = try await withTimeout(seconds: timeoutSeconds) {
-                    try await generateAIResponseWithRetry(for: analyzerPrompt)
+                    try await self.generateAIResponseWithRetry(for: analyzerPrompt)
                 }
             } catch {
                 // All retries failed - delete the entry since analyzerAiResponse = nil is considered a failure
@@ -2469,11 +2472,11 @@ extension JournalViewModel {
             
             group.addTask {
                 try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-                throw TimeoutError(seconds: seconds)
+                throw AnalyzerTimeoutError(seconds: seconds)
             }
             
             guard let result = try await group.next() else {
-                throw TimeoutError(seconds: seconds)
+                throw AnalyzerTimeoutError(seconds: seconds)
             }
             
             group.cancelAll()
@@ -2483,7 +2486,7 @@ extension JournalViewModel {
 }
 
 // MARK: - Timeout Error
-struct TimeoutError: Error, LocalizedError {
+struct AnalyzerTimeoutError: Error, LocalizedError {
     let seconds: TimeInterval
     
     var errorDescription: String? {

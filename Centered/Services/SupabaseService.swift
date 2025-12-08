@@ -1291,12 +1291,23 @@ class SupabaseService: ObservableObject {
     }
     
     /// Fetches journal entries within a date range for analyzer
-    func fetchJournalEntriesForAnalyzer(startDate: Date, endDate: Date) async throws -> [JournalEntry] {
+    /// - Parameters:
+    ///   - startDate: Start date of the range
+    ///   - endDate: End date of the range
+    ///   - limit: Optional limit on number of entries to return (for monthly analysis)
+    ///            When limit is provided, prioritizes entries with is_favorite = true
+    func fetchJournalEntriesForAnalyzer(startDate: Date, endDate: Date, limit: Int? = nil) async throws -> [JournalEntry] {
         if useMockData {
             print("Mock: Fetching journal entries for analyzer")
-            return mockJournalEntries.filter { entry in
+            var entries = mockJournalEntries.filter { entry in
                 entry.createdAt >= startDate && entry.createdAt <= endDate
             }
+            
+            // Apply limit with favorite prioritization if needed
+            if let limit = limit {
+                entries = selectEntriesWithFavoritePriority(entries: entries, limit: limit)
+            }
+            return entries
         } else {
             guard let userId = supabase.auth.currentUser?.id else {
                 throw NSError(domain: "AuthError", code: 0, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
@@ -1309,34 +1320,86 @@ class SupabaseService: ObservableObject {
             print("📅 fetchJournalEntriesForAnalyzer: Fetching entries from \(startDateString) to \(endDateString)")
             
             // Use Supabase client's automatic deserialization
-            let response: [JournalEntry] = try await supabase
+            // Fetch more entries if limit is specified to ensure good randomization
+            let fetchLimit = limit != nil ? (limit! * 3) : nil
+            var query = supabase
                 .from("journal_entries")
                 .select()
                 .eq("user_id", value: userId)
                 .gte("created_at", value: startDateString)
                 .lte("created_at", value: endDateString)
                 .order("created_at", ascending: false)
+            
+            if let fetchLimit = fetchLimit {
+                query = query.limit(fetchLimit)
+            }
+            
+            let response: [JournalEntry] = try await query
                 .execute()
                 .value
             
             // Additional filtering in memory to ensure entries are truly within the range
             // This prevents timezone or timestamp precision issues
-            let filteredEntries = response.filter { entry in
+            var filteredEntries = response.filter { entry in
                 let entryDate = entry.createdAt
                 return entryDate >= startDate && entryDate <= endDate
             }
             
             print("📅 fetchJournalEntriesForAnalyzer: Found \(response.count) entries from DB, \(filteredEntries.count) after filtering")
+            
+            // Apply limit with favorite prioritization if needed
+            if let limit = limit {
+                filteredEntries = selectEntriesWithFavoritePriority(entries: filteredEntries, limit: limit)
+                print("📅 fetchJournalEntriesForAnalyzer: Selected \(filteredEntries.count) entries (prioritizing favorites)")
+            }
+            
             for entry in filteredEntries {
-                print("   - Entry at \(entry.createdAt): \(entry.content.prefix(50))...")
+                let favoriteTag = entry.isFavorite ? "⭐" : ""
+                print("   \(favoriteTag) Entry at \(entry.createdAt): \(entry.content.prefix(50))...")
             }
             
             return filteredEntries
         }
     }
     
+    /// Selects entries up to the limit, prioritizing favorites
+    /// - Parameters:
+    ///   - entries: Array of entries to select from
+    ///   - limit: Maximum number of entries to return
+    /// - Returns: Array of selected entries (favorites first, then random non-favorites)
+    private func selectEntriesWithFavoritePriority(entries: [JournalEntry], limit: Int) -> [JournalEntry] {
+        guard entries.count > limit else {
+            return entries
+        }
+        
+        // Separate favorites from non-favorites
+        let favorites = entries.filter { $0.isFavorite }
+        let nonFavorites = entries.filter { !$0.isFavorite }
+        
+        var selected: [JournalEntry] = []
+        
+        // First, add favorites (randomly selected if more than limit)
+        if favorites.count <= limit {
+            // All favorites fit, add them all
+            selected.append(contentsOf: favorites.shuffled())
+        } else {
+            // More favorites than limit - randomly select up to limit
+            selected.append(contentsOf: favorites.shuffled().prefix(limit))
+        }
+        
+        // If we have room, add random non-favorites
+        if selected.count < limit {
+            let remaining = limit - selected.count
+            let shuffledNonFavorites = nonFavorites.shuffled()
+            selected.append(contentsOf: shuffledNonFavorites.prefix(remaining))
+        }
+        
+        return selected
+    }
+    
     /// Prepares content for analyzer with character limits and sentence-aware truncation
     /// Weekly: 1000 chars, Monthly: 1000 chars
+    /// Only includes complete sentences - entries without sentence endings are either included fully or skipped
     func prepareContentForAnalyzer(entries: [JournalEntry], analysisType: String) -> String {
         let maxChars = 1000
         
@@ -1348,12 +1411,19 @@ class SupabaseService: ObservableObject {
         // Calculate total size
         let totalChars = sortedEntries.reduce(0) { $0 + $1.content.count }
         
-        // If already under limit, return all
+        // If already under limit, return all (but still check for complete sentences)
         if totalChars <= maxChars {
-            return sortedEntries.map { $0.content }.joined(separator: "\n\n")
+            // Verify all entries have complete sentences or are short enough
+            let allValid = sortedEntries.allSatisfy { entry in
+                let content = entry.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                return content.count <= 100 || hasCompleteSentence(content)
+            }
+            if allValid {
+                return sortedEntries.map { $0.content }.joined(separator: "\n\n")
+            }
         }
         
-        // Need to summarize
+        // Need to summarize - only include complete sentences
         let separatorChars = (sortedEntries.count - 1) * 2 // "\n\n" between entries
         let availableChars = maxChars - separatorChars
         let charsPerEntry = availableChars / sortedEntries.count
@@ -1368,18 +1438,21 @@ class SupabaseService: ObservableObject {
             
             guard allocated > 0 else { break }
             
-            var summary: String
-            if entry.content.count <= allocated {
-                // Entry fits completely
-                summary = entry.content
+            var summary: String? = nil
+            let content = entry.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            if content.count <= allocated {
+                // Entry fits completely - check if it has complete sentences or is short enough
+                if content.count <= 100 || hasCompleteSentence(content) {
+                    summary = content
+                }
+                // Otherwise skip (entry is too long and has no complete sentences)
             } else {
-                // Truncate with sentence awareness
-                let truncated = String(entry.content.prefix(allocated))
+                // Truncate with sentence awareness - ONLY include complete sentences
+                let truncated = String(content.prefix(allocated))
                 
                 // Try to find the last complete sentence boundary
                 // Search backwards from the end to find a sentence end (., !, ?)
-                // Start searching from 50% of the way through to ensure we find sentence boundaries
-                // even in longer entries
                 let searchStartPercent = 0.5
                 let minSearchPosition = max(Int(Double(truncated.count) * searchStartPercent), truncated.count - 200)
                 let minSearchIndex = truncated.index(truncated.startIndex, offsetBy: min(minSearchPosition, truncated.count))
@@ -1399,10 +1472,23 @@ class SupabaseService: ObservableObject {
                         var isValidBoundary = false
                         
                         if isAtEnd {
-                            // At the very end of truncated string - this is a valid boundary
-                            isValidBoundary = true
+                            // At the very end of truncated string - check if original has more
+                            // If original content continues, this might not be a real sentence end
+                            if charIndex == content.index(before: content.endIndex) {
+                                // This is actually the end of the content - valid boundary
+                                isValidBoundary = true
+                            } else {
+                                // Check the character after in original content
+                                let nextIndex = content.index(after: charIndex)
+                                if nextIndex < content.endIndex {
+                                    let nextChar = content[nextIndex]
+                                    isValidBoundary = (nextChar == " " || nextChar == "\n" || nextChar == "\t")
+                                } else {
+                                    isValidBoundary = true
+                                }
+                            }
                         } else {
-                            // Check the character after the punctuation
+                            // Check the character after the punctuation in truncated string
                             let nextIndex = truncated.index(after: charIndex)
                             if nextIndex < truncated.endIndex {
                                 let nextChar = truncated[nextIndex]
@@ -1426,29 +1512,19 @@ class SupabaseService: ObservableObject {
                 if let sentenceEnd = bestSentenceEnd {
                     // Found a sentence boundary - use everything up to and including the sentence
                     summary = String(truncated[..<sentenceEnd]).trimmingCharacters(in: .whitespaces)
-                } else {
-                    // No sentence boundary found - try to truncate at word boundary
-                    // Find the last space before the truncation point (search from 60% onwards)
-                    let wordBoundarySearchStart = max(Int(Double(truncated.count) * 0.6), truncated.count - 100)
-                    let wordBoundaryStartIndex = truncated.index(truncated.startIndex, offsetBy: min(wordBoundarySearchStart, truncated.count))
-                    
-                    if let lastSpaceIndex = truncated[wordBoundaryStartIndex..<truncated.endIndex].lastIndex(of: " ") {
-                        // Found a space - truncate there (before the space)
-                        summary = String(truncated[..<lastSpaceIndex]).trimmingCharacters(in: .whitespaces) + "..."
-                    } else {
-                        // No good word boundary found - this shouldn't happen often
-                        // Just truncate and add ellipsis
-                        summary = truncated.trimmingCharacters(in: .whitespaces) + "..."
-                    }
                 }
+                // If no sentence boundary found, summary remains nil (we'll skip this entry)
             }
             
-            summaries.append(summary)
-            
-            // Update remaining characters (subtract summary length + separator if not last)
-            remainingChars -= summary.count
-            if index < sortedEntries.count - 1 {
-                remainingChars -= 2 // "\n\n"
+            // Only add summary if we found one (complete sentence or short entry)
+            if let summary = summary {
+                summaries.append(summary)
+                
+                // Update remaining characters (subtract summary length + separator if not last)
+                remainingChars -= summary.count
+                if index < sortedEntries.count - 1 {
+                    remainingChars -= 2 // "\n\n"
+                }
             }
             
             if remainingChars <= 0 { break }
@@ -1462,6 +1538,26 @@ class SupabaseService: ObservableObject {
         }
         
         return result
+    }
+    
+    /// Checks if content has at least one complete sentence (ending with . ! or ?)
+    private func hasCompleteSentence(_ content: String) -> Bool {
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        
+        // Check if content ends with sentence-ending punctuation
+        if trimmed.hasSuffix(".") || trimmed.hasSuffix("!") || trimmed.hasSuffix("?") {
+            return true
+        }
+        
+        // Check for sentence-ending punctuation followed by whitespace
+        let pattern = #"[.!?]+[\s\n]+"#
+        if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
+            let range = NSRange(location: 0, length: trimmed.utf16.count)
+            return regex.firstMatch(in: trimmed, options: [], range: range) != nil
+        }
+        
+        return false
     }
     
     /// Generates a weekly analyzer prompt based on journal entries
@@ -1487,7 +1583,7 @@ Task: Analyze and evaluate all the user's inputs from the last month
 
 User Input: {content}
 
-Output: Create three paragraphs. The first paragraph, list the top five moods (each mood one word only) with number (#) of instances found in the user input analysis. Ex. "mood1(#), mood2(#), mood3(#), mood4(#), mood5(#)". Only display moods (#). Second paragraph, first bullet = summary of the inputs, second bullet = action the user can make to address input summary and goal for the next week. Tone = encouraging and supportive. Limit to 200 words. Last paragraph, evaluate the inputs and generate a "centered score" from 60 to 100. (60-70=professional therapy help may be needed, 70-80=normal but needs improvement, 80-90=normal human emotions, 90-100=well balanced mental health). Only display score number.
+Output: Create three paragraphs. The first paragraph, list the top four moods (each mood one word only) with number (#) of instances found in the user input analysis. Ex. "mood1(#), mood2(#), mood3(#), mood4(#)". Only display moods (#). Second paragraph, first bullet = summary of the inputs, second bullet = action the user can make to address input summary and goal for the next week. Tone = encouraging and supportive. Limit to 200 words. Last paragraph, evaluate the inputs and generate a "centered score" from 60 to 100. (60-70=professional therapy help may be needed, 70-80=normal but needs improvement, 80-90=normal human emotions, 90-100=well balanced mental health). Only display score number.
 """
         return promptTemplate.replacingOccurrences(of: "{content}", with: content)
     }
