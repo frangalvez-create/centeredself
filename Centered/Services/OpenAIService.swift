@@ -74,8 +74,8 @@ Do NOT exceed ~200 words in paragraph 2.
                 ]
             ],
             "max_completion_tokens": 300,
-            "reasoning_effort": "medium",
-            "verbosity": "medium"
+            "reasoning_effort": "medium"
+            // Removed "verbosity": "medium" to reduce block format responses
         ]
         
         // Create URL request
@@ -124,16 +124,63 @@ Do NOT exceed ~200 words in paragraph 2.
                 throw OpenAIError.invalidResponse("Invalid JSON response")
             }
             
-            // Extract the AI response content
+            // Extract the AI response content - handle multiple GPT-5 response formats
             guard let choices = json["choices"] as? [[String: Any]],
-                  let firstChoice = choices.first,
-                  let message = firstChoice["message"] as? [String: Any],
-                  let content = message["content"] as? String else {
-                throw OpenAIError.invalidResponse("No content in response")
+                  let firstChoice = choices.first else {
+                throw OpenAIError.invalidResponse("No choices in response")
             }
             
-            print("✅ OpenAI API response received: \(content.prefix(100))...")
-            return content
+            // First: try GPT-4 style (string content)
+            if let message = firstChoice["message"] as? [String: Any] {
+                // Try string content (GPT-4 style)
+                if let content = message["content"] as? String, !content.isEmpty {
+                    print("✅ OpenAI API response received (string format): \(content.prefix(100))...")
+                    return content
+                }
+                
+                // Try array-of-blocks content (GPT-5 format)
+                if let contentBlocks = message["content"] as? [[String: Any]] {
+                    let assembled = contentBlocks.compactMap { block -> String? in
+                        if block["type"] as? String == "text" {
+                            return block["text"] as? String
+                        }
+                        return nil
+                    }.joined()
+                    
+                    if !assembled.isEmpty {
+                        print("✅ OpenAI API response received (block format): \(assembled.prefix(100))...")
+                        return assembled
+                    }
+                }
+            }
+            
+            // Second: try GPT-5 delta streaming structure
+            if let delta = firstChoice["delta"] as? [String: Any] {
+                // Try string content in delta
+                if let deltaContent = delta["content"] as? String, !deltaContent.isEmpty {
+                    print("✅ OpenAI API response received (delta format): \(deltaContent.prefix(100))...")
+                    return deltaContent
+                }
+                
+                // Try array-of-blocks in delta
+                if let deltaBlocks = delta["content"] as? [[String: Any]] {
+                    let assembled = deltaBlocks.compactMap { block -> String? in
+                        if block["type"] as? String == "text" {
+                            return block["text"] as? String
+                        }
+                        return nil
+                    }.joined()
+                    
+                    if !assembled.isEmpty {
+                        print("✅ OpenAI API response received (delta block format): \(assembled.prefix(100))...")
+                        return assembled
+                    }
+                }
+            }
+            
+            // If we get here, no content was found in any recognized format
+            print("❌ No content found in response. Full response: \(json)")
+            throw OpenAIError.invalidResponse("No content in any recognized format")
             
         } catch let error as OpenAIError {
             throw error
