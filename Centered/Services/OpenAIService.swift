@@ -2,7 +2,8 @@ import Foundation
 
 class OpenAIService: ObservableObject {
     private let apiKey: String
-    private let apiURL = URL(string: "https://api.openai.com/v1/chat/completions")!
+    private let chatCompletionsURL = URL(string: "https://api.openai.com/v1/chat/completions")!
+    private let responsesURL = URL(string: "https://api.openai.com/v1/responses")!
     
     init() {
         // Initialize with API key from Config.plist
@@ -18,7 +19,7 @@ class OpenAIService: ObservableObject {
     /// Generates AI response using specified GPT model with reasoning and verbosity controls
     /// - Parameters:
     ///   - prompt: The prompt to send to the AI
-    ///   - model: The model to use ("gpt-5" for both weekly and monthly analysis)
+    ///   - model: The model to use ("gpt-5" uses new /v1/responses endpoint, others use /v1/chat/completions)
     ///   - analysisType: The type of analysis ("weekly" or "monthly") to determine system message
     func generateAIResponse(for prompt: String, model: String = "gpt-5", analysisType: String = "weekly") async throws -> String {
         print("🤖 Sending request to OpenAI API with model: \(model), analysisType: \(analysisType), prompt: \(prompt.prefix(100))...")
@@ -60,23 +61,50 @@ Do NOT exceed ~200 words in paragraph 2.
 """
         }
         
-        // Create the request body for OpenAI Chat Completions API
-        let requestBody: [String: Any] = [
-            "model": model,
-            "messages": [
-                [
-                    "role": "system",
-                    "content": systemMessage
+        // GPT-5 uses different endpoint and structure
+        let isGPT5 = model == "gpt-5"
+        
+        // Create the request body - different structure for GPT-5 vs other models
+        let requestBody: [String: Any]
+        let apiURL: URL
+        
+        if isGPT5 {
+            // GPT-5 uses /v1/responses endpoint with new structure
+            apiURL = responsesURL
+            var body: [String: Any] = [
+                "model": model,
+                "input": [
+                    [
+                        "role": "system",
+                        "content": systemMessage
+                    ],
+                    [
+                        "role": "user",
+                        "content": prompt
+                    ]
                 ],
-                [
-                    "role": "user",
-                    "content": prompt
-                ]
-            ],
-            "max_completion_tokens": 300,
-            "reasoning_effort": "medium"
-            // Removed "verbosity": "medium" to reduce block format responses
-        ]
+                "max_output_tokens": 300
+            ]
+            body["reasoning"] = ["effort": "medium"]
+            requestBody = body
+        } else {
+            // Other models use /v1/chat/completions endpoint with legacy structure
+            apiURL = chatCompletionsURL
+            requestBody = [
+                "model": model,
+                "messages": [
+                    [
+                        "role": "system",
+                        "content": systemMessage
+                    ],
+                    [
+                        "role": "user",
+                        "content": prompt
+                    ]
+                ],
+                "max_completion_tokens": 300
+            ]
+        }
         
         // Create URL request
         var request = URLRequest(url: apiURL)
@@ -86,12 +114,29 @@ Do NOT exceed ~200 words in paragraph 2.
         
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+            
+            // Log the raw JSON being sent
+            if let jsonData = request.httpBody,
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                print("📤 RAW JSON SENT TO OPENAI:")
+                print("═══════════════════════════════════════════════════")
+                print(jsonString)
+                print("═══════════════════════════════════════════════════")
+            }
         } catch {
             throw OpenAIError.configurationError("Failed to serialize request body: \(error.localizedDescription)")
         }
         
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
+            
+            // Log the raw JSON being received
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("📥 RAW JSON RECEIVED FROM OPENAI:")
+                print("═══════════════════════════════════════════════════")
+                print(responseString)
+                print("═══════════════════════════════════════════════════")
+            }
             
             // Check HTTP response
             if let httpResponse = response as? HTTPURLResponse {
@@ -124,56 +169,85 @@ Do NOT exceed ~200 words in paragraph 2.
                 throw OpenAIError.invalidResponse("Invalid JSON response")
             }
             
-            // Extract the AI response content - handle multiple GPT-5 response formats
-            guard let choices = json["choices"] as? [[String: Any]],
-                  let firstChoice = choices.first else {
-                throw OpenAIError.invalidResponse("No choices in response")
-            }
-            
-            // First: try GPT-4 style (string content)
-            if let message = firstChoice["message"] as? [String: Any] {
-                // Try string content (GPT-4 style)
-                if let content = message["content"] as? String, !content.isEmpty {
-                    print("✅ OpenAI API response received (string format): \(content.prefix(100))...")
-                    return content
-                }
-                
-                // Try array-of-blocks content (GPT-5 format)
-                if let contentBlocks = message["content"] as? [[String: Any]] {
-                    let assembled = contentBlocks.compactMap { block -> String? in
-                        if block["type"] as? String == "text" {
-                            return block["text"] as? String
-                        }
-                        return nil
-                    }.joined()
+            // Extract the AI response content - different parsing for GPT-5 vs other models
+            if isGPT5 {
+                // GPT-5 /v1/responses endpoint structure
+                // Response format: { "output": [{ "role": "assistant", "content": "..." }] }
+                if let output = json["output"] as? [[String: Any]],
+                   let firstOutput = output.first {
+                    // Try string content
+                    if let content = firstOutput["content"] as? String, !content.isEmpty {
+                        print("✅ OpenAI API response received (GPT-5 string format): \(content.prefix(100))...")
+                        return content
+                    }
                     
-                    if !assembled.isEmpty {
-                        print("✅ OpenAI API response received (block format): \(assembled.prefix(100))...")
-                        return assembled
+                    // Try array-of-blocks content
+                    if let contentBlocks = firstOutput["content"] as? [[String: Any]] {
+                        let assembled = contentBlocks.compactMap { block -> String? in
+                            if block["type"] as? String == "text" {
+                                return block["text"] as? String
+                            }
+                            return nil
+                        }.joined()
+                        
+                        if !assembled.isEmpty {
+                            print("✅ OpenAI API response received (GPT-5 block format): \(assembled.prefix(100))...")
+                            return assembled
+                        }
                     }
                 }
-            }
-            
-            // Second: try GPT-5 delta streaming structure
-            if let delta = firstChoice["delta"] as? [String: Any] {
-                // Try string content in delta
-                if let deltaContent = delta["content"] as? String, !deltaContent.isEmpty {
-                    print("✅ OpenAI API response received (delta format): \(deltaContent.prefix(100))...")
-                    return deltaContent
+            } else {
+                // Legacy /v1/chat/completions endpoint structure
+                guard let choices = json["choices"] as? [[String: Any]],
+                      let firstChoice = choices.first else {
+                    throw OpenAIError.invalidResponse("No choices in response")
                 }
                 
-                // Try array-of-blocks in delta
-                if let deltaBlocks = delta["content"] as? [[String: Any]] {
-                    let assembled = deltaBlocks.compactMap { block -> String? in
-                        if block["type"] as? String == "text" {
-                            return block["text"] as? String
-                        }
-                        return nil
-                    }.joined()
+                // First: try GPT-4 style (string content)
+                if let message = firstChoice["message"] as? [String: Any] {
+                    // Try string content (GPT-4 style)
+                    if let content = message["content"] as? String, !content.isEmpty {
+                        print("✅ OpenAI API response received (string format): \(content.prefix(100))...")
+                        return content
+                    }
                     
-                    if !assembled.isEmpty {
-                        print("✅ OpenAI API response received (delta block format): \(assembled.prefix(100))...")
-                        return assembled
+                    // Try array-of-blocks content (GPT-5 format)
+                    if let contentBlocks = message["content"] as? [[String: Any]] {
+                        let assembled = contentBlocks.compactMap { block -> String? in
+                            if block["type"] as? String == "text" {
+                                return block["text"] as? String
+                            }
+                            return nil
+                        }.joined()
+                        
+                        if !assembled.isEmpty {
+                            print("✅ OpenAI API response received (block format): \(assembled.prefix(100))...")
+                            return assembled
+                        }
+                    }
+                }
+                
+                // Second: try GPT-5 delta streaming structure
+                if let delta = firstChoice["delta"] as? [String: Any] {
+                    // Try string content in delta
+                    if let deltaContent = delta["content"] as? String, !deltaContent.isEmpty {
+                        print("✅ OpenAI API response received (delta format): \(deltaContent.prefix(100))...")
+                        return deltaContent
+                    }
+                    
+                    // Try array-of-blocks in delta
+                    if let deltaBlocks = delta["content"] as? [[String: Any]] {
+                        let assembled = deltaBlocks.compactMap { block -> String? in
+                            if block["type"] as? String == "text" {
+                                return block["text"] as? String
+                            }
+                            return nil
+                        }.joined()
+                        
+                        if !assembled.isEmpty {
+                            print("✅ OpenAI API response received (delta block format): \(assembled.prefix(100))...")
+                            return assembled
+                        }
                     }
                 }
             }
