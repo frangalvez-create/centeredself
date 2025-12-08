@@ -482,12 +482,12 @@ class JournalViewModel: ObservableObject {
     }
     
     /// Generates AI response with retry logic (up to 3 attempts with exponential backoff)
-    private func generateAIResponseWithRetry(for prompt: String, maxRetries: Int = 3) async throws -> String {
+    private func generateAIResponseWithRetry(for prompt: String, analysisType: String = "weekly", maxRetries: Int = 3) async throws -> String {
         var lastError: Error?
         
         for attempt in 1...maxRetries {
             do {
-                print("🔄 AI generation attempt \(attempt)/\(maxRetries)")
+                print("🔄 AI generation attempt \(attempt)/\(maxRetries) for \(analysisType) analysis")
                 
                 // Update UI to show current attempt status
                 await MainActor.run {
@@ -503,7 +503,8 @@ class JournalViewModel: ObservableObject {
                     }
                 }
                 
-                let response = try await openAIService.generateAIResponse(for: prompt)
+                // Use GPT-5 for both weekly and monthly analysis
+                let response = try await openAIService.generateAIResponse(for: prompt, model: "gpt-5", analysisType: analysisType)
                 
                 // Check if response is empty or whitespace-only - treat as failure to retry
                 let trimmedResponse = response.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2390,9 +2391,9 @@ class JournalViewModel: ObservableObject {
             let aiResponse: String
             do {
                 let timeoutSeconds: TimeInterval = analysisType == "monthly" ? 60.0 : 30.0
-                print("⏱️ Setting timeout for \(analysisType) analysis: \(timeoutSeconds) seconds")
+                print("⏱️ Setting timeout for \(analysisType) analysis: \(timeoutSeconds) seconds, using GPT-5 model")
                 aiResponse = try await withTimeout(seconds: timeoutSeconds) {
-                    try await self.generateAIResponseWithRetry(for: analyzerPrompt)
+                    try await self.generateAIResponseWithRetry(for: analyzerPrompt, analysisType: analysisType)
                 }
             } catch {
                 // All retries failed - delete the entry since analyzerAiResponse = nil is considered a failure

@@ -1561,29 +1561,55 @@ class SupabaseService: ObservableObject {
     }
     
     /// Generates a weekly analyzer prompt based on journal entries
+    /// Uses improved prompt structure optimized for GPT-5 model
     func generateWeeklyAnalyzerPrompt(content: String) -> String {
         let promptTemplate = """
-Role: Mental health/Behavioral therapist.
+Analyze the following journal entry:
 
-Task: Analyze and evaluate all the user's inputs from the last 7 days
+"{content}"
 
-User Input: {content}
+Output format (exactly):
 
-Output: Create three paragraphs. The first paragraph, list the top three moods (each mood one word only) with number (#) of instances found in the user input analysis. Ex. "mood1(#), mood2(#), mood3(#)". Only display moods (#). Second paragraph, first bullet = summary of the inputs, second bullet = action the user can make to address input summary and goal for the next week. Tone = encouraging and supportive. Limit to 200 words. Last paragraph, evaluate the inputs and generate a "centered score" from 60 to 100. (60-70=professional therapy help may be needed, 70-80=normal but needs improvement, 80-90=normal human emotions, 90-100=well balanced mental health). Only display score number.
+1st paragraph:
+mood1(#), mood2(#), mood3(#)
+
+2nd paragraph (two bullets):
+- Summary: <summary of user input>
+- Action & goal for next week: <action steps + weekly goal>
+
+3rd paragraph:
+<score only, number from 60–100>
+
+Important:
+- Moods must be one word each.
+- Score must be the final line and only the number—no text.
 """
         return promptTemplate.replacingOccurrences(of: "{content}", with: content)
     }
     
     /// Generates a monthly analyzer prompt based on journal entries
+    /// Uses improved prompt structure optimized for GPT-5 model
     func generateMonthlyAnalyzerPrompt(content: String) -> String {
         let promptTemplate = """
-Role: Mental health/Behavioral therapist.
+Analyze the following journal entry:
 
-Task: Analyze and evaluate all the user's inputs from the last month
+"{content}"
 
-User Input: {content}
+Output format (exactly):
 
-Output: Create three paragraphs. The first paragraph, list the top four moods (each mood one word only) with number (#) of instances found in the user input analysis. Ex. "mood1(#), mood2(#), mood3(#), mood4(#)". Only display moods (#). Second paragraph, first bullet = summary of the inputs, second bullet = action the user can make to address input summary and goal for the next week. Tone = encouraging and supportive. Limit to 200 words. Last paragraph, evaluate the inputs and generate a "centered score" from 60 to 100. (60-70=professional therapy help may be needed, 70-80=normal but needs improvement, 80-90=normal human emotions, 90-100=well balanced mental health). Only display score number.
+1st paragraph:
+mood1(#), mood2(#), mood3(#), mood4(#)
+
+2nd paragraph (two bullets):
+- Summary: <summary of user input>
+- Action & goal for next week: <action steps + weekly goal>
+
+3rd paragraph:
+<score only, number from 60–100>
+
+Important:
+- Moods must be one word each.
+- Score must be the final line and only the number—no text.
 """
         return promptTemplate.replacingOccurrences(of: "{content}", with: content)
     }

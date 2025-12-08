@@ -15,26 +15,67 @@ class OpenAIService: ObservableObject {
         self.apiKey = key
     }
     
-    /// Generates AI response using GPT-5 mini with reasoning and verbosity controls
-    func generateAIResponse(for prompt: String) async throws -> String {
-        print("🤖 Sending request to OpenAI API with prompt: \(prompt.prefix(100))...")
+    /// Generates AI response using specified GPT model with reasoning and verbosity controls
+    /// - Parameters:
+    ///   - prompt: The prompt to send to the AI
+    ///   - model: The model to use ("gpt-5" for both weekly and monthly analysis)
+    ///   - analysisType: The type of analysis ("weekly" or "monthly") to determine system message
+    func generateAIResponse(for prompt: String, model: String = "gpt-5", analysisType: String = "weekly") async throws -> String {
+        print("🤖 Sending request to OpenAI API with model: \(model), analysisType: \(analysisType), prompt: \(prompt.prefix(100))...")
+        
+        // Determine system message based on analysis type
+        let systemMessage: String
+        if analysisType == "monthly" {
+            systemMessage = """
+You are an AI Behavioral Therapist/Scientist. 
+
+Your job is to analyze the user's journal input and produce:
+
+1) top four moods (one word each) + count in format: mood(#), mood(#), ...
+
+2) a summary + actionable steps + a goal for the next week
+
+3) a mental health "centered score" from 60–100
+
+The tone must be encouraging, supportive, and concise.
+
+Do NOT exceed ~200 words in paragraph 2.
+"""
+        } else {
+            // Weekly analysis
+            systemMessage = """
+You are an AI Behavioral Therapist/Scientist. 
+
+Your job is to analyze the user's journal input and produce:
+
+1) top three moods (one word each) + count in format: mood(#), mood(#), ...
+
+2) a summary + actionable steps + a goal for the next week
+
+3) a mental health "centered score" from 60–100
+
+The tone must be encouraging, supportive, and concise.
+
+Do NOT exceed ~200 words in paragraph 2.
+"""
+        }
         
         // Create the request body for OpenAI Chat Completions API
         let requestBody: [String: Any] = [
-            "model": "gpt-5-mini",
+            "model": model,
             "messages": [
                 [
                     "role": "system",
-                    "content": "You are an AI Behavioral Therapist/Scientist tasked with acknowledging daily journal logs and providing constructive suggestions or helpful tips."
+                    "content": systemMessage
                 ],
                 [
                     "role": "user",
                     "content": prompt
                 ]
             ],
-            "max_completion_tokens": 500,
-            "reasoning_effort": "low",      // optional, if less "thinking" is okay
-            "verbosity": "medium"           // controls how detailed/concise outputs are
+            "max_completion_tokens": 300,
+            "reasoning_effort": "medium",
+            "verbosity": "medium"
         ]
         
         // Create URL request
