@@ -2356,7 +2356,7 @@ class JournalViewModel: ObservableObject {
                 endDate: dateRange.end
             )
             
-            // Prepare content with summarization if needed (1000 chars weekly, 1500 chars monthly)
+            // Prepare content with summarization if needed (1000 chars weekly, 1000 chars monthly)
             let content = supabaseService.prepareContentForAnalyzer(entries: entries, analysisType: analysisType)
             
             // Generate analyzer prompt
@@ -2381,11 +2381,16 @@ class JournalViewModel: ObservableObject {
             // Save analyzer entry to database
             let createdEntry = try await supabaseService.createAnalyzerEntry(analyzerEntry)
             
-            // Generate AI response with retry logic
+            // Generate AI response with retry logic and timeout
+            // Monthly analysis gets 60 seconds, weekly gets 30 seconds (monthly is more complex)
             // If all retries fail, the entry will be deleted in the catch block
             let aiResponse: String
             do {
-                aiResponse = try await generateAIResponseWithRetry(for: analyzerPrompt)
+                let timeoutSeconds: TimeInterval = analysisType == "monthly" ? 60.0 : 30.0
+                print("⏱️ Setting timeout for \(analysisType) analysis: \(timeoutSeconds) seconds")
+                aiResponse = try await withTimeout(seconds: timeoutSeconds) {
+                    try await generateAIResponseWithRetry(for: analyzerPrompt)
+                }
             } catch {
                 // All retries failed - delete the entry since analyzerAiResponse = nil is considered a failure
                 print("⚠️ All retry attempts failed - deleting analyzer entry")
@@ -2446,6 +2451,48 @@ struct AnalyzerStats {
     let logsCount: Int
     let streakCount: Int
     let favoriteLogTime: String
+}
+
+// MARK: - Timeout Helper Function
+extension JournalViewModel {
+    /// Wraps an async operation with a timeout
+    /// - Parameters:
+    ///   - seconds: Timeout duration in seconds
+    ///   - operation: The async operation to execute
+    /// - Returns: The result of the operation if completed within timeout
+    /// - Throws: TimeoutError if operation exceeds timeout, or the operation's error
+    func withTimeout<T>(seconds: TimeInterval, operation: @escaping () async throws -> T) async throws -> T {
+        return try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask {
+                return try await operation()
+            }
+            
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                throw TimeoutError(seconds: seconds)
+            }
+            
+            guard let result = try await group.next() else {
+                throw TimeoutError(seconds: seconds)
+            }
+            
+            group.cancelAll()
+            return result
+        }
+    }
+}
+
+// MARK: - Timeout Error
+struct TimeoutError: Error, LocalizedError {
+    let seconds: TimeInterval
+    
+    var errorDescription: String? {
+        return "Operation timed out after \(Int(seconds)) seconds"
+    }
+    
+    var localizedDescription: String {
+        return errorDescription ?? "Operation timed out"
+    }
 }
 
 // MARK: - AI Error Types
