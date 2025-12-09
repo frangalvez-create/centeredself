@@ -1423,7 +1423,8 @@ struct ContentView: View {
         print("🤖 AI Prompt: \(aiPromptText)")
         
         // Generate AI response using OpenAI API with timeout
-        try await withTimeout(seconds: 30) {
+        // Increased to 60 seconds for gpt-5-mini which uses reasoning tokens and can take longer
+        try await withTimeout(seconds: 60) {
         await journalViewModel.generateAndSaveAIResponse()
         }
         
@@ -1459,11 +1460,31 @@ struct ContentView: View {
     
     private func createAIPromptText(content: String, goal: String, questionText: String) -> String {
         let aiPromptTemplate = """
-Task: Given search terms related to behavioral science and therapy topics, perform a task inquiry in Chat GPT to retrieve information from current behavioral, CBT, EFT, IPT or other therapy sources, and produce a concise summary of the key points. The client ({gender}, occupation: {occupation}, born {birthdate}) was asked {question_text}. Client response is the search terms/input below.
+Task: Summarize the client's response using established behavioral and therapy-informed knowledge.
+
+Client Question: The client ({gender}, occupation: {occupation}, born {birthdate}) was asked {question_text}
+
 Input: {content}
-Output: Provide only a succinct, information-dense summary capturing the essence of recent therapy modalities found in task inquiry, relevant to the search terms. The summary must be concise, in 2 short paragraphs. The first paragraph must empathetically acknowledge and summarize the search term concerns and provide fact-based analysis. The second paragraph must provide achievable actions the users can implement to address the concern and the goal to be {goal}. Limit the bulleted actions to no more than 3. End with related, "quote" from well known figures.
-Constraints: Focus on capturing the main points succinctly: complete sentences and in a conversational empathetic tone. Ignore fluff, background information. Do not include your own analysis or opinion. Do not reiterate the input. Ignore dangerous and abusive talk in input.
-Capabilities and Reminders: You have access to the web search tools, published research papers/studies and gained knowledge to find and retrieve therapy related data. Do not mention the following in the output: label paragraph 1 and 2; CBT, EFT, IPT; and word limits. Limit the entire response to 230 words.
+
+Output Requirements:
+
+Produce a concise, information-dense summary in two short paragraphs.
+
+Paragraph 1: empathetically acknowledge the client's focus/concern and provide a factual, therapeutic explanation relevant to the input.
+
+Paragraph 2: provide up to three, achievable actions that users can implement to address the concern and the goal to be {goal}. Use bullet points.
+
+End with a related "quote" from a well-known figure.
+
+Tone: warm, conversational, and concise.
+
+Do NOT: restate the input, include filler, mention therapy modalities, label paragraphs, or reference constraints.
+
+Max: 230 words.
+
+Capabilities: Use your trained knowledge of current behavioral and therapy principles (ex, CBT, EFT, IPT).
+
+Important: Keep reasoning minimal and respond directly.
 """
         
         // Get user profile data for placeholders
@@ -1484,12 +1505,28 @@ Capabilities and Reminders: You have access to the web search tools, published r
     
     private func createFollowUpAIPromptText(content: String, fuqAiResponse: String) -> String {
         let followUpAIPromptTemplate = """
-        Therapist: {fuq_ai_response}
-        Client: {content}
-        Output: Provide only a succinct response to the above therapist/client conversation. First be encouraging, supportive, with a pleasant tone to their progress. Then provide additional insight on the action item mentioned by the therapist. Based on relevant behavioral, CBT, EFT, IPT or other therapy modalities. In a new paragraph, end with related, "quote" from well known figures
-        Constraints: Focus on capturing the main points succinctly: complete sentences and in an encouraging, supportive, pleasant tone. Ignore fluff, background information. Do not include your own analysis or opinion. Do not reiterate the input.
-        Capabilities and Reminders: You have access to the web search tools, published research papers/studies and your gained knowledge to find and retrieve behavioral science and therapy related data. Do not mention the following in the output: label paragraph 1 and 2; CBT, EFT, IPT; and word limits. Limit the entire response to 150 words.
-        """
+Therapist: {fuq_ai_response}
+
+Client: {content}
+
+Output Requirements:
+
+Provide a succinct response to the above therapist/client conversation.
+
+Provide additional insight on the action item mentioned by the therapist.
+
+End with a related "quote" from a well-known figure.
+
+Tone: warm, conversational, and concise.
+
+Do NOT: restate the input, include filler, mention therapy modalities, or reference constraints.
+
+Max: 150 words.
+
+Capabilities: Use your trained knowledge of current behavioral and therapy principles (ex, CBT, EFT, IPT).
+
+Important: Keep reasoning minimal and respond directly.
+"""
         
         // Replace placeholders
         return followUpAIPromptTemplate
@@ -2060,7 +2097,8 @@ Capabilities and Reminders: You have access to the web search tools, published r
         print("🤖 AI Prompt: \(aiPromptText)")
         
         // Generate AI response using OpenAI API with timeout
-        try await withTimeout(seconds: 30) {
+        // Increased to 60 seconds for gpt-5-mini which uses reasoning tokens and can take longer
+        try await withTimeout(seconds: 60) {
         await journalViewModel.generateAndSaveOpenQuestionAIResponse()
         }
         

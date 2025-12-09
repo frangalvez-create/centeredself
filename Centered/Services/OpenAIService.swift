@@ -22,10 +22,17 @@ class OpenAIService: ObservableObject {
     ///   - model: The model to use ("gpt-5" uses new /v1/responses endpoint, others use /v1/chat/completions)
     ///   - analysisType: The type of analysis ("weekly" or "monthly") to determine system message
     func generateAIResponse(for prompt: String, model: String = "gpt-5", analysisType: String = "weekly") async throws -> String {
-        print("🤖 Sending request to OpenAI API with model: \(model), analysisType: \(analysisType), prompt: \(prompt.prefix(100))...")
+        print("🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖")
+        print("🤖 OPENAI API CALL STARTED")
+        print("🤖 Model: \(model)")
+        print("🤖 AnalysisType: \(analysisType)")
+        print("🤖 Prompt length: \(prompt.count) characters")
+        print("🤖 Prompt preview: \(prompt.prefix(100))...")
+        print("🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖")
         
         // Determine system message based on analysis type
-        let systemMessage: String
+        // Only add system message for analyzer calls (weekly/monthly), not for journal entries
+        let systemMessage: String?
         if analysisType == "monthly" {
             systemMessage = """
 You are an AI Behavioral Therapist/Scientist. 
@@ -42,7 +49,7 @@ The tone must be encouraging, supportive, and concise.
 
 Do NOT exceed ~200 words in paragraph 2.
 """
-        } else {
+        } else if analysisType == "weekly" {
             // Weekly analysis
             systemMessage = """
 You are an AI Behavioral Therapist/Scientist. 
@@ -59,9 +66,14 @@ The tone must be encouraging, supportive, and concise.
 
 Do NOT exceed ~200 words in paragraph 2.
 """
+        } else {
+            // For journal entries (guided/open/follow-up), don't add system message
+            // The prompt itself contains all instructions
+            systemMessage = nil
         }
         
         // GPT-5 uses different endpoint and structure
+        // GPT-5-mini uses standard /v1/chat/completions endpoint
         let isGPT5 = model == "gpt-5"
         
         // Create the request body - different structure for GPT-5 vs other models
@@ -73,7 +85,12 @@ Do NOT exceed ~200 words in paragraph 2.
             apiURL = responsesURL
             var body: [String: Any] = [
                 "model": model,
-                "input": [
+                "input": []
+            ]
+            
+            // Only add system message if it exists (for analyzer calls)
+            if let systemMessage = systemMessage {
+                body["input"] = [
                     [
                         "role": "system",
                         "content": systemMessage
@@ -82,28 +99,55 @@ Do NOT exceed ~200 words in paragraph 2.
                         "role": "user",
                         "content": prompt
                     ]
-                ],
-                "max_output_tokens": 300
-            ]
-            body["reasoning"] = ["effort": "medium"]
+                ]
+            } else {
+                // For journal entries, just use the user prompt
+                body["input"] = [
+                    [
+                        "role": "user",
+                        "content": prompt
+                    ]
+                ]
+            }
+            
+            body["max_output_tokens"] = 300
+            body["reasoning"] = ["effort": "low"]
             requestBody = body
         } else {
-            // Other models use /v1/chat/completions endpoint with legacy structure
+            // GPT-5-mini and other models use /v1/chat/completions endpoint with standard structure
             apiURL = chatCompletionsURL
-            requestBody = [
+            var messages: [[String: Any]] = []
+            
+            // Only add system message if it exists (for analyzer calls)
+            if let systemMessage = systemMessage {
+                messages.append([
+                    "role": "system",
+                    "content": systemMessage
+                ])
+            }
+            
+            // Always add user message
+            messages.append([
+                "role": "user",
+                "content": prompt
+            ])
+            
+            // For gpt-5-mini, use lower reasoning effort and reduced token limit
+            // Set reasoning effort to "low" to minimize reasoning token usage
+            let maxTokens = model == "gpt-5-mini" ? 250 : 300
+            
+            var requestBodyDict: [String: Any] = [
                 "model": model,
-                "messages": [
-                    [
-                        "role": "system",
-                        "content": systemMessage
-                    ],
-                    [
-                        "role": "user",
-                        "content": prompt
-                    ]
-                ],
-                "max_completion_tokens": 300
+                "messages": messages,
+                "max_completion_tokens": maxTokens
             ]
+            
+            // Add reasoning parameter for gpt-5-mini to reduce reasoning token usage
+            if model == "gpt-5-mini" {
+                requestBodyDict["reasoning"] = ["effort": "low"]
+            }
+            
+            requestBody = requestBodyDict
         }
         
         // Create URL request
@@ -205,25 +249,44 @@ Do NOT exceed ~200 words in paragraph 2.
                 
                 // First: try GPT-4 style (string content)
                 if let message = firstChoice["message"] as? [String: Any] {
-                    // Try string content (GPT-4 style)
-                    if let content = message["content"] as? String, !content.isEmpty {
-                        print("✅ OpenAI API response received (string format): \(content.prefix(100))...")
-                        return content
-                    }
-                    
-                    // Try array-of-blocks content (GPT-5 format)
-                    if let contentBlocks = message["content"] as? [[String: Any]] {
-                        let assembled = contentBlocks.compactMap { block -> String? in
-                            if block["type"] as? String == "text" {
-                                return block["text"] as? String
-                            }
-                            return nil
-                        }.joined()
-                        
-                        if !assembled.isEmpty {
-                            print("✅ OpenAI API response received (block format): \(assembled.prefix(100))...")
-                            return assembled
+                    // Check if content exists and is not null
+                    if let contentValue = message["content"] {
+                        // Try string content (GPT-4 style)
+                        if let content = contentValue as? String, !content.isEmpty {
+                            print("✅ OpenAI API response received (string format): \(content.prefix(100))...")
+                            return content
                         }
+                        
+                        // Handle null or empty string - log for debugging
+                        if contentValue is NSNull || (contentValue as? String)?.isEmpty == true {
+                            print("⚠️ Content is null or empty. Checking usage details...")
+                            if let usage = json["usage"] as? [String: Any],
+                               let completionTokens = usage["completion_tokens"] as? Int,
+                               let completionDetails = usage["completion_tokens_details"] as? [String: Any],
+                               let reasoningTokens = completionDetails["reasoning_tokens"] as? Int {
+                                print("⚠️ Token usage: \(completionTokens) total, \(reasoningTokens) reasoning")
+                                if reasoningTokens >= completionTokens {
+                                    throw OpenAIError.invalidResponse("All tokens used for reasoning. Increase max_completion_tokens.")
+                                }
+                            }
+                        }
+                        
+                        // Try array-of-blocks content (GPT-5 format)
+                        if let contentBlocks = contentValue as? [[String: Any]] {
+                            let assembled = contentBlocks.compactMap { block -> String? in
+                                if block["type"] as? String == "text" {
+                                    return block["text"] as? String
+                                }
+                                return nil
+                            }.joined()
+                            
+                            if !assembled.isEmpty {
+                                print("✅ OpenAI API response received (block format): \(assembled.prefix(100))...")
+                                return assembled
+                            }
+                        }
+                    } else {
+                        print("⚠️ No content field found in message")
                     }
                 }
                 

@@ -447,10 +447,20 @@ class JournalViewModel: ObservableObject {
                 return
             }
             
-            print("🤖 Generating AI response for prompt: \(aiPrompt.prefix(100))...")
+            print("🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀")
+            print("🚀 GENERATE AI RESPONSE CALLED - GUIDED QUESTION")
+            print("🚀 Prompt length: \(aiPrompt.count) characters")
+            print("🚀 Prompt preview: \(aiPrompt.prefix(100))...")
+            print("🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀")
             
             // Generate AI response using OpenAI with retry logic
-            let aiResponse = try await generateAIResponseWithRetry(for: aiPrompt)
+            // Use "journal" analysisType to avoid adding analyzer system message
+            let aiResponse = try await generateAIResponseWithRetry(for: aiPrompt, model: "gpt-5-mini", analysisType: "journal")
+            
+            print("✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅")
+            print("✅ AI RESPONSE SUCCESS - Length: \(aiResponse.count) characters")
+            print("✅ Response preview: \(aiResponse.prefix(200))...")
+            print("✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅")
             
             // Create updated entry with AI response
             let updatedEntry = JournalEntry(
@@ -482,12 +492,17 @@ class JournalViewModel: ObservableObject {
     }
     
     /// Generates AI response with retry logic (up to 3 attempts with exponential backoff)
-    private func generateAIResponseWithRetry(for prompt: String, analysisType: String = "weekly", maxRetries: Int = 3) async throws -> String {
+    /// - Parameters:
+    ///   - prompt: The prompt to send to the AI
+    ///   - model: The model to use (default: "gpt-5-mini" for journal entries, "gpt-5" for analyzer)
+    ///   - analysisType: The type of analysis ("weekly" or "monthly") - only used for analyzer
+    ///   - maxRetries: Maximum number of retry attempts
+    private func generateAIResponseWithRetry(for prompt: String, model: String = "gpt-5-mini", analysisType: String = "weekly", maxRetries: Int = 3) async throws -> String {
         var lastError: Error?
         
         for attempt in 1...maxRetries {
             do {
-                print("🔄 AI generation attempt \(attempt)/\(maxRetries) for \(analysisType) analysis")
+                print("🔄 AI generation attempt \(attempt)/\(maxRetries) using model: \(model)")
                 
                 // Update UI to show current attempt status
                 await MainActor.run {
@@ -503,8 +518,10 @@ class JournalViewModel: ObservableObject {
                     }
                 }
                 
-                // Use GPT-5 for both weekly and monthly analysis
-                let response = try await openAIService.generateAIResponse(for: prompt, model: "gpt-5", analysisType: analysisType)
+                // Use specified model (gpt-5-mini for journal entries, gpt-5 for analyzer)
+                print("🔄🔄🔄 CALLING OpenAI API - Model: \(model), AnalysisType: \(analysisType)")
+                let response = try await openAIService.generateAIResponse(for: prompt, model: model, analysisType: analysisType)
+                print("🔄🔄🔄 OpenAI API RESPONSE RECEIVED - Length: \(response.count) characters")
                 
                 // Check if response is empty or whitespace-only - treat as failure to retry
                 let trimmedResponse = response.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -724,7 +741,8 @@ class JournalViewModel: ObservableObject {
             print("🤖 Generating Open Question AI response for prompt: \(aiPrompt.prefix(100))...")
             
             // Generate AI response using OpenAI with retry logic
-            let aiResponse = try await generateAIResponseWithRetry(for: aiPrompt)
+            // Use "journal" analysisType to avoid adding analyzer system message
+            let aiResponse = try await generateAIResponseWithRetry(for: aiPrompt, model: "gpt-5-mini", analysisType: "journal")
             
             // Create updated entry with AI response
             let updatedEntry = JournalEntry(
@@ -1426,7 +1444,8 @@ class JournalViewModel: ObservableObject {
             let fuqAiPrompt = supabaseService.generateFollowUpQuestionPrompt(pastEntry: pastEntry)
             
             // Generate the follow-up question using OpenAI with retry logic (2s, 4s delays)
-            let fuqAiResponse = try await generateAIResponseWithRetry(for: fuqAiPrompt)
+            // Use "journal" analysisType to avoid adding analyzer system message
+            let fuqAiResponse = try await generateAIResponseWithRetry(for: fuqAiPrompt, model: "gpt-5-mini", analysisType: "journal")
             
             // Create follow-up generation entry (saves to follow_up_generation table)
             let followUpGeneration = FollowUpGeneration(
@@ -1919,7 +1938,8 @@ class JournalViewModel: ObservableObject {
             let fuqAiPrompt = supabaseService.generateFollowUpQuestionPrompt(pastEntry: pastEntry)
             
             // Generate the follow-up question using OpenAI with retry logic (2s, 4s delays)
-            let fuqAiResponse = try await generateAIResponseWithRetry(for: fuqAiPrompt)
+            // Use "journal" analysisType to avoid adding analyzer system message
+            let fuqAiResponse = try await generateAIResponseWithRetry(for: fuqAiPrompt, model: "gpt-5-mini", analysisType: "journal")
             
             // Create the follow-up question entry
             let followUpEntry = try await supabaseService.createFollowUpQuestionEntry(
@@ -2091,7 +2111,8 @@ class JournalViewModel: ObservableObject {
             }
             
             // Generate AI response using OpenAI with retry logic
-            let aiResponse = try await generateAIResponseWithRetry(for: aiPrompt)
+            // Use "journal" analysisType to avoid adding analyzer system message
+            let aiResponse = try await generateAIResponseWithRetry(for: aiPrompt, model: "gpt-5-mini", analysisType: "journal")
             
             // Create updated entry with AI response
             let updatedEntry = JournalEntry(
@@ -2393,7 +2414,7 @@ class JournalViewModel: ObservableObject {
                 let timeoutSeconds: TimeInterval = analysisType == "monthly" ? 60.0 : 30.0
                 print("⏱️ Setting timeout for \(analysisType) analysis: \(timeoutSeconds) seconds, using GPT-5 model")
                 aiResponse = try await withTimeout(seconds: timeoutSeconds) {
-                    try await self.generateAIResponseWithRetry(for: analyzerPrompt, analysisType: analysisType)
+                    try await self.generateAIResponseWithRetry(for: analyzerPrompt, model: "gpt-5", analysisType: analysisType)
                 }
             } catch {
                 // All retries failed - delete the entry since analyzerAiResponse = nil is considered a failure
