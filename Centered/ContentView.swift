@@ -1472,7 +1472,7 @@ Produce a concise, information-dense summary in two short paragraphs.
 
 Paragraph 1: empathetically acknowledge the client's focus/concern and provide a factual, therapeutic explanation relevant to the input.
 
-Paragraph 2: provide up to three, achievable actions that users can implement to address the concern and the goal to be {goal}. Use bullet points.
+Paragraph 2: provide up to two, achievable actions that users can implement to address the concern and the goal to be {goal}. Use bullet points.
 
 End with a related "quote" from a well-known figure.
 
@@ -1480,7 +1480,7 @@ Tone: warm, conversational, and concise.
 
 Do NOT: restate the input, include filler, mention therapy modalities, label paragraphs, or reference constraints.
 
-Max: 230 words.
+Max: 200 words.
 
 Capabilities: Use your trained knowledge of current behavioral and therapy principles (ex, CBT, EFT, IPT).
 
@@ -1511,9 +1511,9 @@ Client: {content}
 
 Output Requirements:
 
-Provide a succinct response to the above therapist/client conversation.
+Provide a succinct summary to the above therapist/client conversation.
 
-Provide additional insight on the action item mentioned by the therapist.
+Provide one additional insight on the action item mentioned by the therapist.
 
 End with a related "quote" from a well-known figure.
 

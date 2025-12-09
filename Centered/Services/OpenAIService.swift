@@ -110,7 +110,10 @@ Do NOT exceed ~200 words in paragraph 2.
                 ]
             }
             
-            body["max_output_tokens"] = 300
+            // Set max_output_tokens based on analysis type
+            // Analyzer calls use 2000, journal entries use 600
+            let maxTokens = analysisType == "journal" ? 600 : 2000
+            body["max_output_tokens"] = maxTokens
             body["reasoning"] = ["effort": "low"]
             requestBody = body
         } else {
@@ -132,22 +135,13 @@ Do NOT exceed ~200 words in paragraph 2.
                 "content": prompt
             ])
             
-            // For gpt-5-mini, use lower reasoning effort and reduced token limit
-            // Set reasoning effort to "low" to minimize reasoning token usage
-            let maxTokens = model == "gpt-5-mini" ? 250 : 300
-            
-            var requestBodyDict: [String: Any] = [
+            // Other models (legacy support) use /v1/chat/completions endpoint
+            // Note: All journal entries now use gpt-5, so this branch is for legacy models only
+            requestBody = [
                 "model": model,
                 "messages": messages,
-                "max_completion_tokens": maxTokens
+                "max_completion_tokens": 300
             ]
-            
-            // Add reasoning parameter for gpt-5-mini to reduce reasoning token usage
-            if model == "gpt-5-mini" {
-                requestBodyDict["reasoning"] = ["effort": "low"]
-            }
-            
-            requestBody = requestBodyDict
         }
         
         // Create URL request
@@ -216,27 +210,31 @@ Do NOT exceed ~200 words in paragraph 2.
             // Extract the AI response content - different parsing for GPT-5 vs other models
             if isGPT5 {
                 // GPT-5 /v1/responses endpoint structure
-                // Response format: { "output": [{ "role": "assistant", "content": "..." }] }
-                if let output = json["output"] as? [[String: Any]],
-                   let firstOutput = output.first {
-                    // Try string content
-                    if let content = firstOutput["content"] as? String, !content.isEmpty {
-                        print("✅ OpenAI API response received (GPT-5 string format): \(content.prefix(100))...")
-                        return content
-                    }
-                    
-                    // Try array-of-blocks content
-                    if let contentBlocks = firstOutput["content"] as? [[String: Any]] {
-                        let assembled = contentBlocks.compactMap { block -> String? in
-                            if block["type"] as? String == "text" {
-                                return block["text"] as? String
+                // Response format: { "output": [{ "type": "reasoning" }, { "type": "message", "content": [...] }] }
+                if let output = json["output"] as? [[String: Any]] {
+                    // Find the message object (skip reasoning objects)
+                    for outputItem in output {
+                        if let type = outputItem["type"] as? String, type == "message" {
+                            // Try content array with output_text blocks
+                            if let contentArray = outputItem["content"] as? [[String: Any]] {
+                                let assembled = contentArray.compactMap { block -> String? in
+                                    if let blockType = block["type"] as? String, blockType == "output_text" {
+                                        return block["text"] as? String
+                                    }
+                                    return nil
+                                }.joined()
+                                
+                                if !assembled.isEmpty {
+                                    print("✅ OpenAI API response received (GPT-5 output_text format): \(assembled.prefix(100))...")
+                                    return assembled
+                                }
                             }
-                            return nil
-                        }.joined()
-                        
-                        if !assembled.isEmpty {
-                            print("✅ OpenAI API response received (GPT-5 block format): \(assembled.prefix(100))...")
-                            return assembled
+                            
+                            // Try direct string content (legacy format)
+                            if let content = outputItem["content"] as? String, !content.isEmpty {
+                                print("✅ OpenAI API response received (GPT-5 string format): \(content.prefix(100))...")
+                                return content
+                            }
                         }
                     }
                 }
