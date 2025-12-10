@@ -187,7 +187,7 @@ struct ContentView: View {
                             }
                             if showQ4InfoPopup {
                                 q4InfoPopupView
-                            }
+                        }
                     }
                 )
                 .overlay(
@@ -529,7 +529,7 @@ struct ContentView: View {
                             HStack {
                                 Spacer()
                                 Button(action: {
-                                    if showCenteredButton && !isGeneratingAI {
+                                    if (showCenteredButton || (isTextLocked && currentAIResponse.isEmpty)) && !isGeneratingAI {
                                         centeredButtonTapped()
                                     } else if !isGeneratingAI {
                                         doneButtonTapped()
@@ -854,14 +854,14 @@ struct ContentView: View {
                                     Button(action: {
                                         if isFollowUpQuestionDay {
                                             // Follow-up question button actions
-                                            if followUpShowCenteredButton && !followUpIsGeneratingAI {
+                                            if (followUpShowCenteredButton || (followUpIsTextLocked && followUpCurrentAIResponse.isEmpty)) && !followUpIsGeneratingAI {
                                                 followUpCenteredButtonTapped()
                                             } else if !followUpIsGeneratingAI {
                                                 followUpDoneButtonTapped()
                                             }
                                         } else {
                                             // Open question button actions
-                                            if openShowCenteredButton && !openIsGeneratingAI {
+                                            if (openShowCenteredButton || (openIsTextLocked && openCurrentAIResponse.isEmpty)) && !openIsGeneratingAI {
                                                 openCenteredButtonTapped()
                                             } else if !openIsGeneratingAI {
                                             openDoneButtonTapped()
@@ -1077,7 +1077,7 @@ struct ContentView: View {
                 .onEnded { _ in
                     // Dismiss keyboard when tapping outside text fields
                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                }
+            }
         )
         .refreshable {
             // Pull to refresh gesture - immediately switch to Loading View
@@ -1321,6 +1321,9 @@ struct ContentView: View {
             return "Centered Button Click"
         } else if showCenteredButton {
             return "Centered Button"
+        } else if isTextLocked && currentAIResponse.isEmpty {
+            // Show "Done Button Click" when entry is saved but no AI response yet
+            return "Done Button Click"
         } else {
             return "Done Button"
         }
@@ -1334,9 +1337,9 @@ struct ContentView: View {
         print("🔘🔘🔘 DONE BUTTON TAPPED - Content: \(journalResponse)")
         print("🔘🔘🔘 DONE BUTTON TAPPED - Content: \(journalResponse)")
         
-        // Change to Centered Button and lock text (no animation on Done button)
-        showCenteredButton = true
+        // Lock text and show "Done Button Click" (will change to Centered Button when Centered is clicked)
         isTextLocked = true
+        showCenteredButton = false // Keep false until Centered button is clicked
         isLoadingGenerating = false // This is saving, not generating
         
         // Perform haptic feedback
@@ -1709,9 +1712,15 @@ Important: Keep reasoning minimal and respond directly.
             if !currentAIResponse.isEmpty {
                 isTextLocked = true
                 showCenteredButtonClick = true
+                showCenteredButton = false
                 showFavoriteButton = true
                 isFavoriteClicked = guidedEntry.isFavorite
                 textEditorHeight = 300
+            } else {
+                // Entry exists but no AI response - show "Done Button Click" state
+                isTextLocked = true
+                showCenteredButton = false
+                showCenteredButtonClick = false
             }
         }
         
@@ -1729,9 +1738,15 @@ Important: Keep reasoning minimal and respond directly.
             if !openCurrentAIResponse.isEmpty {
                 openIsTextLocked = true
                 openShowCenteredButtonClick = true
+                openShowCenteredButton = false
                 openShowFavoriteButton = true
                 openIsFavoriteClicked = openEntry.isFavorite
                 openTextEditorHeight = 300
+            } else {
+                // Entry exists but no AI response - show "Done Button Click" state
+                openIsTextLocked = true
+                openShowCenteredButton = false
+                openShowCenteredButtonClick = false
             }
         }
         
@@ -1753,9 +1768,15 @@ Important: Keep reasoning minimal and respond directly.
             if !followUpCurrentAIResponse.isEmpty {
                 followUpIsTextLocked = true
                 followUpShowCenteredButtonClick = true
+                followUpShowCenteredButton = false
                 followUpShowFavoriteButton = true
                 followUpIsFavoriteClicked = followUpEntry.isFavorite
                 followUpTextEditorHeight = 300
+            } else {
+                // Entry exists but no AI response - show "Done Button Click" state
+                followUpIsTextLocked = true
+                followUpShowCenteredButton = false
+                followUpShowCenteredButtonClick = false
             }
         } else {
             print("📝 No follow-up entry found for today (user hasn't responded yet)")
@@ -2015,15 +2036,18 @@ Important: Keep reasoning minimal and respond directly.
             return "Centered Button Click"
         } else if openShowCenteredButton {
             return "Centered Button"
+        } else if openIsTextLocked && openCurrentAIResponse.isEmpty {
+            // Show "Done Button Click" when entry is saved but no AI response yet
+            return "Done Button Click"
         } else {
             return "Done Button"
         }
     }
     
     private func openDoneButtonTapped() {
-        // Change to Centered Button and lock text (no animation on Done button)
-        openShowCenteredButton = true
+        // Lock text and show "Done Button Click" (will change to Centered Button when Centered is clicked)
         openIsTextLocked = true
+        openShowCenteredButton = false // Keep false until Centered button is clicked
         openIsLoadingGenerating = false // This is saving, not generating
         
         // Perform haptic feedback
@@ -2204,15 +2228,18 @@ Important: Keep reasoning minimal and respond directly.
             return "Centered Button Click"
         } else if followUpShowCenteredButton {
             return "Centered Button"
+        } else if followUpIsTextLocked && followUpCurrentAIResponse.isEmpty {
+            // Show "Done Button Click" when entry is saved but no AI response yet
+            return "Done Button Click"
         } else {
             return "Done Button"
         }
     }
     
     private func followUpDoneButtonTapped() {
-        // Change to Centered Button and lock text (no animation on Done button)
-        followUpShowCenteredButton = true
+        // Lock text and show "Done Button Click" (will change to Centered Button when Centered is clicked)
         followUpIsTextLocked = true
+        followUpShowCenteredButton = false // Keep false until Centered button is clicked
         followUpIsLoadingGenerating = false // This is saving, not generating
         
         // Perform haptic feedback
@@ -2649,7 +2676,7 @@ Important: Keep reasoning minimal and respond directly.
                             .foregroundColor(Color(hex: "3F5E82"))
                             .multilineTextAlignment(.center)
                             .lineLimit(1)
-                            .minimumScaleFactor(0.5)
+                            .truncationMode(.tail)
                     }
                     .frame(maxWidth: .infinity)
                 }
