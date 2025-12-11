@@ -529,7 +529,7 @@ struct ContentView: View {
                             HStack {
                                 Spacer()
                                 Button(action: {
-                                    if (showCenteredButton || (isTextLocked && currentAIResponse.isEmpty)) && !isGeneratingAI {
+                                    if showCenteredButton && !isGeneratingAI {
                                         centeredButtonTapped()
                                     } else if !isGeneratingAI {
                                         doneButtonTapped()
@@ -854,14 +854,14 @@ struct ContentView: View {
                                     Button(action: {
                                         if isFollowUpQuestionDay {
                                             // Follow-up question button actions
-                                            if (followUpShowCenteredButton || (followUpIsTextLocked && followUpCurrentAIResponse.isEmpty)) && !followUpIsGeneratingAI {
+                                            if followUpShowCenteredButton && !followUpIsGeneratingAI {
                                                 followUpCenteredButtonTapped()
                                             } else if !followUpIsGeneratingAI {
                                                 followUpDoneButtonTapped()
                                             }
                                         } else {
                                             // Open question button actions
-                                            if (openShowCenteredButton || (openIsTextLocked && openCurrentAIResponse.isEmpty)) && !openIsGeneratingAI {
+                                            if openShowCenteredButton && !openIsGeneratingAI {
                                                 openCenteredButtonTapped()
                                             } else if !openIsGeneratingAI {
                                             openDoneButtonTapped()
@@ -1321,9 +1321,6 @@ struct ContentView: View {
             return "Centered Button Click"
         } else if showCenteredButton {
             return "Centered Button"
-        } else if isTextLocked && currentAIResponse.isEmpty {
-            // Show "Done Button Click" when entry is saved but no AI response yet
-            return "Done Button Click"
         } else {
             return "Done Button"
         }
@@ -1337,9 +1334,9 @@ struct ContentView: View {
         print("🔘🔘🔘 DONE BUTTON TAPPED - Content: \(journalResponse)")
         print("🔘🔘🔘 DONE BUTTON TAPPED - Content: \(journalResponse)")
         
-        // Lock text and show "Done Button Click" (will change to Centered Button when Centered is clicked)
+        // Change to Centered Button and lock text (no animation on Done button)
+        showCenteredButton = true
         isTextLocked = true
-        showCenteredButton = false // Keep false until Centered button is clicked
         isLoadingGenerating = false // This is saving, not generating
         
         // Perform haptic feedback
@@ -1717,9 +1714,9 @@ Important: Keep reasoning minimal and respond directly.
                 isFavoriteClicked = guidedEntry.isFavorite
                 textEditorHeight = 300
             } else {
-                // Entry exists but no AI response - show "Done Button Click" state
+                // Entry exists but no AI response - show "Centered Button" state (persist after Done was clicked)
                 isTextLocked = true
-                showCenteredButton = false
+                showCenteredButton = true
                 showCenteredButtonClick = false
             }
         }
@@ -1743,9 +1740,9 @@ Important: Keep reasoning minimal and respond directly.
                 openIsFavoriteClicked = openEntry.isFavorite
                 openTextEditorHeight = 300
             } else {
-                // Entry exists but no AI response - show "Done Button Click" state
+                // Entry exists but no AI response - show "Centered Button" state (persist after Done was clicked)
                 openIsTextLocked = true
-                openShowCenteredButton = false
+                openShowCenteredButton = true
                 openShowCenteredButtonClick = false
             }
         }
@@ -1773,9 +1770,9 @@ Important: Keep reasoning minimal and respond directly.
                 followUpIsFavoriteClicked = followUpEntry.isFavorite
                 followUpTextEditorHeight = 300
             } else {
-                // Entry exists but no AI response - show "Done Button Click" state
+                // Entry exists but no AI response - show "Centered Button" state (persist after Done was clicked)
                 followUpIsTextLocked = true
-                followUpShowCenteredButton = false
+                followUpShowCenteredButton = true
                 followUpShowCenteredButtonClick = false
             }
         } else {
@@ -2036,18 +2033,15 @@ Important: Keep reasoning minimal and respond directly.
             return "Centered Button Click"
         } else if openShowCenteredButton {
             return "Centered Button"
-        } else if openIsTextLocked && openCurrentAIResponse.isEmpty {
-            // Show "Done Button Click" when entry is saved but no AI response yet
-            return "Done Button Click"
         } else {
             return "Done Button"
         }
     }
     
     private func openDoneButtonTapped() {
-        // Lock text and show "Done Button Click" (will change to Centered Button when Centered is clicked)
+        // Change to Centered Button and lock text (no animation on Done button)
+        openShowCenteredButton = true
         openIsTextLocked = true
-        openShowCenteredButton = false // Keep false until Centered button is clicked
         openIsLoadingGenerating = false // This is saving, not generating
         
         // Perform haptic feedback
@@ -2228,18 +2222,15 @@ Important: Keep reasoning minimal and respond directly.
             return "Centered Button Click"
         } else if followUpShowCenteredButton {
             return "Centered Button"
-        } else if followUpIsTextLocked && followUpCurrentAIResponse.isEmpty {
-            // Show "Done Button Click" when entry is saved but no AI response yet
-            return "Done Button Click"
         } else {
             return "Done Button"
         }
     }
     
     private func followUpDoneButtonTapped() {
-        // Lock text and show "Done Button Click" (will change to Centered Button when Centered is clicked)
+        // Change to Centered Button and lock text (no animation on Done button)
+        followUpShowCenteredButton = true
         followUpIsTextLocked = true
-        followUpShowCenteredButton = false // Keep false until Centered button is clicked
         followUpIsLoadingGenerating = false // This is saving, not generating
         
         // Perform haptic feedback
