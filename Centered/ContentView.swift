@@ -2651,30 +2651,145 @@ Important: Keep reasoning minimal and respond directly.
         let counts = analyzerViewModel.moodCounts
         let maxCount = max(counts.map { $0.count }.max() ?? 1, 1)
         let chartHeight: CGFloat = 126
-        let barSpacing: CGFloat = counts.count > 0 ? 16 : 0
+        let defaultBarSpacing: CGFloat = 16
+        let verticalSpacing: CGFloat = 8 // Always keep vertical spacing at 8pt
         
         return VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .bottom, spacing: barSpacing) {
-                ForEach(Array(counts.enumerated()), id: \.element.id) { index, mood in
-                    VStack(spacing: 8) {
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(analyzerMoodColors[index % analyzerMoodColors.count])
-                            .frame(width: 28,
-                                   height: max(CGFloat(mood.count) / CGFloat(maxCount) * (chartHeight - 25), 10))
-                        
-                        Text(mood.mood)
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(Color(hex: "3F5E82"))
-                            .multilineTextAlignment(.center)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
+            GeometryReader { geometry in
+                let moods = counts.map { $0.mood }
+                // Account for container padding (10pt on each side = 20pt total)
+                let containerPadding: CGFloat = 20
+                let availableTotalWidth = geometry.size.width - containerPadding
+                
+                // Calculate optimal horizontal spacing and font size for ALL moods together
+                let (horizontalBarSpacing, fontSize) = calculateOptimalMoodLabelLayout(
+                    moods: moods,
+                    totalWidth: availableTotalWidth,
+                    defaultBarSpacing: defaultBarSpacing
+                )
+                
+                // Calculate width per item: (total width - spacing between items) / number of items
+                let numberOfMoods = CGFloat(counts.count)
+                let totalSpacing = horizontalBarSpacing * (numberOfMoods - 1)
+                let widthPerItem = (availableTotalWidth - totalSpacing) / numberOfMoods
+                
+                // Debug: Log the applied values (outside view builder)
+                let _ = print("🎯 APPLYING - horizontalBarSpacing: \(horizontalBarSpacing)pt, fontSize: \(fontSize)pt, widthPerItem: \(widthPerItem)pt")
+                
+                HStack(alignment: .bottom, spacing: horizontalBarSpacing) {
+                    ForEach(Array(counts.enumerated()), id: \.element.id) { index, mood in
+                        VStack(spacing: verticalSpacing) {
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(analyzerMoodColors[index % analyzerMoodColors.count])
+                                .frame(width: 28,
+                                       height: max(CGFloat(mood.count) / CGFloat(maxCount) * (chartHeight - 25), 10))
+                            
+                            Text(mood.mood)
+                                .font(.system(size: fontSize, weight: .medium))
+                                .foregroundColor(Color(hex: "3F5E82"))
+                                .multilineTextAlignment(.center)
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                        }
+                        .frame(width: widthPerItem)
                     }
-                    .frame(maxWidth: .infinity)
                 }
+                .frame(maxWidth: .infinity)
             }
             .frame(height: chartHeight)
             .frame(maxWidth: .infinity)
         }
+    }
+    
+    /// Calculates optimal horizontal bar spacing and font size for ALL mood labels together (same font size for all)
+    /// Strategy: Start with default horizontal spacing (16pt) and font (14pt). Check if ALL moods fit.
+    /// If any mood doesn't fit, reduce horizontal spacing from 16pt down to 4pt minimum (incrementally).
+    /// If still doesn't fit at 4pt horizontal spacing, reduce font size from 14pt to 10pt until ALL moods fit.
+    /// - Parameters:
+    ///   - moods: Array of all mood text strings
+    ///   - totalWidth: The total available width for the entire chart
+    ///   - defaultBarSpacing: The default horizontal spacing between bars (16pt)
+    /// - Returns: A tuple of (horizontalBarSpacing: CGFloat, fontSize: CGFloat) that works for ALL moods
+    private func calculateOptimalMoodLabelLayout(moods: [String], totalWidth: CGFloat, defaultBarSpacing: CGFloat) -> (horizontalBarSpacing: CGFloat, fontSize: CGFloat) {
+        let defaultHorizontalSpacing: CGFloat = 16
+        let minHorizontalSpacing: CGFloat = 4
+        let defaultFontSize: CGFloat = 14
+        let minFontSize: CGFloat = 10
+        let numberOfMoods = CGFloat(moods.count)
+        
+        // Function to calculate text width for a given font size
+        func textWidth(text: String, fontSize: CGFloat) -> CGFloat {
+            let font = UIFont.systemFont(ofSize: fontSize, weight: .medium)
+            let attributes: [NSAttributedString.Key: Any] = [.font: font]
+            let size = (text as NSString).size(withAttributes: attributes)
+            return size.width
+        }
+        
+        // Function to calculate available width for each label given horizontal bar spacing
+        func availableWidthForLabels(horizontalSpacing: CGFloat) -> CGFloat {
+            // Available width = (total width - sum of all bar spacings) / number of moods
+            let totalSpacing = horizontalSpacing * (numberOfMoods - 1)
+            let availableWidth = (totalWidth - totalSpacing) / numberOfMoods
+            return max(availableWidth, 0) // Ensure non-negative
+        }
+        
+        // Function to check if ALL moods fit with given horizontal spacing and font size
+        func allMoodsFit(horizontalSpacing: CGFloat, fontSize: CGFloat) -> Bool {
+            let availableWidth = availableWidthForLabels(horizontalSpacing: horizontalSpacing)
+            // Add small tolerance (0.5pt) to account for rounding differences
+            let tolerance: CGFloat = 0.5
+            let allFit = moods.allSatisfy { textWidth(text: $0, fontSize: fontSize) <= (availableWidth + tolerance) }
+            
+            // Debug logging
+            if !allFit {
+                print("🔍 Mood layout check - spacing: \(horizontalSpacing)pt, font: \(fontSize)pt, availableWidth: \(availableWidth)pt")
+                for mood in moods {
+                    let width = textWidth(text: mood, fontSize: fontSize)
+                    print("  - \(mood): \(width)pt (fits: \(width <= (availableWidth + tolerance)))")
+                }
+            }
+            
+            return allFit
+        }
+        
+        // Try with default horizontal spacing (16pt) and default font (14pt)
+        print("📊 Calculating mood layout - totalWidth: \(totalWidth)pt, moods: \(moods.count)")
+        if allMoodsFit(horizontalSpacing: defaultHorizontalSpacing, fontSize: defaultFontSize) {
+            print("✅ All moods fit with default spacing (16pt) and font (14pt)")
+            return (defaultHorizontalSpacing, defaultFontSize)
+        }
+        
+        // Some mood doesn't fit with default settings - reduce horizontal spacing from 16pt down to 4pt minimum
+        // This is PRIORITY: reduce spacing first before touching font size
+        print("⚠️ Reducing horizontal spacing from 16pt...")
+        var currentHorizontalSpacing = defaultHorizontalSpacing - 1 // Start at 15pt
+        while currentHorizontalSpacing >= minHorizontalSpacing {
+            // Recalculate available width with new spacing and check if all moods fit
+            if allMoodsFit(horizontalSpacing: currentHorizontalSpacing, fontSize: defaultFontSize) {
+                print("✅ All moods fit with spacing: \(currentHorizontalSpacing)pt, font: \(defaultFontSize)pt")
+                return (currentHorizontalSpacing, defaultFontSize)
+            }
+            currentHorizontalSpacing -= 1
+        }
+        
+        print("⚠️ Reached minimum spacing (4pt), reducing font size...")
+        
+        // If still doesn't fit at minimum horizontal spacing (4pt), reduce font size
+        // Keep horizontal spacing at minimum (4pt) and reduce font size from 14pt to 10pt until ALL moods fit
+        var currentFontSize = defaultFontSize
+        while currentFontSize > minFontSize {
+            currentFontSize -= 0.5 // Reduce by 0.5pt increments for fine control
+            if allMoodsFit(horizontalSpacing: minHorizontalSpacing, fontSize: currentFontSize) {
+                print("✅ All moods fit with spacing: \(minHorizontalSpacing)pt, font: \(currentFontSize)pt")
+                print("🎯 RETURNING - spacing: \(minHorizontalSpacing)pt, font: \(currentFontSize)pt")
+                return (minHorizontalSpacing, currentFontSize)
+            }
+        }
+        
+        // If still doesn't fit, return minimum values (should rarely happen)
+        print("⚠️ Using minimum values - spacing: \(minHorizontalSpacing)pt, font: \(minFontSize)pt")
+        print("🎯 RETURNING - spacing: \(minHorizontalSpacing)pt, font: \(minFontSize)pt")
+        return (minHorizontalSpacing, minFontSize)
     }
     
     private var statisticsSection: some View {
