@@ -2637,7 +2637,8 @@ Important: Keep reasoning minimal and respond directly.
                 )
             } else {
                 moodBarChart()
-                    .padding(10)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 10)
                     .background(
                         RoundedRectangle(cornerRadius: 24)
                             .fill(Color(hex: "F5F4EB"))
@@ -2657,8 +2658,8 @@ Important: Keep reasoning minimal and respond directly.
         return VStack(alignment: .leading, spacing: 16) {
             GeometryReader { geometry in
                 let moods = counts.map { $0.mood }
-                // Account for container padding (10pt on each side = 20pt total)
-                let containerPadding: CGFloat = 20
+                // Account for container padding (5pt on each side = 10pt total)
+                let containerPadding: CGFloat = 10
                 let availableTotalWidth = geometry.size.width - containerPadding
                 
                 // Calculate optimal horizontal spacing and font size for ALL moods together
