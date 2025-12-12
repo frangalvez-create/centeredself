@@ -1468,13 +1468,13 @@ Input: {content}
 
 Output Requirements:
 
-Produce a concise, information-dense summary in two short paragraphs.
+Produce a concise, information-dense summary in three short paragraphs.
 
 Paragraph 1: empathetically acknowledge the client's focus/concern and provide a factual, therapeutic explanation relevant to the input.
 
 Paragraph 2: provide up to two, achievable actions that users can implement to address the concern and the goal to be {goal}. Use bullet points.
 
-End with a related "quote" from a well-known figure.
+Paragraph 3: End with a related "quote" from a well-known figure.
 
 Tone: warm, conversational, and concise.
 
@@ -1511,15 +1511,17 @@ Client: {content}
 
 Output Requirements:
 
-Provide a succinct summary to the above therapist/client conversation.
+Produce a concise, information-dense summary in three short paragraphs.
 
-Provide one additional insight on the action item mentioned by the therapist.
+Paragraph 1: Provide a succinct summary to the above therapist/client conversation.
 
-End with a related "quote" from a well-known figure.
+Paragraph 2: Provide one additional insight on the action item mentioned by the therapist.
+
+Paragraph 3: End with a related "quote" from a well-known figure.
 
 Tone: warm, conversational, and concise.
 
-Do NOT: restate the input, include filler, mention therapy modalities, or reference constraints.
+Do NOT: restate the input, include filler, mention therapy modalities, label summary or additional insight or reference constraints.
 
 Max: 150 words.
 
