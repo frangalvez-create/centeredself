@@ -563,14 +563,14 @@ struct SettingsView: View {
             }
             .frame(maxWidth: .infinity)
         }
-            .onAppear {
-                loadFirstNameFromDatabase()
-                loadLastNameFromDatabase()
-                loadGenderFromDatabase()
-                loadOccupationFromDatabase()
-                loadBirthdateFromDatabase()
+        .onAppear {
+            loadFirstNameFromDatabase()
+            loadLastNameFromDatabase()
+            loadGenderFromDatabase()
+            loadOccupationFromDatabase()
+            loadBirthdateFromDatabase()
                 loadNotificationStates()
-            }
+        }
     }
     
     // MARK: - Functions (duplicated from goals field)
@@ -582,7 +582,7 @@ struct SettingsView: View {
         
         // Lock the text field and show refresh button
         isFirstNameLocked = true
-        showFirstNameRefreshButton = true        
+        showFirstNameRefreshButton = true
         // Save first name to database
         Task {
             await saveFirstNameToDatabase(firstNameText)
@@ -593,7 +593,7 @@ struct SettingsView: View {
     private func cpFirstNameRefreshButtonTapped() {
         // Haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()        
+        impactFeedback.impactOccurred()
         // Reset the first name entry process
         firstNameText = ""
         isFirstNameLocked = false
@@ -645,7 +645,7 @@ struct SettingsView: View {
         
         // Lock the text field and show refresh button
         isLastNameLocked = true
-        showLastNameRefreshButton = true        
+        showLastNameRefreshButton = true
         // Save last name to database
         Task {
             await saveLastNameToDatabase(lastNameText)
@@ -656,7 +656,7 @@ struct SettingsView: View {
     private func cpLastNameRefreshButtonTapped() {
         // Haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()        
+        impactFeedback.impactOccurred()
         // Reset the last name entry process
         lastNameText = ""
         isLastNameLocked = false
@@ -708,7 +708,7 @@ struct SettingsView: View {
         
         // Lock the text field and show refresh button
         isGenderLocked = true
-        showGenderRefreshButton = true        
+        showGenderRefreshButton = true
         // Save gender to database
         Task {
             await saveGenderToDatabase(genderText)
@@ -719,7 +719,7 @@ struct SettingsView: View {
     private func cpGenderRefreshButtonTapped() {
         // Haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()        
+        impactFeedback.impactOccurred()
         // Reset the gender entry process
         genderText = ""
         isGenderLocked = false
@@ -771,7 +771,7 @@ struct SettingsView: View {
         
         // Lock the text field and show refresh button
         isOccupationLocked = true
-        showOccupationRefreshButton = true        
+        showOccupationRefreshButton = true
         // Save occupation to database
         Task {
             await saveOccupationToDatabase(occupationText)
@@ -782,7 +782,7 @@ struct SettingsView: View {
     private func cpOccupationRefreshButtonTapped() {
         // Haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()        
+        impactFeedback.impactOccurred()
         // Reset the occupation entry process
         occupationText = ""
         isOccupationLocked = false
@@ -834,7 +834,7 @@ struct SettingsView: View {
         
         // Lock the text field and show refresh button
         isBirthdateLocked = true
-        showBirthdateRefreshButton = true        
+        showBirthdateRefreshButton = true
         // Save birthdate to database
             Task {
             await saveBirthdateToDatabase(birthdateText)
@@ -845,7 +845,7 @@ struct SettingsView: View {
     private func cpBirthdateRefreshButtonTapped() {
         // Haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()        
+        impactFeedback.impactOccurred()
         // Reset the birthdate entry process
         birthdateText = ""
         isBirthdateLocked = false
@@ -906,45 +906,110 @@ struct SettingsView: View {
     
     private func handleNotificationToggle(isOn: Bool, hour: Int, minute: Int, identifier: String) {
         if isOn {
-            scheduleNotification(hour: hour, minute: minute, identifier: identifier)
+            Task {
+                await scheduleNotificationsForNextDays(baseIdentifier: identifier, hour: hour, minute: minute, daysAhead: 3)
+            }
         } else {
-            cancelNotification(identifier: identifier)
+            cancelAllNotificationsForTimeSlot(baseIdentifier: identifier)
         }
     }
     
-    private func scheduleNotification(hour: Int, minute: Int, identifier: String) {
-        // Request permission first
+    // Get question for a specific date using the same logic as UI
+    private func getQuestionForDate(_ date: Date) async -> String {
+        do {
+            let questions = try await journalViewModel.supabaseService.fetchGuidedQuestions()
+            let sortedQuestions = questions.sorted { $0.orderIndex ?? 0 < $1.orderIndex ?? 0 }
+            let referenceDate = Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 1))!
+            let targetDay = Calendar.current.startOfDay(for: date)
+            let daysSinceReference = Calendar.current.dateComponents([.day], from: referenceDate, to: targetDay).day ?? 0
+            let questionIndex = daysSinceReference % sortedQuestions.count
+            return sortedQuestions[questionIndex].questionText
+        } catch {
+            return getFallbackBodyText(hour: 0, minute: 0)
+        }
+    }
+    
+    private func getFallbackBodyText(hour: Int, minute: Int) -> String {
+        switch (hour, minute) {
+        case (7, 0), (9, 30):
+            return "Quick journal session to start your day?"
+        case (12, 0), (15, 0):
+            return "Ready to journal?"
+        case (18, 0), (21, 30):
+            return "How did your day go?"
+        default:
+            return "Have you journaled today?"
+        }
+    }
+    
+    private func scheduleNotification(hour: Int, minute: Int, identifier: String, date: Date, questionText: String) {
         requestNotificationAuthorization()
-        
         let content = UNMutableNotificationContent()
-        
-        // Set different titles and bodies based on time
         switch (hour, minute) {
         case (7, 0), (9, 30):
             content.title = "Morning Journal Reminder"
-            content.body = "Quick journal session to start your day?"
         case (12, 0), (15, 0):
             content.title = "Daily Journal Reminder"
-            content.body = "Ready to journal?"
         case (18, 0), (21, 30):
             content.title = "Evening Journal Reminder"
-            content.body = "How did your day go?"
         default:
             content.title = "Daily Journal Reminder"
-            content.body = "Have you journaled today?"
         }
-        
+        content.body = questionText
         content.sound = .default
-        
-        var dateComponents = DateComponents()
+        let calendar = Calendar.current
+        var dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
         dateComponents.hour = hour
         dateComponents.minute = minute
-        
-        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-        
         UNUserNotificationCenter.current().add(request) { error in
-            // Handle scheduling result
+            if let error = error {
+                print("❌ Failed to schedule notification \(identifier): \(error.localizedDescription)")
+            } else {
+                print("✅ Scheduled notification \(identifier) for \(date) with question: \(questionText.prefix(50))...")
+            }
+        }
+    }
+    
+    private func scheduleNotificationsForNextDays(baseIdentifier: String, hour: Int, minute: Int, daysAhead: Int) async {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let pendingRequests = await withCheckedContinuation { continuation in
+            UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+                continuation.resume(returning: requests)
+            }
+        }
+        let scheduledDates = Set(pendingRequests.compactMap { request -> Date? in
+            guard request.identifier.starts(with: baseIdentifier + "_") else { return nil }
+            if let trigger = request.trigger as? UNCalendarNotificationTrigger,
+               let date = calendar.date(from: trigger.dateComponents) {
+                return calendar.startOfDay(for: date)
+            }
+            return nil
+        })
+        for dayOffset in 0..<daysAhead {
+            guard let targetDate = calendar.date(byAdding: .day, value: dayOffset, to: today) else { continue }
+            let targetDay = calendar.startOfDay(for: targetDate)
+            if scheduledDates.contains(targetDay) { continue }
+            let questionText = await getQuestionForDate(targetDate)
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy_MM_dd"
+            let dateString = dateFormatter.string(from: targetDate)
+            let dateSpecificIdentifier = "\(baseIdentifier)_\(dateString)"
+            scheduleNotification(hour: hour, minute: minute, identifier: dateSpecificIdentifier, date: targetDate, questionText: questionText)
+        }
+    }
+    
+    private func cancelAllNotificationsForTimeSlot(baseIdentifier: String) {
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            let identifiersToCancel = requests
+                .filter { $0.identifier.starts(with: baseIdentifier + "_") }
+                .map { $0.identifier }
+            if !identifiersToCancel.isEmpty {
+                UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiersToCancel)
+                print("✅ Cancelled \(identifiersToCancel.count) notifications for \(baseIdentifier)")
+            }
         }
     }
     
@@ -952,36 +1017,61 @@ struct SettingsView: View {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
     }
     
+    private func cancelOldStaticNotifications() async {
+        let baseIdentifiers = [
+            "morning_reminder",
+            "work_am_break_reminder",
+            "lunch_reminder",
+            "work_pm_break_reminder",
+            "evening_reminder",
+            "before_bed_reminder"
+        ]
+        let pendingRequests = await withCheckedContinuation { continuation in
+            UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+                continuation.resume(returning: requests)
+            }
+        }
+        let oldNotificationIdentifiers = pendingRequests.compactMap { request -> String? in
+            for baseId in baseIdentifiers {
+                if request.identifier == baseId { return baseId }
+            }
+            return nil
+        }
+        if !oldNotificationIdentifiers.isEmpty {
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: oldNotificationIdentifiers)
+            print("✅ SettingsView: Cancelled \(oldNotificationIdentifiers.count) old static notifications: \(oldNotificationIdentifiers)")
+        }
+    }
+    
     private func loadNotificationStates() {
-        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
-            DispatchQueue.main.async {
-                let identifiers = requests.map { $0.identifier }
-                
-                // Reschedule missing notifications if @AppStorage says they should be on
-                // @AppStorage is the source of truth, so we don't overwrite it
-                if morningReminder && !identifiers.contains("morning_reminder") {
-                    scheduleNotification(hour: 7, minute: 0, identifier: "morning_reminder")
+        Task {
+            await cancelOldStaticNotifications()
+            if morningReminder {
+                await scheduleNotificationsForNextDays(baseIdentifier: "morning_reminder", hour: 7, minute: 0, daysAhead: 3)
+            }
+            if workAMBreakReminder {
+                await scheduleNotificationsForNextDays(baseIdentifier: "work_am_break_reminder", hour: 9, minute: 30, daysAhead: 3)
+            }
+            if lunchReminder {
+                await scheduleNotificationsForNextDays(baseIdentifier: "lunch_reminder", hour: 12, minute: 0, daysAhead: 3)
+            }
+            if workPMBreakReminder {
+                await scheduleNotificationsForNextDays(baseIdentifier: "work_pm_break_reminder", hour: 15, minute: 0, daysAhead: 3)
+            }
+            if eveningReminder {
+                await scheduleNotificationsForNextDays(baseIdentifier: "evening_reminder", hour: 18, minute: 0, daysAhead: 3)
+            }
+            if beforeBedReminder {
+                await scheduleNotificationsForNextDays(baseIdentifier: "before_bed_reminder", hour: 21, minute: 30, daysAhead: 3)
+            }
+            let requests = await withCheckedContinuation { continuation in
+                UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+                    continuation.resume(returning: requests)
                 }
-                if workAMBreakReminder && !identifiers.contains("work_am_break_reminder") {
-                    scheduleNotification(hour: 9, minute: 30, identifier: "work_am_break_reminder")
-                }
-                if lunchReminder && !identifiers.contains("lunch_reminder") {
-                    scheduleNotification(hour: 12, minute: 0, identifier: "lunch_reminder")
-                }
-                if workPMBreakReminder && !identifiers.contains("work_pm_break_reminder") {
-                    scheduleNotification(hour: 15, minute: 0, identifier: "work_pm_break_reminder")
-                }
-                if eveningReminder && !identifiers.contains("evening_reminder") {
-                    scheduleNotification(hour: 18, minute: 0, identifier: "evening_reminder")
-                }
-                if beforeBedReminder && !identifiers.contains("before_bed_reminder") {
-                    scheduleNotification(hour: 21, minute: 30, identifier: "before_bed_reminder")
-                }
-                
-                // Weekly reminder: reschedule if it should be on but is missing
-                if weeklyReminder && !identifiers.contains("weekly_reminder") {
-                    scheduleWeeklyNotification()
-                }
+            }
+            let identifiers = requests.map { $0.identifier }
+            if weeklyReminder && !identifiers.contains("weekly_reminder") {
+                scheduleWeeklyNotification()
             }
         }
     }

@@ -73,15 +73,35 @@ Do NOT exceed ~200 words in paragraph 2.
         }
         
         // GPT-5 uses different endpoint and structure
-        // GPT-5-mini uses standard /v1/chat/completions endpoint
+        // Journal + gpt-5 uses /v1/chat/completions (no "reasoning" param); analyzer uses /v1/responses
         let isGPT5 = model == "gpt-5"
+        let useJournalGpt5Format = isGPT5 && analysisType == "journal"
         
-        // Create the request body - different structure for GPT-5 vs other models
+        // Create the request body - different structure for journal gpt-5 vs responses vs chat/completions
         let requestBody: [String: Any]
         let apiURL: URL
         
-        if isGPT5 {
-            // GPT-5 uses /v1/responses endpoint with new structure
+        if useJournalGpt5Format {
+            // Journal + gpt-5: /v1/chat/completions with system + user, no "reasoning", top_p
+            apiURL = chatCompletionsURL
+            requestBody = [
+                "model": model,
+                "max_completion_tokens": 2000,
+                "temperature": 1,
+                "top_p": 1,
+                "messages": [
+                    [
+                        "role": "system",
+                        "content": "Keep internal reasoning minimal. Do not plan extensively. Do not justify your output. Respond directly and concisely."
+                    ],
+                    [
+                        "role": "user",
+                        "content": prompt
+                    ]
+                ]
+            ]
+        } else if isGPT5 {
+            // GPT-5 analyzer uses /v1/responses endpoint (no "reasoning" – API rejects it)
             apiURL = responsesURL
             var body: [String: Any] = [
                 "model": model,
@@ -91,14 +111,14 @@ Do NOT exceed ~200 words in paragraph 2.
             // Only add system message if it exists (for analyzer calls)
             if let systemMessage = systemMessage {
                 body["input"] = [
-                    [
-                        "role": "system",
+                [
+                    "role": "system",
                         "content": systemMessage
-                    ],
-                    [
-                        "role": "user",
-                        "content": prompt
-                    ]
+                ],
+                [
+                    "role": "user",
+                    "content": prompt
+                ]
                 ]
             } else {
                 // For journal entries, just use the user prompt
@@ -111,10 +131,8 @@ Do NOT exceed ~200 words in paragraph 2.
             }
             
             // Set max_output_tokens based on analysis type
-            // Analyzer calls use 2000, journal entries use 600
             let maxTokens = analysisType == "journal" ? 600 : 2000
             body["max_output_tokens"] = maxTokens
-            body["reasoning"] = ["effort": "low"]
             requestBody = body
         } else {
             // GPT-5-mini and other models use /v1/chat/completions endpoint with standard structure
@@ -207,8 +225,8 @@ Do NOT exceed ~200 words in paragraph 2.
                 throw OpenAIError.invalidResponse("Invalid JSON response")
             }
             
-            // Extract the AI response content - different parsing for GPT-5 vs other models
-            if isGPT5 {
+            // Extract the AI response content - different parsing for GPT-5 responses vs chat/completions
+            if isGPT5 && !useJournalGpt5Format {
                 // GPT-5 /v1/responses endpoint structure
                 // Response format: { "output": [{ "type": "reasoning" }, { "type": "message", "content": [...] }] }
                 if let output = json["output"] as? [[String: Any]] {
@@ -240,7 +258,7 @@ Do NOT exceed ~200 words in paragraph 2.
                 }
             } else {
                 // Legacy /v1/chat/completions endpoint structure
-                guard let choices = json["choices"] as? [[String: Any]],
+            guard let choices = json["choices"] as? [[String: Any]],
                       let firstChoice = choices.first else {
                     throw OpenAIError.invalidResponse("No choices in response")
                 }
