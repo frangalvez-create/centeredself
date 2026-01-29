@@ -906,110 +906,45 @@ struct SettingsView: View {
     
     private func handleNotificationToggle(isOn: Bool, hour: Int, minute: Int, identifier: String) {
         if isOn {
-            Task {
-                await scheduleNotificationsForNextDays(baseIdentifier: identifier, hour: hour, minute: minute, daysAhead: 3)
-            }
+            scheduleNotification(hour: hour, minute: minute, identifier: identifier)
         } else {
-            cancelAllNotificationsForTimeSlot(baseIdentifier: identifier)
+            cancelNotification(identifier: identifier)
         }
     }
     
-    // Get question for a specific date using the same logic as UI
-    private func getQuestionForDate(_ date: Date) async -> String {
-        do {
-            let questions = try await journalViewModel.supabaseService.fetchGuidedQuestions()
-            let sortedQuestions = questions.sorted { $0.orderIndex ?? 0 < $1.orderIndex ?? 0 }
-            let referenceDate = Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 1))!
-            let targetDay = Calendar.current.startOfDay(for: date)
-            let daysSinceReference = Calendar.current.dateComponents([.day], from: referenceDate, to: targetDay).day ?? 0
-            let questionIndex = daysSinceReference % sortedQuestions.count
-            return sortedQuestions[questionIndex].questionText
-        } catch {
-            return getFallbackBodyText(hour: 0, minute: 0)
-        }
-    }
-    
-    private func getFallbackBodyText(hour: Int, minute: Int) -> String {
-        switch (hour, minute) {
-        case (7, 0), (9, 30):
-            return "Quick journal session to start your day?"
-        case (12, 0), (15, 0):
-            return "Ready to journal?"
-        case (18, 0), (21, 30):
-            return "How did your day go?"
-        default:
-            return "Have you journaled today?"
-        }
-    }
-    
-    private func scheduleNotification(hour: Int, minute: Int, identifier: String, date: Date, questionText: String) {
+    private func scheduleNotification(hour: Int, minute: Int, identifier: String) {
+        // Request permission first
         requestNotificationAuthorization()
+        
         let content = UNMutableNotificationContent()
+        
+        // Set different titles and bodies based on time
         switch (hour, minute) {
         case (7, 0), (9, 30):
             content.title = "Morning Journal Reminder"
+            content.body = "Quick journal session to start your day?"
         case (12, 0), (15, 0):
             content.title = "Daily Journal Reminder"
+            content.body = "Ready to journal?"
         case (18, 0), (21, 30):
             content.title = "Evening Journal Reminder"
+            content.body = "How did your day go?"
         default:
             content.title = "Daily Journal Reminder"
+            content.body = "Have you journaled today?"
         }
-        content.body = questionText
+        
         content.sound = .default
-        let calendar = Calendar.current
-        var dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
+        
+        var dateComponents = DateComponents()
         dateComponents.hour = hour
         dateComponents.minute = minute
-        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
+        
+        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+        
         UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                print("❌ Failed to schedule notification \(identifier): \(error.localizedDescription)")
-            } else {
-                print("✅ Scheduled notification \(identifier) for \(date) with question: \(questionText.prefix(50))...")
-            }
-        }
-    }
-    
-    private func scheduleNotificationsForNextDays(baseIdentifier: String, hour: Int, minute: Int, daysAhead: Int) async {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let pendingRequests = await withCheckedContinuation { continuation in
-            UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
-                continuation.resume(returning: requests)
-            }
-        }
-        let scheduledDates = Set(pendingRequests.compactMap { request -> Date? in
-            guard request.identifier.starts(with: baseIdentifier + "_") else { return nil }
-            if let trigger = request.trigger as? UNCalendarNotificationTrigger,
-               let date = calendar.date(from: trigger.dateComponents) {
-                return calendar.startOfDay(for: date)
-            }
-            return nil
-        })
-        for dayOffset in 0..<daysAhead {
-            guard let targetDate = calendar.date(byAdding: .day, value: dayOffset, to: today) else { continue }
-            let targetDay = calendar.startOfDay(for: targetDate)
-            if scheduledDates.contains(targetDay) { continue }
-            let questionText = await getQuestionForDate(targetDate)
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "yyyy_MM_dd"
-            let dateString = dateFormatter.string(from: targetDate)
-            let dateSpecificIdentifier = "\(baseIdentifier)_\(dateString)"
-            scheduleNotification(hour: hour, minute: minute, identifier: dateSpecificIdentifier, date: targetDate, questionText: questionText)
-        }
-    }
-    
-    private func cancelAllNotificationsForTimeSlot(baseIdentifier: String) {
-        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
-            let identifiersToCancel = requests
-                .filter { $0.identifier.starts(with: baseIdentifier + "_") }
-                .map { $0.identifier }
-            if !identifiersToCancel.isEmpty {
-                UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiersToCancel)
-                print("✅ Cancelled \(identifiersToCancel.count) notifications for \(baseIdentifier)")
-            }
+            // Handle scheduling result
         }
     }
     
@@ -1017,61 +952,36 @@ struct SettingsView: View {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
     }
     
-    private func cancelOldStaticNotifications() async {
-        let baseIdentifiers = [
-            "morning_reminder",
-            "work_am_break_reminder",
-            "lunch_reminder",
-            "work_pm_break_reminder",
-            "evening_reminder",
-            "before_bed_reminder"
-        ]
-        let pendingRequests = await withCheckedContinuation { continuation in
-            UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
-                continuation.resume(returning: requests)
-            }
-        }
-        let oldNotificationIdentifiers = pendingRequests.compactMap { request -> String? in
-            for baseId in baseIdentifiers {
-                if request.identifier == baseId { return baseId }
-            }
-            return nil
-        }
-        if !oldNotificationIdentifiers.isEmpty {
-            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: oldNotificationIdentifiers)
-            print("✅ SettingsView: Cancelled \(oldNotificationIdentifiers.count) old static notifications: \(oldNotificationIdentifiers)")
-        }
-    }
-    
     private func loadNotificationStates() {
-        Task {
-            await cancelOldStaticNotifications()
-            if morningReminder {
-                await scheduleNotificationsForNextDays(baseIdentifier: "morning_reminder", hour: 7, minute: 0, daysAhead: 3)
-            }
-            if workAMBreakReminder {
-                await scheduleNotificationsForNextDays(baseIdentifier: "work_am_break_reminder", hour: 9, minute: 30, daysAhead: 3)
-            }
-            if lunchReminder {
-                await scheduleNotificationsForNextDays(baseIdentifier: "lunch_reminder", hour: 12, minute: 0, daysAhead: 3)
-            }
-            if workPMBreakReminder {
-                await scheduleNotificationsForNextDays(baseIdentifier: "work_pm_break_reminder", hour: 15, minute: 0, daysAhead: 3)
-            }
-            if eveningReminder {
-                await scheduleNotificationsForNextDays(baseIdentifier: "evening_reminder", hour: 18, minute: 0, daysAhead: 3)
-            }
-            if beforeBedReminder {
-                await scheduleNotificationsForNextDays(baseIdentifier: "before_bed_reminder", hour: 21, minute: 30, daysAhead: 3)
-            }
-            let requests = await withCheckedContinuation { continuation in
-                UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
-                    continuation.resume(returning: requests)
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            DispatchQueue.main.async {
+                let identifiers = requests.map { $0.identifier }
+                
+                // Reschedule missing notifications if @AppStorage says they should be on
+                // @AppStorage is the source of truth, so we don't overwrite it
+                if morningReminder && !identifiers.contains("morning_reminder") {
+                    scheduleNotification(hour: 7, minute: 0, identifier: "morning_reminder")
                 }
-            }
-            let identifiers = requests.map { $0.identifier }
-            if weeklyReminder && !identifiers.contains("weekly_reminder") {
-                scheduleWeeklyNotification()
+                if workAMBreakReminder && !identifiers.contains("work_am_break_reminder") {
+                    scheduleNotification(hour: 9, minute: 30, identifier: "work_am_break_reminder")
+                }
+                if lunchReminder && !identifiers.contains("lunch_reminder") {
+                    scheduleNotification(hour: 12, minute: 0, identifier: "lunch_reminder")
+                }
+                if workPMBreakReminder && !identifiers.contains("work_pm_break_reminder") {
+                    scheduleNotification(hour: 15, minute: 0, identifier: "work_pm_break_reminder")
+                }
+                if eveningReminder && !identifiers.contains("evening_reminder") {
+                    scheduleNotification(hour: 18, minute: 0, identifier: "evening_reminder")
+                }
+                if beforeBedReminder && !identifiers.contains("before_bed_reminder") {
+                    scheduleNotification(hour: 21, minute: 30, identifier: "before_bed_reminder")
+                }
+                
+                // Weekly reminder: reschedule if it should be on but is missing
+                if weeklyReminder && !identifiers.contains("weekly_reminder") {
+                    scheduleWeeklyNotification()
+                }
             }
         }
     }
